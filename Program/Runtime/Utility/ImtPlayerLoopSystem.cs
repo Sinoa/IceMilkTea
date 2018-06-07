@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEngine.Experimental.LowLevel;
 
 namespace IceMilkTea.Utility
@@ -182,6 +183,42 @@ namespace IceMilkTea.Utility
         {
             // 渡されたImtPlayerLoopSystemからPlayerLoopSystemへ変換する関数を叩いて返す
             return klass.ToPlayerLoopSystem();
+        }
+
+
+        /// <summary>
+        /// ImpPlayerLoopSystem内のLoopSystem階層表示を文字列へ変換します
+        /// </summary>
+        /// <returns>このインスタンスのLoopSystem階層状況を文字列化したものを返します</returns>
+        public override string ToString()
+        {
+            // バッファ用意
+            var buffer = new StringBuilder();
+
+
+            // バッファにループシステムツリーの内容をダンプする
+            DumpLoopSystemTree(buffer, string.Empty);
+
+
+            // バッファの内容を返す
+            return buffer.ToString();
+        }
+
+
+        /// <summary>
+        /// ImpPlayerLoopSystem内のLoopSystem階層を再帰的にバッファへ文字列を追記します
+        /// </summary>
+        /// <param name="buffer">追記対象のバッファ</param>
+        /// <param name="indentSpace">現在のインデントスペース</param>
+        private void DumpLoopSystemTree(StringBuilder buffer, string indentSpace)
+        {
+            // 自分の名前からぶら下げツリー表記
+            buffer.Append($"{indentSpace}[{(Type == null ? "NULL" : Type.Name)}]\n");
+            foreach (var subSystem in SubSystemList)
+            {
+                // 新しいインデントスペース文字列を用意して自分の子にダンプさせる
+                subSystem.DumpLoopSystemTree(buffer, indentSpace + "  ");
+            }
         }
     }
 }
