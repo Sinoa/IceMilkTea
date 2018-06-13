@@ -54,6 +54,7 @@ namespace IceMilkTea.Core
 
 
 
+        #region コンストラクタ
         /// <summary>
         /// 指定されたPlayerLoopSystem構造体オブジェクトから値をコピーしてインスタンスの初期化を行います。
         /// また、指定されたPlayerLoopSystem構造体オブジェクトにサブループシステムが存在する場合は再帰的にインスタンスの初期化が行われます。
@@ -113,8 +114,10 @@ namespace IceMilkTea.Core
             UpdateDelegate = updateDelegate;
             SubLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
+        #endregion
 
 
+        #region コントロール関数群
         /// <summary>
         /// 内部で保持しているUnityネイティブ関数の参照をリセットします
         /// </summary>
@@ -164,8 +167,10 @@ namespace IceMilkTea.Core
                 subSystemList = SubLoopSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
             };
         }
+        #endregion
 
 
+        #region オペレータ＆ToStringオーバーライド
         /// <summary>
         /// PlayerLoopSystemからImtPlayerLoopSystemへキャストします
         /// </summary>
@@ -222,5 +227,6 @@ namespace IceMilkTea.Core
                 subSystem.DumpLoopSystemTree(buffer, indentSpace + "  ");
             }
         }
+        #endregion
     }
 }
