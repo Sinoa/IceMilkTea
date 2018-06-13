@@ -19,12 +19,12 @@ using System.Linq;
 using System.Text;
 using UnityEngine.Experimental.LowLevel;
 
-namespace IceMilkTea.Utility
+namespace IceMilkTea.Core
 {
     /// <summary>
     /// PlayerLoopSystem構造体の内容をクラスとして表現したクラスです
     /// </summary>
-    public class ImtPlayerLoopSystem
+    internal class ImtPlayerLoopSystem
     {
         /// <summary>
         /// ループシステムを表現する型
@@ -34,7 +34,7 @@ namespace IceMilkTea.Utility
         /// <summary>
         /// このループシステムが保持するサブループシステムのリスト
         /// </summary>
-        public List<ImtPlayerLoopSystem> SubSystemList { get; private set; }
+        public List<ImtPlayerLoopSystem> SubLoopSystemList { get; private set; }
 
         /// <summary>
         /// このループシステムが実行するべき更新関数。
@@ -55,9 +55,10 @@ namespace IceMilkTea.Utility
 
 
         /// <summary>
-        /// 指定されたオリジナルのPlayerLoopSystemから値をコピーしてインスタンスの初期化を行います
+        /// 指定されたPlayerLoopSystem構造体オブジェクトから値をコピーしてインスタンスの初期化を行います。
+        /// また、指定されたPlayerLoopSystem構造体オブジェクトにサブループシステムが存在する場合は再帰的にインスタンスの初期化が行われます。
         /// </summary>
-        /// <param name="originalPlayerLoopSystem">コピー元になるPlayerLoopSystemへの参照</param>
+        /// <param name="originalPlayerLoopSystem">コピー元になるPlayerLoopSystem構造体オブジェクトへの参照</param>
         public ImtPlayerLoopSystem(ref PlayerLoopSystem originalPlayerLoopSystem)
         {
             // 参照元から値を引っ張って初期化する
@@ -72,12 +73,12 @@ namespace IceMilkTea.Utility
             {
                 // 再帰的にコピーを生成する
                 var enumerable = originalPlayerLoopSystem.subSystemList.Select(original => new ImtPlayerLoopSystem(ref original));
-                SubSystemList = new List<ImtPlayerLoopSystem>(enumerable);
+                SubLoopSystemList = new List<ImtPlayerLoopSystem>(enumerable);
             }
             else
             {
                 // 存在しないならインスタンスの生成だけする
-                SubSystemList = new List<ImtPlayerLoopSystem>();
+                SubLoopSystemList = new List<ImtPlayerLoopSystem>();
             }
         }
 
@@ -110,7 +111,7 @@ namespace IceMilkTea.Utility
             // シンプルに初期化をする
             Type = type;
             UpdateDelegate = updateDelegate;
-            SubSystemList = new List<ImtPlayerLoopSystem>();
+            SubLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
 
 
@@ -146,20 +147,21 @@ namespace IceMilkTea.Utility
 
 
         /// <summary>
-        /// クラス化されているPlayerLoopSystemを構造体のPlayerLoopSystemへ変換します
+        /// クラス化されているPlayerLoopSystemを構造体のPlayerLoopSystemへ変換します。
+        /// また、サブループシステムを保持している場合はサブループシステムも構造体のインスタンスが新たに生成され、初期化されます。
         /// </summary>
-        /// <returns>内部のコンテキストのコピーを行ったPlayerLoopSystemを返します</returns>
+        /// <returns>内部コンテキストのコピーを行ったPlayerLoopSystemを返します</returns>
         public PlayerLoopSystem ToPlayerLoopSystem()
         {
             // 新しいPlayerLoopSystem構造体のインスタンスを生成して初期化を行った後返す
             return new PlayerLoopSystem()
             {
-                // 各パラメータのコピー
+                // 各パラメータのコピー（サブループシステムも再帰的に構造体へインスタンス化）
                 type = Type,
                 updateDelegate = UpdateDelegate,
                 updateFunction = UpdateFunction,
                 loopConditionFunction = LoopConditionFunction,
-                subSystemList = SubSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
+                subSystemList = SubLoopSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
             };
         }
 
@@ -214,7 +216,7 @@ namespace IceMilkTea.Utility
         {
             // 自分の名前からぶら下げツリー表記
             buffer.Append($"{indentSpace}[{(Type == null ? "NULL" : Type.Name)}]\n");
-            foreach (var subSystem in SubSystemList)
+            foreach (var subSystem in SubLoopSystemList)
             {
                 // 新しいインデントスペース文字列を用意して自分の子にダンプさせる
                 subSystem.DumpLoopSystemTree(buffer, indentSpace + "  ");

@@ -17,7 +17,7 @@ using System;
 using UnityEngine.Experimental.LowLevel;
 using UnityEngine.Experimental.PlayerLoop;
 
-namespace IceMilkTea.Utility
+namespace IceMilkTea.Core
 {
     /// <summary>
     /// Unity標準のFixedUpdateの代わりに差し替えられるIceMilkTea用のFixedUpdate型構造体です
@@ -65,7 +65,7 @@ namespace IceMilkTea.Utility
             if (UseCustomFixedUpdate)
             {
                 // UnityのFixedUpdateを探し出して見つかれば
-                var fixedUpdateSubLoopSystem = rootPlayerLoopSystem.SubSystemList.Find(system => system.Type == typeof(FixedUpdate));
+                var fixedUpdateSubLoopSystem = rootPlayerLoopSystem.SubLoopSystemList.Find(system => system.Type == typeof(FixedUpdate));
                 if (fixedUpdateSubLoopSystem != null)
                 {
                     // カスタムのFixedUpdateへ変更する
@@ -97,13 +97,13 @@ namespace IceMilkTea.Utility
             if (previousSubLoopSystemType == null)
             {
                 // 先頭へ挿入して終了
-                rootPlayerLoopSystem.SubSystemList.Insert(0, insertSubLoopSystem);
+                rootPlayerLoopSystem.SubLoopSystemList.Insert(0, insertSubLoopSystem);
                 return;
             }
 
 
             // 挿入する位置を見つけるが見つけられなかったら
-            var insertIndex = rootPlayerLoopSystem.SubSystemList.FindIndex(system => system.Type == previousSubLoopSystemType);
+            var insertIndex = rootPlayerLoopSystem.SubLoopSystemList.FindIndex(system => system.Type == previousSubLoopSystemType);
             if (insertIndex == -1)
             {
                 // 見つけられなかったので死ぬ
@@ -113,7 +113,7 @@ namespace IceMilkTea.Utility
 
             // 挿入位置を見つけたのなら、見つけた位置の次へ挿入する
             insertIndex = insertIndex + 1;
-            rootPlayerLoopSystem.SubSystemList.Insert(insertIndex, insertSubLoopSystem);
+            rootPlayerLoopSystem.SubLoopSystemList.Insert(insertIndex, insertSubLoopSystem);
         }
 
 
@@ -133,7 +133,7 @@ namespace IceMilkTea.Utility
             if (previousType == null)
             {
                 // ルートループシステムの先頭にぶちこんで終了
-                rootPlayerLoopSystem.SubSystemList.Insert(0, loopSystem);
+                rootPlayerLoopSystem.SubLoopSystemList.Insert(0, loopSystem);
                 return;
             }
 
@@ -146,11 +146,11 @@ namespace IceMilkTea.Utility
 
 
                 // サブループシステムの型が存在するか探して存在しているなら
-                var subLoopSystem = rootPlayerLoopSystem.SubSystemList.Find(system => system.Type == subLoopSystemType);
+                var subLoopSystem = rootPlayerLoopSystem.SubLoopSystemList.Find(system => system.Type == subLoopSystemType);
                 if (subLoopSystem != null)
                 {
                     // サブループシステム内に該当の副ループシステムがあるか探して存在しているなら
-                    var coLoopSystem = subLoopSystem.SubSystemList.Find(system => system.Type == previousType);
+                    var coLoopSystem = subLoopSystem.SubLoopSystemList.Find(system => system.Type == previousType);
                     if (coLoopSystem != null)
                     {
                     }
