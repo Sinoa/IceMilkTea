@@ -34,7 +34,7 @@ namespace IceMilkTea.Core
     public class PlayerLoopConfigurator
     {
         // メンバ変数宣言
-        private ImtPlayerLoopSystem rootPlayerLoopSystem; //!< Unityが抱え込むPlayerLoopSystemのルート
+        private ImtPlayerLoopSystem rootPlayerLoopSystem;
 
 
 

@@ -26,31 +26,12 @@ namespace IceMilkTea.Core
     /// </summary>
     internal class ImtPlayerLoopSystem
     {
-        /// <summary>
-        /// ループシステムを表現する型
-        /// </summary>
-        public Type Type { get; private set; }
-
-        /// <summary>
-        /// このループシステムが保持するサブループシステムのリスト
-        /// </summary>
-        public List<ImtPlayerLoopSystem> SubLoopSystemList { get; private set; }
-
-        /// <summary>
-        /// このループシステムが実行するべき更新関数。
-        /// 更新する事がなければnullが設定出来ます
-        /// </summary>
-        public PlayerLoopSystem.UpdateFunction UpdateDelegate { get; set; }
-
-        /// <summary>
-        /// Unityのネイティブ更新関数への参照
-        /// </summary>
-        public IntPtr UpdateFunction { get; private set; }
-
-        /// <summary>
-        /// Unityのネイティブループ条件関数への参照
-        /// </summary>
-        public IntPtr LoopConditionFunction { get; private set; }
+        // メンバ変数定義
+        private Type type;
+        private List<ImtPlayerLoopSystem> subLoopSystemList;
+        private PlayerLoopSystem.UpdateFunction updateDelegate;
+        private IntPtr updateFunction;
+        private IntPtr loopConditionFunction;
 
 
 
@@ -63,10 +44,10 @@ namespace IceMilkTea.Core
         public ImtPlayerLoopSystem(ref PlayerLoopSystem originalPlayerLoopSystem)
         {
             // 参照元から値を引っ張って初期化する
-            Type = originalPlayerLoopSystem.type;
-            UpdateDelegate = originalPlayerLoopSystem.updateDelegate;
-            UpdateFunction = originalPlayerLoopSystem.updateFunction;
-            LoopConditionFunction = originalPlayerLoopSystem.loopConditionFunction;
+            type = originalPlayerLoopSystem.type;
+            updateDelegate = originalPlayerLoopSystem.updateDelegate;
+            updateFunction = originalPlayerLoopSystem.updateFunction;
+            loopConditionFunction = originalPlayerLoopSystem.loopConditionFunction;
 
 
             // もしサブシステムが有効な数で存在するなら
@@ -74,12 +55,12 @@ namespace IceMilkTea.Core
             {
                 // 再帰的にコピーを生成する
                 var enumerable = originalPlayerLoopSystem.subSystemList.Select(original => new ImtPlayerLoopSystem(ref original));
-                SubLoopSystemList = new List<ImtPlayerLoopSystem>(enumerable);
+                subLoopSystemList = new List<ImtPlayerLoopSystem>(enumerable);
             }
             else
             {
                 // 存在しないならインスタンスの生成だけする
-                SubLoopSystemList = new List<ImtPlayerLoopSystem>();
+                subLoopSystemList = new List<ImtPlayerLoopSystem>();
             }
         }
 
@@ -110,22 +91,72 @@ namespace IceMilkTea.Core
 
 
             // シンプルに初期化をする
-            Type = type;
-            UpdateDelegate = updateDelegate;
-            SubLoopSystemList = new List<ImtPlayerLoopSystem>();
+            this.type = type;
+            this.updateDelegate = updateDelegate;
+            subLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
         #endregion
 
 
         #region コントロール関数群
         /// <summary>
+        /// 指定されたインデックスの位置にループシステムを挿入します
+        /// </summary>
+        /// <param name="index">挿入するインデックスの位置</param>
+        /// <param name="loopSystem">挿入するループシステム</param>
+        public void InsertLoopSystem(int index, ImtPlayerLoopSystem loopSystem)
+        {
+        }
+
+
+        /// <summary>
+        /// 指定のジェネリック型の更新ループの前に、指定されたループシステムを挿入します
+        /// </summary>
+        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
+        /// <param name="loopSystem">挿入するループシステム</param>
+        public void InsertBeforeLoopSystem<T>(ImtPlayerLoopSystem loopSystem)
+        {
+        }
+
+
+        /// <summary>
+        /// 指定のジェネリック型の更新ループの後に、指定されたループシステムを挿入します
+        /// </summary>
+        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
+        /// <param name="loopSystem">挿入するループシステム</param>
+        public void InsertAfterLoopSystem<T>(ImtPlayerLoopSystem loopSystem)
+        {
+        }
+
+
+        /// <summary>
+        /// 指定された更新型でループシステムを探し出します。
+        /// </summary>
+        /// <typeparam name="T">検索するループシステムの型</typeparam>
+        /// <returns>最初に見つけたループシステムを返しますが、見つけられなかった場合はnullを返します</returns>
+        public ImtPlayerLoopSystem FindLoopSystem<T>()
+        {
+        }
+
+
+        /// <summary>
+        /// 指定された更新型で存在インデックス位置を取得します
+        /// </summary>
+        /// <typeparam name="T">検索するループシステムの型</typeparam>
+        /// <returns>最初に見つけたループシステムのインデックスを返しますが、見つけられなかった場合は -1 をかえします</returns>
+        public int IndexOf<T>()
+        {
+        }
+
+
+        /// <summary>
         /// 内部で保持しているUnityネイティブ関数の参照をリセットします
         /// </summary>
         public void ResetUnityNativeFunctions()
         {
             // Unityのネイティブ関数系全てリセットする
-            UpdateFunction = default(IntPtr);
-            LoopConditionFunction = default(IntPtr);
+            updateFunction = default(IntPtr);
+            loopConditionFunction = default(IntPtr);
         }
 
 
@@ -145,7 +176,7 @@ namespace IceMilkTea.Core
 
 
             // 指示された型を設定する
-            Type = newType;
+            type = newType;
         }
 
 
@@ -160,11 +191,11 @@ namespace IceMilkTea.Core
             return new PlayerLoopSystem()
             {
                 // 各パラメータのコピー（サブループシステムも再帰的に構造体へインスタンス化）
-                type = Type,
-                updateDelegate = UpdateDelegate,
-                updateFunction = UpdateFunction,
-                loopConditionFunction = LoopConditionFunction,
-                subSystemList = SubLoopSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
+                type = type,
+                updateDelegate = updateDelegate,
+                updateFunction = updateFunction,
+                loopConditionFunction = loopConditionFunction,
+                subSystemList = subLoopSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
             };
         }
         #endregion
@@ -220,8 +251,8 @@ namespace IceMilkTea.Core
         private void DumpLoopSystemTree(StringBuilder buffer, string indentSpace)
         {
             // 自分の名前からぶら下げツリー表記
-            buffer.Append($"{indentSpace}[{(Type == null ? "NULL" : Type.Name)}]\n");
-            foreach (var subSystem in SubLoopSystemList)
+            buffer.Append($"{indentSpace}[{(type == null ? "NULL" : type.Name)}]\n");
+            foreach (var subSystem in subLoopSystemList)
             {
                 // 新しいインデントスペース文字列を用意して自分の子にダンプさせる
                 subSystem.DumpLoopSystemTree(buffer, indentSpace + "  ");
