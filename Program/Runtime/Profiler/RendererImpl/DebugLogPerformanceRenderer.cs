@@ -13,32 +13,52 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Text;
+using UnityEngine;
+
 namespace IceMilkTea.Profiler
 {
     /// <summary>
-    /// 特定のパフォーマンスを計測するプローブの表現をする抽象クラスです。
-    /// オリジナルのパフォーマンス計測をする場合は、このプローブクラスを継承し実装をしてください。
+    /// パフォーマンス計測結果をDebugLogの機能を使って出力をします
     /// </summary>
-    public abstract class PerformanceProbe
+    public class DebugLogPerformanceRenderer : PerformanceRenderer
     {
-        /// <summary>
-        /// パフォーマンスの計測結果を取得します。
-        /// </summary>
-        public abstract ProfileFetchResult ProfileResult { get; }
+        // メンバ変数宣言
+        private ProfileFetchResult[] results;
 
 
 
         /// <summary>
-        /// パフォーマンスの計測を開始します。
-        /// この関数が呼び出されるのは、Unityのおおよそのフレーム開始タイミングにて呼び出されます。
+        /// 出力の準備を行います。
         /// </summary>
-        public abstract void Start();
+        /// <param name="profileFetchResults"></param>
+        public override void Begin(ProfileFetchResult[] profileFetchResults)
+        {
+            // プロファイル結果を覚える
+            results = profileFetchResults;
+        }
 
 
         /// <summary>
-        /// パフォーマンスの計測停止します。
-        /// この関数が呼び出されるのは、Unityのおおよそのフレーム終了タイミングにて呼び出されます。
+        /// 出力を終了します。
+        /// このクラスでは、何もしません
         /// </summary>
-        public abstract void Stop();
+        public override void End()
+        {
+        }
+
+
+        /// <summary>
+        /// プロファイル結果を出力します
+        /// </summary>
+        public override void Render()
+        {
+            // 文字列バッファ
+            var buffer = new StringBuilder();
+
+
+            // 書き込まれた文字列を吐き出す
+            Debug.Log(buffer.ToString());
+        }
     }
 }
