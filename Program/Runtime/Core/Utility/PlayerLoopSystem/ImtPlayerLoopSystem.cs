@@ -340,22 +340,33 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型に変更します
+        /// 指定された型を設定します
         /// </summary>
-        /// <param name="newType">変更する新しい型</param>
-        /// <exception cref="ArgumentNullException">newTypeがnullです</exception>
-        public void ChangeType(Type newType)
+        /// <param name="type">変更する新しい型</param>
+        /// <exception cref="ArgumentNullException">typeがnullです</exception>
+        public void SetType(Type type)
         {
             // もしnullが渡されていたら
-            if (newType == null)
+            if (type == null)
             {
                 // 関数は死ぬ
-                throw new ArgumentNullException(nameof(newType));
+                throw new ArgumentNullException(nameof(type));
             }
 
 
             // 指示された型を設定する
-            type = newType;
+            this.type = type;
+        }
+
+
+        /// <summary>
+        /// 指定された更新関数を設定します
+        /// </summary>
+        /// <param name="updateFunction">設定する新しい更新関数。nullを設定することができます</param>
+        public void SetUpdateFunction(PlayerLoopSystem.UpdateFunction updateFunction)
+        {
+            // 更新関数を素直に設定する
+            updateDelegate = updateFunction;
         }
 
 
