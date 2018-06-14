@@ -123,6 +123,29 @@ namespace IceMilkTea.Core
         #endregion
 
 
+        #region Unity変換関数群
+        /// <summary>
+        /// Unityの標準プレイヤーループを ImtPlayerLoopSystem として取得します
+        /// </summary>
+        /// <returns>Unityの標準プレイヤーループをImtPlayerLoopSystemにキャストされた結果を返します</returns>
+        public static ImtPlayerLoopSystem GetUnityDefaultPlayerLoop()
+        {
+            // キャストして返すだけ
+            return (ImtPlayerLoopSystem)PlayerLoop.GetDefaultPlayerLoop();
+        }
+
+
+        /// <summary>
+        /// このインスタンスを本来の構造へ構築し、Unityの標準プレイヤーループへ設定します
+        /// </summary>
+        public void BuildAndSetUnityDefaultPlayerLoop()
+        {
+            // 自身をキャストして設定するだけ
+            PlayerLoop.SetPlayerLoop((PlayerLoopSystem)this);
+        }
+        #endregion
+
+
         #region コントロール関数群
         /// <summary>
         /// 指定されたインデックスの位置にループシステムを挿入します
