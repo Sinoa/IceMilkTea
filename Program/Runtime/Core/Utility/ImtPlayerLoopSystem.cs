@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UnityEngine;
 using UnityEngine.Experimental.LowLevel;
 
 namespace IceMilkTea.Core
@@ -51,6 +52,9 @@ namespace IceMilkTea.Core
 
 
 
+        // 静的クラス変数宣言
+        private static PlayerLoopSystem backupLoopSystem; //!< 本来はこの実装は不要なはずですが、書き換えたPlayerLoopSystemをもとに戻すためのに用意
+
         // メンバ変数定義
         private Type type;
         private List<ImtPlayerLoopSystem> subLoopSystemList;
@@ -61,6 +65,20 @@ namespace IceMilkTea.Core
 
 
         #region コンストラクタ
+        /// <summary>
+        /// クラスの初期化を行います
+        /// </summary>
+        static ImtPlayerLoopSystem()
+        {
+            // いま現状のUnityDefaultLoopSystemを覚えておく
+            backupLoopSystem = PlayerLoop.GetDefaultPlayerLoop();
+
+
+            // アプリケーション終了イベントを登録する
+            Application.wantsToQuit += OnApplicationQuitRequest;
+        }
+
+
         /// <summary>
         /// 指定されたPlayerLoopSystem構造体オブジェクトから値をコピーしてインスタンスの初期化を行います。
         /// また、指定されたPlayerLoopSystem構造体オブジェクトにサブループシステムが存在する場合は再帰的にインスタンスの初期化が行われます。
@@ -119,6 +137,24 @@ namespace IceMilkTea.Core
             this.type = type;
             this.updateDelegate = updateDelegate;
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
+        }
+        #endregion
+
+
+        #region Unityイベントハンドラ
+        /// <summary>
+        /// Unityがアプリケーションの終了をする時に呼び出されます
+        /// </summary>
+        /// <returns>この関数は常にtrueを返します</returns>
+        private static bool OnApplicationQuitRequest()
+        {
+            // 最初に覚えたUnityのDefaultLoopSystemを設定して極力もとに戻す
+            PlayerLoop.SetPlayerLoop(backupLoopSystem);
+
+
+            //イベントの登録を解除する
+            Application.wantsToQuit -= OnApplicationQuitRequest;
+            return true;
         }
         #endregion
 
