@@ -22,10 +22,35 @@ using UnityEngine.Experimental.LowLevel;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// PlayerLoopSystem構造体の内容をクラスとして表現したクラスです
+    /// PlayerLoopSystem構造体の内容をクラスとして表現され、更に調整するための機構を保持したクラスです
     /// </summary>
-    internal class ImtPlayerLoopSystem
+    public class ImtPlayerLoopSystem
     {
+        /// <summary>
+        /// ループシステムの挿入をする時、対象の型に対して挿入するタイミングを指示します
+        /// </summary>
+        public enum InsertTiming
+        {
+            /// <summary>
+            /// 対象の前に挿入を指示します
+            /// </summary>
+            BeforeInsert,
+
+            /// <summary>
+            /// 対象の後に挿入を指示します
+            /// </summary>
+            AfterInsert,
+        }
+
+
+
+        /// <summary>
+        /// ループシステムの検索で、対象のループシステムを見つけられなかったときに返す値です
+        /// </summary>
+        public const int LoopSystemNotFoundValue = -1;
+
+
+
         // メンバ変数定義
         private Type type;
         private List<ImtPlayerLoopSystem> subLoopSystemList;
@@ -104,28 +129,159 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="index">挿入するインデックスの位置</param>
         /// <param name="loopSystem">挿入するループシステム</param>
+        /// <exception cref="NullReferenceException">loopSystemがnullです</exception>
         public void InsertLoopSystem(int index, ImtPlayerLoopSystem loopSystem)
         {
+            // ループシステムがnullなら（境界チェックはあえてここでやらず、List<T>コンテナに任せる）
+            if (loopSystem == null)
+            {
+                // nullの挿入は許されない！
+                throw new NullReferenceException($"{loopSystem}がnullです");
+            }
+
+
+            // 指定されたインデックスにループシステムを挿入する
+            subLoopSystemList.Insert(index, loopSystem);
         }
 
 
         /// <summary>
-        /// 指定のジェネリック型の更新ループの前に、指定されたループシステムを挿入します
+        /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
         /// </summary>
         /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
+        /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
         /// <param name="loopSystem">挿入するループシステム</param>
-        public void InsertBeforeLoopSystem<T>(ImtPlayerLoopSystem loopSystem)
+        /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
+        /// <exception cref="NullReferenceException">loopSystemがnullです</exception>
+        /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
+        public bool InsertLoopSystem<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem, bool recursiveSearch)
         {
+            // ループシステムがnullなら
+            if (loopSystem == null)
+            {
+                // nullの挿入は許されない！
+                throw new NullReferenceException($"{loopSystem}がnullです");
+            }
+
+
+            // 挿入するインデックス値を探すが見つけられなかったら
+            var insertIndex = IndexOf<T>();
+            if (insertIndex == LoopSystemNotFoundValue)
+            {
+                // もし再帰的に調べるのなら
+                if (recursiveSearch)
+                {
+                    // 自身のサブループシステム分回る
+                    foreach (var subLoopSystem in subLoopSystemList)
+                    {
+                        // サブループシステムに対して挿入を依頼して成功したのなら
+                        if (subLoopSystem.InsertLoopSystem<T>(timing, loopSystem, recursiveSearch))
+                        {
+                            // 成功を返す
+                            return true;
+                        }
+                    }
+                }
+
+
+                // やっぱり駄目だったよ
+                return false;
+            }
+
+
+            // 検索結果を見つけたのなら、挿入タイミングによってインデックス値を調整して挿入後、成功を返す
+            insertIndex = timing == InsertTiming.BeforeInsert ? insertIndex : insertIndex + 1;
+            subLoopSystemList.Insert(insertIndex, loopSystem);
+            return true;
         }
 
 
         /// <summary>
-        /// 指定のジェネリック型の更新ループの後に、指定されたループシステムを挿入します
+        /// 指定された型の更新ループをサブループシステムから削除します
         /// </summary>
-        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
-        /// <param name="loopSystem">挿入するループシステム</param>
-        public void InsertAfterLoopSystem<T>(ImtPlayerLoopSystem loopSystem)
+        /// <typeparam name="T">削除する更新ループの型</typeparam>
+        /// <param name="recursiveSearch">対象の型を再帰的に検索し削除するかどうか</param>
+        /// <returns>対象のループシステムが削除された場合はtrueを、削除されなかった場合はfalseを返します</returns>
+        public bool RemoveLoopSystem<T>(bool recursiveSearch)
         {
+            // 削除するインデックス値を探すが見つけられなかったら
+            var removeIndex = IndexOf<T>();
+            if (removeIndex == LoopSystemNotFoundValue)
+            {
+                // もし再帰的に調べるのなら
+                if (recursiveSearch)
+                {
+                    // 自身のサブループシステム分回る
+                    foreach (var subLoopSystem in subLoopSystemList)
+                    {
+                        // サブループシステムに対して削除依頼して成功したのなら
+                        if (subLoopSystem.RemoveLoopSystem<T>(recursiveSearch))
+                        {
+                            // 成功を返す
+                            return true;
+                        }
+                    }
+                }
+
+
+                // だめでした
+                return false;
+            }
+
+
+            // 対象インデックスの要素を殺す
+            subLoopSystemList.RemoveAt(removeIndex);
+            return true;
+        }
+
+
+        /// <summary>
+        /// 指定された型の更新ループを指定された数だけ移動します。
+        /// また、移動量が境界を超えないように内部で調整されます。
+        /// </summary>
+        /// <typeparam name="T">移動する更新ループの型</typeparam>
+        /// <param name="count">移動する量、負の値なら前方へ、正の値なら後方へ移動します</param>
+        /// <param name="recursiveSearch">移動する型が見つからない場合、再帰的に検索をするかどうか</param>
+        /// <returns>移動に成功した場合はtrueを、移動に失敗した場合はfalseを返します</returns>
+        public bool MoveLoopSystem<T>(int count, bool recursiveSearch)
+        {
+            // 移動する更新ループの位置を特定するが、見つけられなかったら
+            var currentIndex = IndexOf<T>();
+            if (currentIndex == LoopSystemNotFoundValue)
+            {
+                // もし再帰的に調べるのなら
+                if (recursiveSearch)
+                {
+                    // 自身のサブループシステム分回る
+                    foreach (var childLoopSystem in subLoopSystemList)
+                    {
+                        // サブループシステムに対して削除を依頼して成功したのなら
+                        if (childLoopSystem.MoveLoopSystem<T>(count, recursiveSearch))
+                        {
+                            // 成功を返す
+                            return true;
+                        }
+                    }
+                }
+
+
+                // だめだったらだめ
+                return false;
+            }
+
+
+            // 新しいインデックス値を求める
+            // 更にインデックス値が後方へ移動する場合は削除分ズレるので-1する
+            var newIndex = currentIndex + count + (count > 0 ? -1 : 0);
+            if (newIndex < 0) newIndex = 0;
+            if (newIndex > subLoopSystemList.Count) newIndex = subLoopSystemList.Count;
+
+
+            // 古いインデックスから値を取り出して削除した後新しいインデックスに挿入
+            var subLoopSystem = subLoopSystemList[currentIndex];
+            subLoopSystemList.RemoveAt(currentIndex);
+            subLoopSystemList.Insert(newIndex, subLoopSystem);
+            return true;
         }
 
 
@@ -133,9 +289,21 @@ namespace IceMilkTea.Core
         /// 指定された更新型でループシステムを探し出します。
         /// </summary>
         /// <typeparam name="T">検索するループシステムの型</typeparam>
+        /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
         /// <returns>最初に見つけたループシステムを返しますが、見つけられなかった場合はnullを返します</returns>
-        public ImtPlayerLoopSystem FindLoopSystem<T>()
+        public ImtPlayerLoopSystem FindLoopSystem<T>(bool recursiveSearch)
         {
+            // 自身のサブループシステムに該当の型があるか調べるが、見つけられなく、かつ再起検索でないのなら
+            var result = subLoopSystemList.Find(loopSystem => loopSystem is T);
+            if (result == null && !recursiveSearch)
+            {
+                // 諦めてnullを返す
+                return null;
+            }
+
+
+            // 自分のサブループシステムにも検索を問いかける
+            return subLoopSystemList.Find(loopSystem => loopSystem.FindLoopSystem<T>(recursiveSearch) != null);
         }
 
 
@@ -143,9 +311,20 @@ namespace IceMilkTea.Core
         /// 指定された更新型で存在インデックス位置を取得します
         /// </summary>
         /// <typeparam name="T">検索するループシステムの型</typeparam>
-        /// <returns>最初に見つけたループシステムのインデックスを返しますが、見つけられなかった場合は -1 をかえします</returns>
+        /// <returns>最初に見つけたループシステムのインデックスを返しますが、見つけられなかった場合は ImtPlayerLoopSystem.LoopSystemNotFoundValue をかえします</returns>
         public int IndexOf<T>()
         {
+            // 自身のサブループシステムに該当の型があるか調べるが、見つけられなかったら
+            var result = subLoopSystemList.FindIndex(loopSystem => loopSystem.type is T);
+            if (result == -1)
+            {
+                // 見つけられなかったことを返す
+                return LoopSystemNotFoundValue;
+            }
+
+
+            // 見つけた位置を返す
+            return result;
         }
 
 
