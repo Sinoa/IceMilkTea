@@ -317,7 +317,7 @@ namespace IceMilkTea.Core
         public ImtPlayerLoopSystem FindLoopSystem<T>(bool recursiveSearch)
         {
             // 自身のサブループシステムに該当の型があるか調べるが、見つけられなく、かつ再起検索でないのなら
-            var result = subLoopSystemList.Find(loopSystem => loopSystem is T);
+            var result = subLoopSystemList.Find(loopSystem => loopSystem.type == typeof(T));
             if (result == null && !recursiveSearch)
             {
                 // 諦めてnullを返す
@@ -338,7 +338,7 @@ namespace IceMilkTea.Core
         public int IndexOf<T>()
         {
             // 自身のサブループシステムに該当の型があるか調べるが、見つけられなかったら
-            var result = subLoopSystemList.FindIndex(loopSystem => loopSystem.type is T);
+            var result = subLoopSystemList.FindIndex(loopSystem => loopSystem.type == typeof(T));
             if (result == -1)
             {
                 // 見つけられなかったことを返す
