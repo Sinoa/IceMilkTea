@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Diagnostics;
+
 namespace IceMilkTea.Profiler
 {
     /// <summary>
@@ -21,30 +23,86 @@ namespace IceMilkTea.Profiler
     public class UnityStandardLoopProfileResult : ProfileFetchResult
     {
         /// <summary>
-        /// Update更新ループに要した時間（ミリ秒）
+        /// FixedUpdate更新ループに要したチックカウント
         /// </summary>
-        public double UpdateTime { get; set; }
+        public long FixedUpdateTickCount { get; private set; }
+
+        /// <summary>
+        /// Update更新ループに要したチックカウント
+        /// </summary>
+        public long UpdateTickCount { get; private set; }
+
+        /// <summary>
+        /// LateUpdate更新ループに要したチックカウント
+        /// </summary>
+        public long LateUpdateTickCount { get; private set; }
+
+        /// <summary>
+        /// レンダリングに要したチックカウント
+        /// ただし、レンダースレッドのチックカウントではなくメインスレッド上でのレンダリングチックカウントとなる
+        /// </summary>
+        public long RenderingTickCount { get; private set; }
+
+        /// <summary>
+        /// レンダーテクスチャのレンダリングに要したチックカウント
+        /// ただし、レンダースレッドのチックカウントではなくメインスレッド上でのレンダリングチックカウントとなる
+        /// </summary>
+        public long TextureRenderingTickCount { get; private set; }
 
         /// <summary>
         /// FixedUpdate更新ループに要した時間（ミリ秒）
         /// </summary>
-        public double FixedUpdateTime { get; set; }
+        public double FixedUpdateTime { get; private set; }
+
+        /// <summary>
+        /// Update更新ループに要した時間（ミリ秒）
+        /// </summary>
+        public double UpdateTime { get; private set; }
 
         /// <summary>
         /// LateUpdate更新ループに要した時間（ミリ秒）
         /// </summary>
-        public double LateUpdateTime { get; set; }
+        public double LateUpdateTime { get; private set; }
 
         /// <summary>
         /// レンダリングに要した時間（ミリ秒）
         /// ただし、レンダースレッドの時間ではなくメインスレッド上でのレンダリング時間となる
         /// </summary>
-        public double RenderingTime { get; set; }
+        public double RenderingTime { get; private set; }
 
         /// <summary>
         /// レンダーテクスチャのレンダリングに要した時間（ミリ秒）
         /// ただし、レンダースレッドの時間ではなくメインスレッド上でのレンダリング時間となる
         /// </summary>
-        public double TextureRenderingTime { get; set; }
+        public double TextureRenderingTime { get; private set; }
+
+
+
+        /// <summary>
+        /// 計測結果を更新します
+        /// </summary>
+        /// <param name="fixedCount">FixedUpdateのチックカウント</param>
+        /// <param name="updateCount">Updateのチックカウント</param>
+        /// <param name="lateCount">LateUpdateのチックカウント</param>
+        /// <param name="renderingCount">レンダリングのチックカウント</param>
+        /// <param name="renderTextureRenderingCount">レンダーテクスチャのレンダリングチックカウント</param>
+        public void UpdateResult(long fixedCount, long updateCount, long lateCount, long renderingCount, long renderTextureRenderingCount)
+        {
+            // チックカウントの更新
+            FixedUpdateTickCount = fixedCount;
+            UpdateTickCount = updateCount;
+            LateUpdateTickCount = lateCount;
+            RenderingTickCount = renderingCount;
+            TextureRenderingTickCount = renderTextureRenderingCount;
+
+
+            // チックカウントからミリ秒へ計算して更新
+            var tickToMillisec = Stopwatch.Frequency / 1000.0;
+            FixedUpdateTime = fixedCount * tickToMillisec;
+            UpdateTime = updateCount * tickToMillisec;
+            LateUpdateTime = lateCount * tickToMillisec;
+            RenderingTime = renderingCount * tickToMillisec;
+            TextureRenderingTime = renderTextureRenderingCount * tickToMillisec;
+        }
     }
 }
