@@ -226,6 +226,21 @@ namespace IceMilkTea.Core
         /// <typeparam name="U">挿入する予定の更新関数を表す型</typeparam>
         /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
         /// <param name="function">挿入する更新関数</param>
+        /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
+        public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function)
+        {
+            // 再帰検索を有効にして挿入関数を叩く
+            return InsertLoopSystem<T, U>(timing, function, true);
+        }
+
+
+        /// <summary>
+        /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
+        /// </summary>
+        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
+        /// <typeparam name="U">挿入する予定の更新関数を表す型</typeparam>
+        /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
+        /// <param name="function">挿入する更新関数</param>
         /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
         /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
         public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function, bool recursiveSearch)
@@ -233,6 +248,21 @@ namespace IceMilkTea.Core
             // 新しいループシステムを作って本来の挿入関数を叩く
             var loopSystem = new ImtPlayerLoopSystem(typeof(U), function);
             return InsertLoopSystem<T>(timing, loopSystem, recursiveSearch);
+        }
+
+
+        /// <summary>
+        /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
+        /// </summary>
+        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
+        /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
+        /// <param name="loopSystem">挿入するループシステム</param>
+        /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
+        /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
+        public bool InsertLoopSystem<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem)
+        {
+            // 再帰検索を有効にして本来の挿入関数を叩く
+            return InsertLoopSystem<T>(timing, loopSystem, true);
         }
 
 
@@ -384,7 +414,7 @@ namespace IceMilkTea.Core
         /// <returns>最初に見つけたループシステムを返しますが、見つけられなかった場合はnullを返します</returns>
         public ImtPlayerLoopSystem FindLoopSystem<T>(bool recursiveSearch)
         {
-            // 自身のサブループシステムに該当の型があるか調べるが、見つけられなく、かつ再起検索でないのなら
+            // 自身のサブループシステムに該当の型があるか調べるが、見つけられなく、かつ再帰検索でないのなら
             var result = subLoopSystemList.Find(loopSystem => loopSystem.type == typeof(T));
             if (result == null && !recursiveSearch)
             {
