@@ -23,28 +23,28 @@ using UnityEngine.Experimental.LowLevel;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// ループシステムの挿入をする時、対象の型に対して挿入するタイミングを指示します
+    /// </summary>
+    public enum InsertTiming
+    {
+        /// <summary>
+        /// 対象の前に挿入を指示します
+        /// </summary>
+        BeforeInsert,
+
+        /// <summary>
+        /// 対象の後に挿入を指示します
+        /// </summary>
+        AfterInsert,
+    }
+
+
+
+    /// <summary>
     /// PlayerLoopSystem構造体の内容をクラスとして表現され、更に調整するための機構を保持したクラスです
     /// </summary>
     public class ImtPlayerLoopSystem
     {
-        /// <summary>
-        /// ループシステムの挿入をする時、対象の型に対して挿入するタイミングを指示します
-        /// </summary>
-        public enum InsertTiming
-        {
-            /// <summary>
-            /// 対象の前に挿入を指示します
-            /// </summary>
-            BeforeInsert,
-
-            /// <summary>
-            /// 対象の後に挿入を指示します
-            /// </summary>
-            AfterInsert,
-        }
-
-
-
         /// <summary>
         /// ループシステムの検索で、対象のループシステムを見つけられなかったときに返す値です
         /// </summary>
