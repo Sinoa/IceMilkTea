@@ -184,6 +184,21 @@ namespace IceMilkTea.Core
 
         #region コントロール関数群
         /// <summary>
+        /// 指定されたインデックスの位置に更新関数を挿入します。
+        /// また、nullの更新関数を指定すると何もしないループシステムが生成されます。
+        /// </summary>
+        /// <typeparam name="T">更新関数を表す型</typeparam>
+        /// <param name="index">挿入するインデックスの位置</param>
+        /// <param name="function">挿入する更新関数</param>
+        public void InsertLoopSystem<T>(int index, PlayerLoopSystem.UpdateFunction function)
+        {
+            // 新しいループシステムを作って本来の挿入関数を叩く
+            var loopSystem = new ImtPlayerLoopSystem(typeof(T), function);
+            InsertLoopSystem(index, loopSystem);
+        }
+
+
+        /// <summary>
         /// 指定されたインデックスの位置にループシステムを挿入します
         /// </summary>
         /// <param name="index">挿入するインデックスの位置</param>
@@ -201,6 +216,23 @@ namespace IceMilkTea.Core
 
             // 指定されたインデックスにループシステムを挿入する
             subLoopSystemList.Insert(index, loopSystem);
+        }
+
+
+        /// <summary>
+        /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
+        /// </summary>
+        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
+        /// <typeparam name="U">挿入する予定の更新関数を表す型</typeparam>
+        /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
+        /// <param name="function">挿入する更新関数</param>
+        /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
+        /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
+        public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function, bool recursiveSearch)
+        {
+            // 新しいループシステムを作って本来の挿入関数を叩く
+            var loopSystem = new ImtPlayerLoopSystem(typeof(U), function);
+            return InsertLoopSystem<T>(timing, loopSystem, recursiveSearch);
         }
 
 
