@@ -15,6 +15,8 @@
 
 using System;
 using System.Collections.Generic;
+using IceMilkTea.Core;
+using UnityEngine.Experimental.PlayerLoop;
 
 namespace IceMilkTea.Profiler
 {
@@ -23,10 +25,32 @@ namespace IceMilkTea.Profiler
     /// </summary>
     public sealed class PerformanceMonitor
     {
+        /// <summary>
+        /// パフォーマンスモニタのプロファイラ開始関数の型
+        /// </summary>
+        private struct StartProfile { }
+
+
+        /// <summary>
+        /// パフォーマンスモニタのプロファイラ終了関数の型
+        /// </summary>
+        private struct EndProfile { }
+
+
+        /// <summary>
+        /// パフォーマンスモニタの計測結果を描画する関数の型
+        /// </summary>
+        private struct DrawProfile { }
+
+
+
         // シングルトン実装
         public static PerformanceMonitor Instance { get; } = new PerformanceMonitor();
 
 
+
+        // 静的クラス変数宣言
+        private static bool initialized;
 
         // メンバ変数宣言
         private List<PerformanceProbe> performanceProbeList;
@@ -36,7 +60,17 @@ namespace IceMilkTea.Profiler
 
 
         /// <summary>
-        /// メンバの初期化を行います
+        /// クラスの初期化をします
+        /// </summary>
+        static PerformanceMonitor()
+        {
+            // まだ未初期化
+            initialized = false;
+        }
+
+
+        /// <summary>
+        /// インスタンスの初期化をします
         /// </summary>
         private PerformanceMonitor()
         {
@@ -44,6 +78,32 @@ namespace IceMilkTea.Profiler
             performanceProbeList = new List<PerformanceProbe>();
             performanceRendererList = new List<PerformanceRenderer>();
             profileFetchResultsCache = new ProfileFetchResult[0];
+        }
+
+
+        /// <summary>
+        /// パフォーマンスモニタの初期化を行います
+        /// </summary>
+        public void Initialize()
+        {
+            // 初期化済みなら
+            if (initialized)
+            {
+                // 何もしないで終了
+                return;
+            }
+
+
+            // Unityの実行ループにパフォーマンスモニタが動くべき場所に更新関数を差し込む
+            var rootLoopSystem = ImtPlayerLoopSystem.GetUnityDefaultPlayerLoop();
+            rootLoopSystem.InsertLoopSystem<Initialization.SynchronizeState, StartProfile>(InsertTiming.AfterInsert, StartProfiler);
+            rootLoopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw, EndProfile>(InsertTiming.BeforeInsert, EndProfiler);
+            rootLoopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw, DrawProfile>(InsertTiming.BeforeInsert, DrawProfiler);
+            rootLoopSystem.BuildAndSetUnityDefaultPlayerLoop();
+
+
+            // 初期化は完了
+            initialized = true;
         }
 
 
@@ -83,18 +143,64 @@ namespace IceMilkTea.Profiler
         }
 
 
+        /// <summary>
+        /// プロファイラの動作を開始させます
+        /// </summary>
         private void StartProfiler()
         {
+            // もしプローブの数がプロファイル結果の数と一致しないなら
+            if (performanceProbeList.Count != profileFetchResultsCache.Length)
+            {
+                // プロファイル結果キャッシュ配列を作り直す
+                profileFetchResultsCache = new ProfileFetchResult[performanceProbeList.Count];
+            }
+
+
+            // プローブの数分ループ
+            foreach (var probe in performanceProbeList)
+            {
+                // プローブに計測開始の指示をする
+                probe.Start();
+            }
         }
 
 
+        /// <summary>
+        /// プロファイラの動作を停止させます
+        /// </summary>
         private void EndProfiler()
         {
+            // プローブの数分ループ
+            foreach (var probe in performanceProbeList)
+            {
+                // プローブに計測終了の指示をする
+                // ただしプローブの結果受け取りのオーバーヘッドやその他の兼ね合いで結果受け取りはもう一度後でやる
+                probe.Stop();
+            }
+
+
+            // プローブの数分ループ
+            for (int i = 0; i < performanceProbeList.Count; ++i)
+            {
+                // 今度こそ結果をもらう
+                profileFetchResultsCache[i] = performanceProbeList[i].Result;
+            }
         }
 
 
-        private void Draw()
+        /// <summary>
+        /// パフォーマンスレンダラにパフォーマンス結果の描画をさせます
+        /// </summary>
+        private void DrawProfiler()
         {
+            // レンダラの数分ループ
+            foreach (var renderer in performanceRendererList)
+            {
+                // レンダラに描画の開始から描画、終了まで指示する
+                renderer.Begin(profileFetchResultsCache);
+                renderer.Render();
+                renderer.End();
+            }
         }
     }
 }

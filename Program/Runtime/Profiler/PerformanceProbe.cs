@@ -24,7 +24,7 @@ namespace IceMilkTea.Profiler
         /// <summary>
         /// パフォーマンスの計測結果を取得します。
         /// </summary>
-        public abstract ProfileFetchResult ProfileResult { get; protected set; }
+        public abstract ProfileFetchResult Result { get; protected set; }
 
 
 
