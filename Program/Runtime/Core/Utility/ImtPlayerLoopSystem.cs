@@ -203,14 +203,14 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="index">挿入するインデックスの位置</param>
         /// <param name="loopSystem">挿入するループシステム</param>
-        /// <exception cref="NullReferenceException">loopSystemがnullです</exception>
+        /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
         public void InsertLoopSystem(int index, ImtPlayerLoopSystem loopSystem)
         {
             // ループシステムがnullなら（境界チェックはあえてここでやらず、List<T>コンテナに任せる）
             if (loopSystem == null)
             {
                 // nullの挿入は許されない！
-                throw new NullReferenceException($"{loopSystem}がnullです");
+                throw new ArgumentNullException(nameof(loopSystem));
             }
 
 
@@ -243,7 +243,7 @@ namespace IceMilkTea.Core
         /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
         /// <param name="loopSystem">挿入するループシステム</param>
         /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
-        /// <exception cref="NullReferenceException">loopSystemがnullです</exception>
+        /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
         /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
         public bool InsertLoopSystem<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem, bool recursiveSearch)
         {
@@ -251,7 +251,7 @@ namespace IceMilkTea.Core
             if (loopSystem == null)
             {
                 // nullの挿入は許されない！
-                throw new NullReferenceException($"{loopSystem}がnullです");
+                throw new ArgumentNullException(nameof(loopSystem));
             }
 
 
