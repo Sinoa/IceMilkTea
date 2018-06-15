@@ -24,7 +24,7 @@ namespace IceMilkTea.Profiler
     public class DebugLogPerformanceRenderer : PerformanceRenderer
     {
         // メンバ変数宣言
-        private ProfileFetchResult[] results;
+        //private ProfileFetchResult[] results;
 
 
 
@@ -35,7 +35,7 @@ namespace IceMilkTea.Profiler
         public override void Begin(ProfileFetchResult[] profileFetchResults)
         {
             // プロファイル結果を覚える
-            results = profileFetchResults;
+            //results = profileFetchResults;
         }
 
 

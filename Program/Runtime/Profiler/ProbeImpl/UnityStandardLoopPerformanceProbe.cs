@@ -23,24 +23,24 @@ namespace IceMilkTea.Profiler
     public class UnityStandardLoopPerformanceProbe : PerformanceProbe
     {
         // メンバ変数宣言
-        private Stopwatch stopwatch;
-        private long updateStartCount;
-        private long updateEndCount;
-        private long fixedUpdateStartCount;
-        private long fixedUpdateEndCount;
-        private long lateUpdateStartCount;
-        private long lateUpdateEndCount;
-        private long renderingStartCount;
-        private long renderingEndCount;
-        private long textureRenderingStartCount;
-        private long textureRenderingEndCount;
+        //private Stopwatch stopwatch;
+        //private long updateStartCount;
+        //private long updateEndCount;
+        //private long fixedUpdateStartCount;
+        //private long fixedUpdateEndCount;
+        //private long lateUpdateStartCount;
+        //private long lateUpdateEndCount;
+        //private long renderingStartCount;
+        //private long renderingEndCount;
+        //private long textureRenderingStartCount;
+        //private long textureRenderingEndCount;
 
 
 
         /// <summary>
         /// パフォーマンス計測結果を取得します
         /// </summary>
-        public override ProfileFetchResult ProfileResult { get; protected set; } = new UnityStandardLoopProfileResult();
+        public override ProfileFetchResult Result { get; protected set; } = new UnityStandardLoopProfileResult();
 
 
 
@@ -50,7 +50,7 @@ namespace IceMilkTea.Profiler
         public UnityStandardLoopPerformanceProbe()
         {
             // 計測用ストップウォッチを生成
-            stopwatch = Stopwatch.StartNew();
+            //stopwatch = Stopwatch.StartNew();
         }
 
 
@@ -60,10 +60,10 @@ namespace IceMilkTea.Profiler
         public override void Start()
         {
             // 計測カウンタの初期化をする
-            renderingStartCount = long.MaxValue;
-            renderingEndCount = 0;
-            textureRenderingStartCount = long.MaxValue;
-            textureRenderingEndCount = 0;
+            //renderingStartCount = long.MaxValue;
+            //renderingEndCount = 0;
+            //textureRenderingStartCount = long.MaxValue;
+            //textureRenderingEndCount = 0;
         }
 
 
