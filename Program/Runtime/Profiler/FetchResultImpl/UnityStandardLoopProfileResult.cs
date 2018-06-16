@@ -25,56 +25,56 @@ namespace IceMilkTea.Profiler
         /// <summary>
         /// FixedUpdate更新ループに要したチックカウント
         /// </summary>
-        public long FixedUpdateTickCount { get; private set; }
+        public long FixedUpdateTickCount { get; set; }
 
         /// <summary>
         /// Update更新ループに要したチックカウント
         /// </summary>
-        public long UpdateTickCount { get; private set; }
+        public long UpdateTickCount { get; set; }
 
         /// <summary>
         /// LateUpdate更新ループに要したチックカウント
         /// </summary>
-        public long LateUpdateTickCount { get; private set; }
+        public long LateUpdateTickCount { get; set; }
 
         /// <summary>
         /// レンダリングに要したチックカウント
         /// ただし、レンダースレッドのチックカウントではなくメインスレッド上でのレンダリングチックカウントとなる
         /// </summary>
-        public long RenderingTickCount { get; private set; }
+        public long RenderingTickCount { get; set; }
 
         /// <summary>
         /// レンダーテクスチャのレンダリングに要したチックカウント
         /// ただし、レンダースレッドのチックカウントではなくメインスレッド上でのレンダリングチックカウントとなる
         /// </summary>
-        public long TextureRenderingTickCount { get; private set; }
+        public long TextureRenderingTickCount { get; set; }
 
         /// <summary>
         /// FixedUpdate更新ループに要した時間（ミリ秒）
         /// </summary>
-        public double FixedUpdateTime { get; private set; }
+        public double FixedUpdateTime { get; set; }
 
         /// <summary>
         /// Update更新ループに要した時間（ミリ秒）
         /// </summary>
-        public double UpdateTime { get; private set; }
+        public double UpdateTime { get; set; }
 
         /// <summary>
         /// LateUpdate更新ループに要した時間（ミリ秒）
         /// </summary>
-        public double LateUpdateTime { get; private set; }
+        public double LateUpdateTime { get; set; }
 
         /// <summary>
         /// レンダリングに要した時間（ミリ秒）
         /// ただし、レンダースレッドの時間ではなくメインスレッド上でのレンダリング時間となる
         /// </summary>
-        public double RenderingTime { get; private set; }
+        public double RenderingTime { get; set; }
 
         /// <summary>
         /// レンダーテクスチャのレンダリングに要した時間（ミリ秒）
         /// ただし、レンダースレッドの時間ではなくメインスレッド上でのレンダリング時間となる
         /// </summary>
-        public double TextureRenderingTime { get; private set; }
+        public double TextureRenderingTime { get; set; }
 
 
 
@@ -98,11 +98,11 @@ namespace IceMilkTea.Profiler
 
             // チックカウントからミリ秒へ計算して更新
             var tickToMillisec = Stopwatch.Frequency / 1000.0;
-            FixedUpdateTime = fixedCount * tickToMillisec;
-            UpdateTime = updateCount * tickToMillisec;
-            LateUpdateTime = lateCount * tickToMillisec;
-            RenderingTime = renderingCount * tickToMillisec;
-            TextureRenderingTime = renderTextureRenderingCount * tickToMillisec;
+            FixedUpdateTime = fixedCount / tickToMillisec;
+            UpdateTime = updateCount / tickToMillisec;
+            LateUpdateTime = lateCount / tickToMillisec;
+            RenderingTime = renderingCount / tickToMillisec;
+            TextureRenderingTime = renderTextureRenderingCount / tickToMillisec;
         }
     }
 }

@@ -142,13 +142,13 @@ namespace IceMilkTea.Profiler
                 if (camera.targetTexture == null)
                 {
                     // 通常のレンダリングの終了時間として計測する
-                    renderingEndCount = tick < renderingEndCount ? tick : renderingEndCount;
+                    renderingEndCount = tick > renderingEndCount ? tick : renderingEndCount;
                     return;
                 }
 
 
                 // レンダーテクスチャの書き込みならテクスチャ書き込みとして計測する
-                textureRenderingEndCount = tick < textureRenderingEndCount ? tick : textureRenderingEndCount;
+                textureRenderingEndCount = tick > textureRenderingEndCount ? tick : textureRenderingEndCount;
             };
         }
 
@@ -158,11 +158,7 @@ namespace IceMilkTea.Profiler
         /// </summary>
         public override void Start()
         {
-            // 計測カウンタの初期化をする
-            renderingStartCount = long.MaxValue;
-            renderingEndCount = 0;
-            textureRenderingStartCount = long.MaxValue;
-            textureRenderingEndCount = 0;
+            // ここでは何もしない
         }
 
 
@@ -172,11 +168,35 @@ namespace IceMilkTea.Profiler
         public override void Stop()
         {
             // 各チックカウントの経過数を求める
-            var fixedCount = fixedUpdateStartCount - fixedUpdateEndCount;
-            var updateCount = updateStartCount - updateEndCount;
-            var lateCount = lateUpdateStartCount - lateUpdateEndCount;
-            var renderingCount = renderingStartCount - renderingEndCount;
-            var renderTextureRenderingCount = textureRenderingStartCount - textureRenderingEndCount;
+            var fixedCount = fixedUpdateEndCount - fixedUpdateStartCount;
+            var updateCount = updateEndCount - updateStartCount;
+            var lateCount = lateUpdateEndCount - lateUpdateStartCount;
+            var renderingCount = renderingEndCount - renderingStartCount;
+            var renderTextureRenderingCount = textureRenderingEndCount - textureRenderingStartCount;
+
+
+            // レンダリング系はカメラがあったりなかったり、レンダーテクスチャが設定されていたりされていなかったりで
+            // 計測が正しく出来ないので (0 - long.MaxValue) と一致するようであれば0カウントとする
+            if (renderingCount == (0 - long.MaxValue))
+            {
+                // 未計測とする
+                renderingCount = 0;
+            }
+
+
+            // レンダーテクスチャ版も調べる
+            if (renderTextureRenderingCount == (0 - long.MaxValue))
+            {
+                // 未計測とする
+                renderTextureRenderingCount = 0;
+            }
+
+
+            // レンダリングの計測カウンタの初期化をする
+            renderingStartCount = long.MaxValue;
+            renderingEndCount = 0;
+            textureRenderingStartCount = long.MaxValue;
+            textureRenderingEndCount = 0;
 
 
             // 結果を入れる
