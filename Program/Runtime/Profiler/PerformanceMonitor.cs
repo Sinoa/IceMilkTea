@@ -111,14 +111,14 @@ namespace IceMilkTea.Profiler
         /// パフォーマンスモニタにプローブを追加します
         /// </summary>
         /// <param name="probe">追加するプローブ</param>
-        /// <exception cref="NullReferenceException">probeがnullです</exception>
+        /// <exception cref="ArgumentNullException">probeがnullです</exception>
         public void AddProbe(PerformanceProbe probe)
         {
             // 追加しようとしているプローブがnullなら
             if (probe == null)
             {
                 // そんな追加は許されない！
-                throw new NullReferenceException($"{nameof(probe)}がnullです");
+                throw new ArgumentNullException(nameof(probe));
             }
 
 
@@ -131,15 +131,19 @@ namespace IceMilkTea.Profiler
         /// パフォーマンスモニタにレンダラを追加します
         /// </summary>
         /// <param name="renderer">追加するレンダラ</param>
-        /// <exception cref="NullReferenceException">rendererがnullです</exception>
+        /// <exception cref="ArgumentNullException">rendererがnullです</exception>
         public void AddRenderer(PerformanceRenderer renderer)
         {
             // 追加しようとしているレンダラがnullなら
             if (renderer == null)
             {
                 // そんな追加は許されない！
-                throw new NullReferenceException($"{nameof(renderer)}がnullです");
+                throw new ArgumentNullException(nameof(renderer));
             }
+
+
+            // レンダラを追加する
+            performanceRendererList.Add(renderer);
         }
 
 
