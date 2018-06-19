@@ -23,5 +23,22 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameMain : ScriptableObject
     {
+        /// <summary>
+        /// Unity起動時に実行されるゲームのエントリポイントです
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Main()
+        {
+        }
+
+
+        protected virtual void Initialize()
+        {
+        }
+
+
+        protected virtual void Terminate()
+        {
+        }
     }
 }
