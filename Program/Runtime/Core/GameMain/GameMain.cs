@@ -32,12 +32,12 @@ namespace IceMilkTea.Core
         }
 
 
-        protected virtual void Initialize()
+        protected virtual void Startup()
         {
         }
 
 
-        protected virtual void Terminate()
+        protected virtual void Shutdown()
         {
         }
     }
