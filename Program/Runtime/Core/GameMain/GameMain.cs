@@ -24,19 +24,96 @@ namespace IceMilkTea.Core
     public abstract class GameMain : ScriptableObject
     {
         /// <summary>
+        /// 現在のゲームメインコンテキストを取得します
+        /// </summary>
+        public static GameMain CurrentContext { get; private set; }
+
+
+
+        /// <summary>
         /// Unity起動時に実行されるゲームのエントリポイントです
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Main()
         {
+            // アプリケーションのイベントハンドラを登録
+            Application.wantsToQuit += Internal_RequestShutdown;
+            Application.quitting += Internal_Shutdown;
+
+
+            // 内部で保存されたGameMainのGameMainをロードする
+            CurrentContext = Resources.Load<GameMain>("GameMain");
+
+
+            // ロードが出来なかったのなら
+            if (CurrentContext == null)
+            {
+                // セーフ起動用のゲームメインを立ち上げる
+                CurrentContext = CreateInstance<SafeGameMain>();
+            }
+
+
+            // GameMainを起動する
+            Internal_Startup();
         }
 
 
+        /// <summary>
+        /// このGameMainクラスのための Startup 関数です。
+        /// </summary>
+        private static void Internal_Startup()
+        {
+            // 起動を叩く
+            CurrentContext.Startup();
+        }
+
+
+        /// <summary>
+        /// このGameMainクラスのための RequestShutdown 関数です。
+        /// </summary>>
+        /// <returns>修了を許可する場合はtrueを、禁止する場合はfalseを返します</returns>
+        private static bool Internal_RequestShutdown()
+        {
+            // 終了処理の要求をして結果をそのまま返す
+            return CurrentContext.RequestShutdown();
+        }
+
+
+        /// <summary>
+        /// このGameMainクラスのための Shutdown 関数です。
+        /// </summary>
+        private static void Internal_Shutdown()
+        {
+            // 終了を叩く
+            CurrentContext.Shutdown();
+        }
+
+
+        /// <summary>
+        /// ゲームの起動処理を行います。
+        /// サービスの初期化や他のサブシステムの初期化などを主に行います。
+        /// </summary>
         protected virtual void Startup()
         {
         }
 
 
+        /// <summary>
+        /// ゲームの終了処理の要求を処理します。
+        /// ゲームが終了してよいのかどうかを判断し修了のコントロールを行います。
+        /// </summary>
+        /// <returns>修了を許可する場合はtrueを、禁止する場合はfalseを返します</returns>
+        protected virtual bool RequestShutdown()
+        {
+            // 通常は終了を許容する
+            return true;
+        }
+
+
+        /// <summary>
+        /// ゲームの終了処理を行います。
+        /// サービスの終了処理や他のサブシステムの終了処理などを主に行います。
+        /// </summary>
         protected virtual void Shutdown()
         {
         }
