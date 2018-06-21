@@ -52,8 +52,8 @@ namespace IceMilkTea.Core
 
 
 
-        // 静的クラス変数宣言
-        private static PlayerLoopSystem backupLoopSystem; //!< 本来はこの実装は不要なはずですが、書き換えたPlayerLoopSystemをもとに戻すためのに用意
+        // クラス変数宣言
+        private static ImtPlayerLoopSystem lastBuildLoopSystem;
 
         // メンバ変数定義
         private Type type;
@@ -70,12 +70,20 @@ namespace IceMilkTea.Core
         /// </summary>
         static ImtPlayerLoopSystem()
         {
-            // いま現状のUnityDefaultLoopSystemを覚えておく
-            backupLoopSystem = PlayerLoop.GetDefaultPlayerLoop();
-
-
             // アプリケーション終了イベントを登録する
             Application.wantsToQuit += OnApplicationQuitRequest;
+        }
+
+
+        /// <summary>
+        /// BuildAndSetUnityDefaultPlayerLoop関数によって最後に構築されたループシステムを取得します。
+        /// まだ一度も構築した経験がない場合は、GetUnityDefaultPlayerLoop関数の値を採用します。
+        /// </summary>
+        /// <returns>最後に構築されたループシステムを返します</returns>
+        public static ImtPlayerLoopSystem GetLastBuildLoopSystem()
+        {
+            // 過去に構築経験があれば返して、まだなければGetUnityDefaultPlayerLoopの結果を返す
+            return lastBuildLoopSystem ?? GetUnityDefaultPlayerLoop();
         }
 
 
@@ -148,8 +156,8 @@ namespace IceMilkTea.Core
         /// <returns>この関数は常にtrueを返します</returns>
         private static bool OnApplicationQuitRequest()
         {
-            // 最初に覚えたUnityのDefaultLoopSystemを設定して極力もとに戻す
-            PlayerLoop.SetPlayerLoop(backupLoopSystem);
+            // Unityの弄り倒したループ構成をもとに戻してあげる
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
 
 
             //イベントの登録を解除する
@@ -176,7 +184,8 @@ namespace IceMilkTea.Core
         /// </summary>
         public void BuildAndSetUnityDefaultPlayerLoop()
         {
-            // 自身をキャストして設定するだけ
+            // 最後に構築した経験のあるループシステムとして覚えて、自身をキャストして設定するだけ
+            lastBuildLoopSystem = this;
             PlayerLoop.SetPlayerLoop((PlayerLoopSystem)this);
         }
         #endregion

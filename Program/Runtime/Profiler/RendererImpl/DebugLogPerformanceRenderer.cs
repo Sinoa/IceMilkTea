@@ -13,6 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -24,7 +25,7 @@ namespace IceMilkTea.Profiler
     public class DebugLogPerformanceRenderer : PerformanceRenderer
     {
         // メンバ変数宣言
-        //private ProfileFetchResult[] results;
+        private UnityStandardLoopProfileResult result;
 
 
 
@@ -35,7 +36,7 @@ namespace IceMilkTea.Profiler
         public override void Begin(ProfileFetchResult[] profileFetchResults)
         {
             // プロファイル結果を覚える
-            //results = profileFetchResults;
+            result = profileFetchResults.First(x => x is UnityStandardLoopProfileResult) as UnityStandardLoopProfileResult;
         }
 
 
@@ -53,12 +54,7 @@ namespace IceMilkTea.Profiler
         /// </summary>
         public override void Render()
         {
-            // 文字列バッファ
-            var buffer = new StringBuilder();
-
-
-            // 書き込まれた文字列を吐き出す
-            Debug.Log(buffer.ToString());
+            Debug.Log($"FixedUpdate={result.FixedUpdateTime} ms\nUpdate={result.UpdateTime} ms\nLateUpdate={result.LateUpdateTime} ms\nRendering={result.RenderingTime} ms\nRTRendering={result.TextureRenderingTime} ms\n");
         }
     }
 }
