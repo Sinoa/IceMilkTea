@@ -26,7 +26,7 @@ namespace IceMilkTea.Profiler
     public class GraphicalPerformanceRenderer : PerformanceRenderer
     {
         private const int FontSize = 20; //フォントサイズ
-        private const float RowHeight = 20; //1行のサイズ。テキストとゲージはこの高さで描画される。
+        private const float RowHeight = 20; //テキストやバーを表示する行の高さ
         private const float BarMaxWidthPercentage = 80; //バーの最大横幅(画面サイズに対する%)
         private const float FontMarginLeftPercentage = 2; //テキストの左側の余白
         private const float BarMarginLeftPercentage = 8;//バーの左側の余白
@@ -64,9 +64,9 @@ namespace IceMilkTea.Profiler
             this.barMaxWidth = BarMaxWidthPercentage / 100 * screenSize.x;
             this.textScale = RowHeight / FontSize;
 
-            this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue, DateTime.Now.Ticks);
-            this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue, DateTime.Now.Ticks);
-            this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue, DateTime.Now.Ticks);
+            this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
+            this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
+            this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
         }
 
         /// <summary>
@@ -98,9 +98,9 @@ namespace IceMilkTea.Profiler
         /// </summary>
         public override void Render()
         {
-            this.updateResultCache.Update(this.result.UpdateTime, DateTime.Now.Ticks);
-            this.lateUpdateResultCache.Update(this.result.LateUpdateTime, DateTime.Now.Ticks);
-            this.renderingResultCache.Update(this.result.RenderingTime, DateTime.Now.Ticks);
+            this.updateResultCache.Update(this.result.UpdateTime);
+            this.lateUpdateResultCache.Update(this.result.LateUpdateTime);
+            this.renderingResultCache.Update(this.result.RenderingTime);
 
             GL.PushMatrix();
             GL.LoadOrtho();
@@ -137,143 +137,12 @@ namespace IceMilkTea.Profiler
 
 
         /// <summary>
-        /// 指定したrowのy座標を返す
+        /// 指定した行のy座標を返します。
         /// </summary>
-        /// <param name="row"></param>
+        /// <param name="row">行番号</param>
         private float GetMarginTop(int row)
         {
             return row * (RowHeight + 10);//行の高さ+α
-        }
-
-        /// <summary>
-        /// 最大値を更新するか、指定した時間が経過するまで値をキャッシュする
-        /// </summary>
-        private class MaxDoubleValueCache
-        {
-            private readonly int cacheMilliSeconds;
-            long lastUpdateTick;
-            double _value;
-            public double Value { get { return this._value; } }
-
-            public MaxDoubleValueCache(int cacheMilliSeconds, double initialValue, long currentTick)
-            {
-                this.cacheMilliSeconds = cacheMilliSeconds;
-                this._value = initialValue;
-                this.lastUpdateTick = currentTick;
-            }
-
-            public void Update(double value, long tick)
-            {
-                //前回の値より大きいか、Cache時間を超えたら更新
-                if (this._value < value
-                     || TimeSpan.FromTicks(tick - this.lastUpdateTick).TotalMilliseconds > this.cacheMilliSeconds)
-                {
-                    this.lastUpdateTick = tick;
-                    this._value = value;
-                    return;
-                }
-            }
-        }
-
-        private class GLHelper
-        {
-            public static void DrawBar(Vector3 position, Color color, float width, float height, Vector2 screenSize)
-            {
-                var uvPosition = position / screenSize;
-                var uvWidth = width / screenSize.x;
-                var uvHeight = height / screenSize.y;
-
-                var bl = uvPosition;
-                var tl = new Vector3(uvPosition.x, uvPosition.y + uvHeight);
-                var tr = new Vector3(uvPosition.x + uvWidth, uvPosition.y + uvHeight);
-                var br = new Vector3(uvPosition.x + uvWidth, uvPosition.y);
-
-                DrawBar(color, bl, tl, tr, br);
-            }
-            private static void DrawBar(Color color, params Vector3[] vertex)
-            {
-                for (var i = 0; i < vertex.Length; i++)
-                {
-                    SetVertex(color, Vector3.zero, vertex[i]);
-                }
-            }
-
-            public static CharacterHelper CreateCharacterHelper(Font font, Color color, int fontSize, Vector2 screenSize)
-            {
-                return new CharacterHelper(font, color, fontSize, screenSize);
-            }
-
-
-            private static void SetVertex(Color color, Vector3 texCoord, Vector3 vertex)
-            {
-                GL.Color(color);
-                GL.TexCoord(texCoord);
-                GL.Vertex(vertex);
-            }
-
-            public class CharacterHelper
-            {
-                private readonly Font font;
-                private readonly int fontSize;
-                private readonly Vector2 screenSize;
-                private readonly Color color;
-
-                public CharacterHelper(Font font, Color color, int fontSize, Vector2 screenSize)
-                {
-                    this.font = font;
-                    this.fontSize = fontSize;
-                    this.screenSize = screenSize;
-                    this.color = color;
-                }
-
-                public void DrawCharacters(string characters, Vector3 position, float scale = 1)
-                {
-                    var uvPosition = position / this.screenSize;
-                    Vector3 lastbl = uvPosition;
-                    Vector3 lasttl = uvPosition;
-                    Vector3 lasttr = uvPosition;
-                    Vector3 lastbr = uvPosition;
-
-                    for (var i = 0; i < characters.Length; i++)
-                    {
-                        var character = characters[i];
-                        CharacterInfo ci;
-                        if (this.font.GetCharacterInfo(character, out ci, this.fontSize))
-                        {
-                            //文字の高さを設定
-                            var bottom = uvPosition.y + ci.minY / screenSize.y * scale;
-                            lastbl.y = lastbr.y = bottom;
-
-                            var top = uvPosition.y + ci.maxY / screenSize.y * scale;
-                            lasttl.y = lasttr.y = top;
-
-                            //文字列分、右上と右下の頂点を横にずらす
-                            var left = lastbl.x + ci.minX / screenSize.x * scale;
-                            lastbl.x = lasttl.x = left;
-
-                            var right = left + ci.glyphWidth / screenSize.x * scale;
-                            lasttr.x = lastbr.x = right;
-
-                            this.DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
-
-                            //最後に描画した文字の右側のx座標を、次の文字の左側のx座標とする
-                            lastbl.x = lasttl.x = lastbr.x;
-                        }
-                        else
-                            Debug.LogError($"Font Not Found, Character:{character}, FontSize:{this.fontSize}");
-
-
-                    }
-                }
-
-                private void DrawCharacter(char character, CharacterInfo ci, Vector3 vBottomLeft, Vector3 vTopLevt, Vector3 vTopRight, Vector3 vBottomRight)
-                {
-                    SetVertex(color, ci.uvBottomLeft, vBottomLeft);
-                    SetVertex(color, ci.uvTopLeft, vTopLevt);
-                    SetVertex(color, ci.uvTopRight, vTopRight);
-                    SetVertex(color, ci.uvBottomRight, vBottomRight);
-                }
-            }
         }
     }
 }
