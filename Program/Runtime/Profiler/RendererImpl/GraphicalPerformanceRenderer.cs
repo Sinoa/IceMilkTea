@@ -23,7 +23,13 @@ namespace IceMilkTea.Profiler
     /// </summary>
     public class GraphicalPerformanceRenderer : PerformanceRenderer
     {
-        const int FontSize = 16;
+        const int FontSize = 20;
+        const float BarHeight = 20;
+        const float BarMaxWidth = 500;
+        const float FontMarginLeft = 10;
+        const float BarMarginLeft = 100;
+
+        const float MaxMillisecondPerFrame = 33; //バーで計測できる1フレーム毎の実行時間(ミリ秒)
 
         // メンバ変数宣言
         private UnityStandardLoopProfileResult result;
@@ -72,20 +78,7 @@ namespace IceMilkTea.Profiler
         /// </summary>
         public override void Render()
         {
-            var pos = new Vector2(10, 10);
-            var siz = new Vector2(620, 20);
-
-            var npos = new Vector2(pos.x, screenSize.y - pos.y) / screenSize;
-            var nsiz = siz / screenSize;
-
-            var bl = new Vector3(npos.x, npos.y - nsiz.y, 0);
-            var tl = new Vector3(npos.x, npos.y, 0);
-            var tr = new Vector3(npos.x + nsiz.x, npos.y, 0);
-            var br = new Vector3(npos.x + nsiz.x, npos.y - nsiz.y);
-
-
-            CharacterInfo ci;
-            builtinFont.GetCharacterInfo('0', out ci, FontSize);
+            var marginTop = BarHeight + 10; //バーの高さ+α
 
             GL.PushMatrix();
             GL.LoadOrtho();
@@ -94,53 +87,42 @@ namespace IceMilkTea.Profiler
             barMaterial.SetPass(0);
             GL.Begin(GL.QUADS);
 
+            var fontHelper = GLHelper.CreateFontHelper(builtinFont, Color.black, FontSize, screenSize);
 
-            GL.Color(Color.yellow);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(bl);
+            //1段目:Update
+            fontHelper.DrawCharacters(this.result.UpdateTime.ToString(), new Vector3(FontMarginLeft, screenSize.y - marginTop));
+            GLHelper.DrawBar(new Vector3(BarMarginLeft, screenSize.y - marginTop), Color.yellow, (float)(this.result.UpdateTime / MaxMillisecondPerFrame * BarMaxWidth), BarHeight, screenSize);
 
-            GL.Color(Color.yellow);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(tl);
+            //2段目:LateUpdate
+            marginTop += BarHeight + 10; //バーの高さ+α
+            fontHelper.DrawCharacters(this.result.LateUpdateTime.ToString(), new Vector3(FontMarginLeft, screenSize.y - marginTop));
+            GLHelper.DrawBar(new Vector3(BarMarginLeft, screenSize.y - marginTop), Color.blue, (float)(this.result.LateUpdateTime / MaxMillisecondPerFrame * BarMaxWidth), BarHeight, screenSize);
 
-            GL.Color(Color.yellow);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(tr);
-
-            GL.Color(Color.yellow);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(br);
-
-
-            bl.y -= 0.1f;
-            GL.Color(Color.blue);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(bl);
-
-            tl.y -= 0.1f;
-            GL.Color(Color.blue);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(tl);
-
-            tr.y -= 0.1f;
-            GL.Color(Color.blue);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(tr);
-
-            br.y -= 0.1f;
-            GL.Color(Color.blue);
-            GL.TexCoord(Vector3.zero);
-            GL.Vertex(br);
-
-
+            //3段目:Rendering
+            marginTop += FontSize + 10; //フォントサイズ+α
+            fontHelper.DrawCharacters(this.result.RenderingTime.ToString(), new Vector3(FontMarginLeft, screenSize.y - marginTop));
+            GLHelper.DrawBar(new Vector3(BarMarginLeft, screenSize.y - marginTop), Color.green, (float)(this.result.RenderingTime / MaxMillisecondPerFrame * BarMaxWidth), BarHeight, screenSize);
 
             GL.End();
             GL.PopMatrix();
         }
 
-        public static class GLHelper
+        public class GLHelper
         {
-            public static void DrawBar(Color color, params Vector3[] vertex)
+            public static void DrawBar(Vector3 position, Color color, float width, float height, Vector2 screenSize)
+            {
+                var uvPosition = position / screenSize;
+                var uvWidth = width / screenSize.x;
+                var uvHeight = height / screenSize.y;
+
+                var bl = uvPosition;
+                var tl = new Vector3(uvPosition.x, uvPosition.y + uvHeight);
+                var tr = new Vector3(uvPosition.x + uvWidth, uvPosition.y + uvHeight);
+                var br = new Vector3(uvPosition.x + uvWidth, uvPosition.y);
+
+                DrawBar(color, bl, tl, tr, br);
+            }
+            private static void DrawBar(Color color, params Vector3[] vertex)
             {
                 for (var i = 0; i < vertex.Length; i++)
                 {
@@ -176,7 +158,7 @@ namespace IceMilkTea.Profiler
                     this.color = color;
                 }
 
-                public void DrawCharacters(string characters, Vector3 position)
+                public void DrawCharacters(string characters, Vector3 position, float scale = 1)
                 {
                     var uvPosition = position / this.screenSize;
                     Vector3 lastbl = uvPosition;
@@ -185,8 +167,8 @@ namespace IceMilkTea.Profiler
                     Vector3 lastbr = uvPosition;
 
                     //高さを確保
-                    lasttl.y += this.fontSize / screenSize.y;
-                    lasttr.y += this.fontSize / screenSize.y;
+                    lasttl.y += this.fontSize / screenSize.y * scale;
+                    lasttr.y += this.fontSize / screenSize.y * scale;
 
                     for (var i = 0; i < characters.Length; i++)
                     {
@@ -195,8 +177,8 @@ namespace IceMilkTea.Profiler
                         if (font.GetCharacterInfo(character, out ci, this.fontSize))
                         {
                             //文字列分、右上と右下の頂点を横にずらす
-                            lasttr.x = lasttr.x + ci.advance / screenSize.x;
-                            lastbr.x = lastbr.x + ci.advance / screenSize.x;
+                            lasttr.x = lasttr.x + ci.advance / screenSize.x * scale;
+                            lastbr.x = lastbr.x + ci.advance / screenSize.x * scale;
 
                             DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
 
