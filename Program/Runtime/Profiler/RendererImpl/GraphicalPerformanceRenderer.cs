@@ -117,7 +117,7 @@ namespace IceMilkTea.Profiler
             var row3Top = GetMarginTop(3);
 
             //バー
-            barMaterial.SetPass(0);
+            this.barMaterial.SetPass(0);
             GL.Begin(GL.QUADS);
             GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), Color.yellow, (float)(this.updateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
             GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row2Top), Color.blue, (float)(this.lateUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
@@ -125,7 +125,7 @@ namespace IceMilkTea.Profiler
             GL.End();
 
             //テキスト
-            builtinFont.material.SetPass(0);
+            this.builtinFont.material.SetPass(0);
             GL.Begin(GL.QUADS);
             characterHelper.DrawCharacters($"Update:{this.updateResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row1Top), this.textScale);
             characterHelper.DrawCharacters($"LateUpdate:{this.lateUpdateResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), this.textScale);
@@ -145,7 +145,7 @@ namespace IceMilkTea.Profiler
             return row * (RowHeight + 10);//行の高さ+α
         }
 
-        class MaxDoubleValueCache
+        private class MaxDoubleValueCache
         {
             private readonly int cacheMilliSeconds;
             long lastUpdateTick;
@@ -172,7 +172,7 @@ namespace IceMilkTea.Profiler
             }
         }
 
-        class GLHelper
+        private class GLHelper
         {
             public static void DrawBar(Vector3 position, Color color, float width, float height, Vector2 screenSize)
             {
@@ -235,7 +235,7 @@ namespace IceMilkTea.Profiler
                     {
                         var character = characters[i];
                         CharacterInfo ci;
-                        if (font.GetCharacterInfo(character, out ci, this.fontSize))
+                        if (this.font.GetCharacterInfo(character, out ci, this.fontSize))
                         {
                             //文字の高さを設定
                             var bottom = uvPosition.y + ci.minY / screenSize.y * scale;
@@ -248,7 +248,7 @@ namespace IceMilkTea.Profiler
                             var right = lasttr.x + ci.glyphWidth / screenSize.x * scale;
                             lasttr.x = lastbr.x = right;
 
-                            DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
+                            this.DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
 
                             //最後に描画した文字の右上、右下のx座標を、次の文字の左上、左下とする
                             lastbl.x = lastbr.x;
