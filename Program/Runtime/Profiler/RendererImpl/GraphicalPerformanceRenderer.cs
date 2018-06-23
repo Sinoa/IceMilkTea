@@ -25,14 +25,14 @@ namespace IceMilkTea.Profiler
     /// </summary>
     public class GraphicalPerformanceRenderer : PerformanceRenderer
     {
-        const int FontSize = 20; //フォントサイズ
-        const float RowHeight = 20; //1行のサイズ。テキストとゲージはこの高さで描画される。
-        const float BarMaxWidthPercentage = 80; //バーの最大横幅(画面サイズに対する%)
-        const float FontMarginLeftPercentage = 2; //テキストの左側の余白
-        const float BarMarginLeftPercentage = 8;//バーの左側の余白
+        private const int FontSize = 20; //フォントサイズ
+        private const float RowHeight = 20; //1行のサイズ。テキストとゲージはこの高さで描画される。
+        private const float BarMaxWidthPercentage = 80; //バーの最大横幅(画面サイズに対する%)
+        private const float FontMarginLeftPercentage = 2; //テキストの左側の余白
+        private const float BarMarginLeftPercentage = 8;//バーの左側の余白
 
-        const float MaxMillisecondPerFrame = 33; //バーで計測できる1フレーム毎の実行時間(ミリ秒)
-        const int MaxValueCacheMilliseconds = 1000; //直近の最大値をどれだけの時間キャッシュするか(ミリ秒)
+        private const float MaxMillisecondPerFrame = 33; //バーで計測できる1フレーム毎の実行時間(ミリ秒)
+        private const int MaxValueCacheMilliseconds = 1000; //直近の最大値をどれだけの時間キャッシュするか(ミリ秒)
 
         // メンバ変数宣言
         private UnityStandardLoopProfileResult result;
@@ -172,7 +172,7 @@ namespace IceMilkTea.Profiler
             }
         }
 
-        public class GLHelper
+        class GLHelper
         {
             public static void DrawBar(Vector3 position, Color color, float width, float height, Vector2 screenSize)
             {
