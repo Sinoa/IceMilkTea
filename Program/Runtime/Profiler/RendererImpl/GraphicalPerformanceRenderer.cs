@@ -34,7 +34,7 @@ namespace IceMilkTea.Profiler
 
         public GraphicalPerformanceRenderer()
         {
-            builtinFont = Resources.Load<Font>("Fonts/FOT-NewCinemaBStd-D");
+            builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
             builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
 
             barMaterial = new Material(Shader.Find("GUI/Text Shader"));
@@ -138,9 +138,92 @@ namespace IceMilkTea.Profiler
             GL.PopMatrix();
         }
 
-        private void SetQuads(Vector3 vertex, Color color)
+        public static class GLHelper
         {
+            public static void DrawBar(Color color, params Vector3[] vertex)
+            {
+                for (var i = 0; i < vertex.Length; i++)
+                {
+                    SetVertex(color, Vector3.zero, vertex[i]);
+                }
+            }
 
+            public static FontHelper CreateFontHelper(Font font, Color color, int fontSize, Vector2 screenSize)
+            {
+                return new FontHelper(font, color, fontSize, screenSize);
+            }
+
+
+            private static void SetVertex(Color color, Vector3 texCoord, Vector3 vertex)
+            {
+                GL.Color(color);
+                GL.TexCoord(texCoord);
+                GL.Vertex(vertex);
+            }
+
+            public class FontHelper
+            {
+                private readonly Font font;
+                private readonly int fontSize;
+                private readonly Vector2 screenSize;
+                private readonly Color color;
+
+                public FontHelper(Font font, Color color, int fontSize, Vector2 screenSize)
+                {
+                    this.font = font;
+                    this.fontSize = fontSize;
+                    this.screenSize = screenSize;
+                    this.color = color;
+                }
+
+                public void DrawCharacters(string characters, Vector3 position)
+                {
+                    var uvPosition = position / this.screenSize;
+                    Vector3 lastbl = uvPosition;
+                    Vector3 lasttl = uvPosition;
+                    Vector3 lasttr = uvPosition;
+                    Vector3 lastbr = uvPosition;
+
+                    //高さを確保
+                    lasttl.y += this.fontSize / screenSize.y;
+                    lasttr.y += this.fontSize / screenSize.y;
+
+                    for (var i = 0; i < characters.Length; i++)
+                    {
+                        var character = characters[i];
+                        CharacterInfo ci;
+                        if (font.GetCharacterInfo(character, out ci, this.fontSize))
+                        {
+                            //文字列分、右上と右下の頂点を横にずらす
+                            lasttr.x = lasttr.x + ci.advance / screenSize.x;
+                            lastbr.x = lastbr.x + ci.advance / screenSize.x;
+
+                            DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
+
+                            //最後に描画した文字の右上、右下の頂点を、次の文字の左上、左下とする
+                            lastbl.x = lastbr.x;
+                            lasttl.x = lastbr.x;
+                        }
+                        else
+                            Debug.LogError($"Font Not Found, Character:{character}, FontSize:{this.fontSize}");
+
+
+                    }
+                }
+
+                /// <summary>
+                /// 左下から時計回りでvertexを渡す
+                /// </summary>
+                /// <param name="character"></param>
+                /// <param name="vertex"></param>
+                private void DrawCharacter(char character, CharacterInfo ci, Vector3 vBottomLeft, Vector3 vTopLevt, Vector3 vTopRight, Vector3 vBottomRight)
+                {
+                    SetVertex(color, ci.uvBottomLeft, vBottomLeft);
+                    SetVertex(color, ci.uvTopLeft, vTopLevt);
+                    SetVertex(color, ci.uvTopRight, vTopRight);
+                    SetVertex(color, ci.uvBottomRight, vBottomRight);
+                }
+            }
         }
     }
 }
