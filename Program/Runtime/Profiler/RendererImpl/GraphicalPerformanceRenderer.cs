@@ -145,6 +145,9 @@ namespace IceMilkTea.Profiler
             return row * (RowHeight + 10);//行の高さ+α
         }
 
+        /// <summary>
+        /// 最大値を更新するか、指定した時間が経過するまで値をキャッシュする
+        /// </summary>
         private class MaxDoubleValueCache
         {
             private readonly int cacheMilliSeconds;
@@ -245,7 +248,10 @@ namespace IceMilkTea.Profiler
                             lasttl.y = lasttr.y = top;
 
                             //文字列分、右上と右下の頂点を横にずらす
-                            var right = lasttr.x + ci.glyphWidth / screenSize.x * scale;
+                            var left = lastbl.x + ci.minX / screenSize.x * scale;
+                            lastbl.x = lasttl.x = left;
+
+                            var right = left + ci.glyphWidth / screenSize.x * scale;
                             lasttr.x = lastbr.x = right;
 
                             this.DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
