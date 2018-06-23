@@ -256,9 +256,8 @@ namespace IceMilkTea.Profiler
 
                             this.DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
 
-                            //最後に描画した文字の右上、右下のx座標を、次の文字の左上、左下とする
-                            lastbl.x = lastbr.x;
-                            lasttl.x = lastbr.x;
+                            //最後に描画した文字の右側のx座標を、次の文字の左側のx座標とする
+                            lastbl.x = lasttl.x = lastbr.x;
                         }
                         else
                             Debug.LogError($"Font Not Found, Character:{character}, FontSize:{this.fontSize}");
@@ -267,11 +266,6 @@ namespace IceMilkTea.Profiler
                     }
                 }
 
-                /// <summary>
-                /// 左下から時計回りでvertexを渡す
-                /// </summary>
-                /// <param name="character"></param>
-                /// <param name="vertex"></param>
                 private void DrawCharacter(char character, CharacterInfo ci, Vector3 vBottomLeft, Vector3 vTopLevt, Vector3 vTopRight, Vector3 vBottomRight)
                 {
                     SetVertex(color, ci.uvBottomLeft, vBottomLeft);
