@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -23,13 +25,14 @@ namespace IceMilkTea.Profiler
     /// </summary>
     public class GraphicalPerformanceRenderer : PerformanceRenderer
     {
-        const int FontSize = 20;
-        const float BarHeight = 20;
-        const float BarMaxWidth = 500;
-        const float FontMarginLeft = 10;
-        const float BarMarginLeft = 100;
+        const int FontSize = 20; //フォントサイズ
+        const float RowHeight = 20; //1行のサイズ。テキストとゲージはこの高さで描画される。
+        const float BarMaxWidthPercentage = 80; //バーの最大横幅(画面サイズに対する%)
+        const float FontMarginLeftPercentage = 2; //テキストの左側の余白
+        const float BarMarginLeftPercentage = 8;//バーの左側の余白
 
         const float MaxMillisecondPerFrame = 33; //バーで計測できる1フレーム毎の実行時間(ミリ秒)
+        const int MaxValueCacheMilliseconds = 1000; //直近の最大値をどれだけの時間キャッシュするか(ミリ秒)
 
         // メンバ変数宣言
         private UnityStandardLoopProfileResult result;
@@ -37,16 +40,33 @@ namespace IceMilkTea.Profiler
         private Material barMaterial;
         private Material fontMaterial;
         private Vector2 screenSize;
+        private float fontMarginLeft;
+        private float barMarginLeft;
+        private float barMaxWidth;
+        private float textScale;
+
+        private MaxDoubleValueCache updateResultCache;
+        private MaxDoubleValueCache lateUpdateResultCache;
+        private MaxDoubleValueCache renderingResultCache;
 
         public GraphicalPerformanceRenderer()
         {
-            builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
+            this.builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
 
-            barMaterial = new Material(Shader.Find("GUI/Text Shader"));
-            fontMaterial = new Material(Shader.Find("UI/Default"));
+            this.barMaterial = new Material(Shader.Find("GUI/Text Shader"));
+            this.fontMaterial = new Material(Shader.Find("UI/Default"));
 
-            screenSize = new Vector2(640, 1280);
+            this.screenSize = new Vector2(Screen.width, Screen.height);
+
+            this.fontMarginLeft = FontMarginLeftPercentage / 100 * screenSize.x;
+            this.barMarginLeft = BarMarginLeftPercentage / 100 * screenSize.x;
+            this.barMaxWidth = BarMaxWidthPercentage / 100 * screenSize.x;
+            this.textScale = RowHeight / FontSize;
+
+            this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue, DateTime.Now.Ticks);
+            this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue, DateTime.Now.Ticks);
+            this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue, DateTime.Now.Ticks);
         }
 
         /// <summary>
@@ -55,10 +75,10 @@ namespace IceMilkTea.Profiler
         /// <param name="profileFetchResults">パフォーマンスモニタから渡されるすべての計測結果の配列</param>
         public override void Begin(ProfileFetchResult[] profileFetchResults)
         {
-            if (result == null)
+            if (this.result == null)
             {
                 // プロファイル結果を覚える
-                result = profileFetchResults.First(x => x is UnityStandardLoopProfileResult) as UnityStandardLoopProfileResult;
+                this.result = profileFetchResults.First(x => x is UnityStandardLoopProfileResult) as UnityStandardLoopProfileResult;
             }
         }
 
@@ -78,33 +98,78 @@ namespace IceMilkTea.Profiler
         /// </summary>
         public override void Render()
         {
-            var marginTop = BarHeight + 10; //バーの高さ+α
+            this.updateResultCache.Update(this.result.UpdateTime, DateTime.Now.Ticks);
+            this.lateUpdateResultCache.Update(this.result.LateUpdateTime, DateTime.Now.Ticks);
+            this.renderingResultCache.Update(this.result.RenderingTime, DateTime.Now.Ticks);
 
             GL.PushMatrix();
             GL.LoadOrtho();
 
-            //builtinFont.material.SetPass(0);
-            barMaterial.SetPass(0);
-            GL.Begin(GL.QUADS);
-
-            var fontHelper = GLHelper.CreateFontHelper(builtinFont, Color.black, FontSize, screenSize);
+            var characterHelper = GLHelper.CreateCharacterHelper(builtinFont, Color.black, FontSize, screenSize);
 
             //1段目:Update
-            fontHelper.DrawCharacters(this.result.UpdateTime.ToString(), new Vector3(FontMarginLeft, screenSize.y - marginTop));
-            GLHelper.DrawBar(new Vector3(BarMarginLeft, screenSize.y - marginTop), Color.yellow, (float)(this.result.UpdateTime / MaxMillisecondPerFrame * BarMaxWidth), BarHeight, screenSize);
+            var row1Top = GetMarginTop(1);
 
             //2段目:LateUpdate
-            marginTop += BarHeight + 10; //バーの高さ+α
-            fontHelper.DrawCharacters(this.result.LateUpdateTime.ToString(), new Vector3(FontMarginLeft, screenSize.y - marginTop));
-            GLHelper.DrawBar(new Vector3(BarMarginLeft, screenSize.y - marginTop), Color.blue, (float)(this.result.LateUpdateTime / MaxMillisecondPerFrame * BarMaxWidth), BarHeight, screenSize);
+            var row2Top = GetMarginTop(2);
 
             //3段目:Rendering
-            marginTop += FontSize + 10; //フォントサイズ+α
-            fontHelper.DrawCharacters(this.result.RenderingTime.ToString(), new Vector3(FontMarginLeft, screenSize.y - marginTop));
-            GLHelper.DrawBar(new Vector3(BarMarginLeft, screenSize.y - marginTop), Color.green, (float)(this.result.RenderingTime / MaxMillisecondPerFrame * BarMaxWidth), BarHeight, screenSize);
+            var row3Top = GetMarginTop(3);
 
+            //バー
+            barMaterial.SetPass(0);
+            GL.Begin(GL.QUADS);
+            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), Color.yellow, (float)(this.updateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row2Top), Color.blue, (float)(this.lateUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row3Top), Color.green, (float)(this.renderingResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
             GL.End();
+
+            //テキスト
+            builtinFont.material.SetPass(0);
+            GL.Begin(GL.QUADS);
+            characterHelper.DrawCharacters($"Update:{this.updateResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row1Top), this.textScale);
+            characterHelper.DrawCharacters($"LateUpdate:{this.lateUpdateResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), this.textScale);
+            characterHelper.DrawCharacters($"RenderingTime:{this.renderingResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row3Top), this.textScale);
+            GL.End();
+
             GL.PopMatrix();
+        }
+
+
+        /// <summary>
+        /// 指定したrowのy座標を返す
+        /// </summary>
+        /// <param name="row"></param>
+        private float GetMarginTop(int row)
+        {
+            return row * (RowHeight + 10);//行の高さ+α
+        }
+
+        class MaxDoubleValueCache
+        {
+            private readonly int cacheMilliSeconds;
+            long lastUpdateTick;
+            double _value;
+            public double Value { get { return this._value; } }
+
+            public MaxDoubleValueCache(int cacheMilliSeconds, double initialValue, long currentTick)
+            {
+                this.cacheMilliSeconds = cacheMilliSeconds;
+                this._value = initialValue;
+                this.lastUpdateTick = currentTick;
+            }
+
+            public void Update(double value, long tick)
+            {
+                //前回の値より大きいか、Cache時間を超えたら更新
+                if (this._value < value
+                     || TimeSpan.FromTicks(tick - this.lastUpdateTick).TotalMilliseconds > this.cacheMilliSeconds)
+                {
+                    this.lastUpdateTick = tick;
+                    this._value = value;
+                    return;
+                }
+            }
         }
 
         public class GLHelper
@@ -130,9 +195,9 @@ namespace IceMilkTea.Profiler
                 }
             }
 
-            public static FontHelper CreateFontHelper(Font font, Color color, int fontSize, Vector2 screenSize)
+            public static CharacterHelper CreateCharacterHelper(Font font, Color color, int fontSize, Vector2 screenSize)
             {
-                return new FontHelper(font, color, fontSize, screenSize);
+                return new CharacterHelper(font, color, fontSize, screenSize);
             }
 
 
@@ -143,14 +208,14 @@ namespace IceMilkTea.Profiler
                 GL.Vertex(vertex);
             }
 
-            public class FontHelper
+            public class CharacterHelper
             {
                 private readonly Font font;
                 private readonly int fontSize;
                 private readonly Vector2 screenSize;
                 private readonly Color color;
 
-                public FontHelper(Font font, Color color, int fontSize, Vector2 screenSize)
+                public CharacterHelper(Font font, Color color, int fontSize, Vector2 screenSize)
                 {
                     this.font = font;
                     this.fontSize = fontSize;
@@ -166,23 +231,26 @@ namespace IceMilkTea.Profiler
                     Vector3 lasttr = uvPosition;
                     Vector3 lastbr = uvPosition;
 
-                    //高さを確保
-                    lasttl.y += this.fontSize / screenSize.y * scale;
-                    lasttr.y += this.fontSize / screenSize.y * scale;
-
                     for (var i = 0; i < characters.Length; i++)
                     {
                         var character = characters[i];
                         CharacterInfo ci;
                         if (font.GetCharacterInfo(character, out ci, this.fontSize))
                         {
+                            //文字の高さを設定
+                            var bottom = uvPosition.y + ci.minY / screenSize.y * scale;
+                            lastbl.y = lastbr.y = bottom;
+
+                            var top = uvPosition.y + ci.maxY / screenSize.y * scale;
+                            lasttl.y = lasttr.y = top;
+
                             //文字列分、右上と右下の頂点を横にずらす
-                            lasttr.x = lasttr.x + ci.advance / screenSize.x * scale;
-                            lastbr.x = lastbr.x + ci.advance / screenSize.x * scale;
+                            var right = lasttr.x + ci.glyphWidth / screenSize.x * scale;
+                            lasttr.x = lastbr.x = right;
 
                             DrawCharacter(character, ci, lastbl, lasttl, lasttr, lastbr);
 
-                            //最後に描画した文字の右上、右下の頂点を、次の文字の左上、左下とする
+                            //最後に描画した文字の右上、右下のx座標を、次の文字の左上、左下とする
                             lastbl.x = lastbr.x;
                             lasttl.x = lastbr.x;
                         }

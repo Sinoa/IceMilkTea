@@ -23,13 +23,5 @@ namespace IceMilkTea.Core
     /// </summary>
     internal class SafeGameMain : GameMain
     {
-        protected override void Startup()
-        {
-            PerformanceMonitor.Instance.Initialize();
-
-            PerformanceMonitor.Instance.AddProbe(UnityStandardLoopPerformanceProbe.Instance);
-            PerformanceMonitor.Instance.AddRenderer(new GraphicalPerformanceRenderer());
-            PerformanceMonitor.Instance.AddRenderer(new DebugLogPerformanceRenderer());
-        }
     }
 }
