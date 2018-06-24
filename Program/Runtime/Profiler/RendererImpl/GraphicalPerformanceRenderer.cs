@@ -28,12 +28,17 @@ namespace IceMilkTea.Profiler
     {
         private const int FontSize = 20; //フォントサイズ
         private const float RowHeight = 20; //テキストやバーを表示する行の高さ
-        private const float BarMaxWidthPercentage = 80; //バーの最大横幅(画面サイズに対する%)
+        private const float BarMaxWidthPercentage = 90; //バーの最大横幅(画面サイズに対する%)
         private const float FontMarginLeftPercentage = 2; //テキストの左側の余白
         private const float BarMarginLeftPercentage = 2;//バーの左側の余白
 
         private const float MaxMillisecondPerFrame = 33; //バーで計測できる1フレーム毎の実行時間(ミリ秒)
         private const int MaxValueCacheMilliseconds = 1000; //直近の最大値をどれだけの時間キャッシュするか(ミリ秒)
+        private static Color UpdateColor = Color.blue;
+        private static Color LateUpdateColor = new Color(0, 1, 1);
+        private static Color FixedUpdateColor = new Color(0.5f, 0, 1);
+        private static Color RenderingColor = Color.green;
+        private static Color TextureRenderingColor = Color.yellow;
 
         // メンバ変数宣言
         private UnityStandardLoopProfileResult result;
@@ -47,7 +52,9 @@ namespace IceMilkTea.Profiler
 
         private MaxDoubleValueCache updateResultCache;
         private MaxDoubleValueCache lateUpdateResultCache;
+        private MaxDoubleValueCache fixedUpdateResultCache;
         private MaxDoubleValueCache renderingResultCache;
+        private MaxDoubleValueCache textureRenderingResultCache;
         private CharacterHelper characterHelper;
 
         public GraphicalPerformanceRenderer()
@@ -62,9 +69,11 @@ namespace IceMilkTea.Profiler
             this.barMaxWidth = BarMaxWidthPercentage / 100 * screenSize.x;
             this.textScale = RowHeight / FontSize;
 
-            this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
-            this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
-            this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
+            this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
+            this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
+            this.fixedUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
+            this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
+            this.textureRenderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
             this.characterHelper = GLHelper.CreateCharacterHelper(this.builtinFont, FontSize, this.screenSize);
         }
 
@@ -99,46 +108,69 @@ namespace IceMilkTea.Profiler
         {
             this.updateResultCache.Update(this.result.UpdateTime);
             this.lateUpdateResultCache.Update(this.result.LateUpdateTime);
+            this.fixedUpdateResultCache.Update(this.result.FixedUpdateTime);
             this.renderingResultCache.Update(this.result.RenderingTime);
+            this.textureRenderingResultCache.Update(this.result.TextureRenderingTime);
 
             GL.PushMatrix();
             GL.LoadOrtho();
 
 
-            //1段目:Update
+            //1段目:バー表示
             var row1Top = GetMarginTop(1);
 
-            //2段目:LateUpdate
+            //2段目:Update
             var row2Top = GetMarginTop(2);
-
-            //3段目:Rendering
+            //3段目:LateUpdate
             var row3Top = GetMarginTop(3);
+            //4段目:FixedUpdate
+            var row4Top = GetMarginTop(4);
+            //5段目:RenderingTime
+            var row5Top = GetMarginTop(5);
+            //6段目:TextureRenderingTime
+            var row6Top = GetMarginTop(6);
 
             //バー
             this.barMaterial.SetPass(0);
             GL.Begin(GL.QUADS);
-            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), Color.yellow, (float)(this.updateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
-            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row2Top), Color.blue, (float)(this.lateUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
-            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row3Top), Color.green, (float)(this.renderingResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+
+            GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), Color.black, this.barMaxWidth, RowHeight, this.screenSize);//黒背景
+            var xPosition = GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), UpdateColor, (float)(this.updateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), LateUpdateColor, (float)(this.lateUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), FixedUpdateColor, (float)(this.fixedUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), RenderingColor, (float)(this.renderingResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), TextureRenderingColor, (float)(this.textureRenderingResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+
             GL.End();
 
             //テキスト
             this.builtinFont.material.SetPass(0);
             GL.Begin(GL.QUADS);
-            //1段目
-            var lastXposition = this.characterHelper.DrawString("Update:", new Vector3(this.fontMarginLeft, screenSize.y - row1Top), Color.black, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.updateResultCache.Value, new Vector3(lastXposition, screenSize.y - row1Top), Color.black, this.textScale);
-            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row1Top), Color.black, this.textScale);
+            //Update
+            var lastXposition = this.characterHelper.DrawString("Update:", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), UpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.updateResultCache.Value, new Vector3(lastXposition, screenSize.y - row2Top), UpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row2Top), UpdateColor, this.textScale);
 
-            //2段目
-            lastXposition = this.characterHelper.DrawString("LateUpdate:", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), Color.black, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.lateUpdateResultCache.Value, new Vector3(lastXposition, screenSize.y - row2Top), Color.black, this.textScale);
-            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row2Top), Color.black, this.textScale);
+            //LateUpdate
+            lastXposition = this.characterHelper.DrawString("LateUpdate:", new Vector3(this.fontMarginLeft, screenSize.y - row3Top), LateUpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.lateUpdateResultCache.Value, new Vector3(lastXposition, screenSize.y - row3Top), LateUpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row3Top), LateUpdateColor, this.textScale);
 
-            //3段目
-            lastXposition = this.characterHelper.DrawString("RenderingTime:", new Vector3(this.fontMarginLeft, screenSize.y - row3Top), Color.black, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.renderingResultCache.Value, new Vector3(lastXposition, screenSize.y - row3Top), Color.black, this.textScale);
-            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row3Top), Color.black, this.textScale);
+            //FixedUpdate
+            lastXposition = this.characterHelper.DrawString("FixedUpdate:", new Vector3(this.fontMarginLeft, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.fixedUpdateResultCache.Value, new Vector3(lastXposition, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
+
+            //Rendering
+            lastXposition = this.characterHelper.DrawString("Rendering:", new Vector3(this.fontMarginLeft, screenSize.y - row5Top), RenderingColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.renderingResultCache.Value, new Vector3(lastXposition, screenSize.y - row5Top), RenderingColor, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row5Top), RenderingColor, this.textScale);
+
+            //TextureRendering
+            lastXposition = this.characterHelper.DrawString("TextureRendering:", new Vector3(this.fontMarginLeft, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.textureRenderingResultCache.Value, new Vector3(lastXposition, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
+
             GL.End();
 
             GL.PopMatrix();
@@ -151,7 +183,7 @@ namespace IceMilkTea.Profiler
         /// <param name="row">行番号</param>
         private float GetMarginTop(int row)
         {
-            return row * (RowHeight + 10);//行の高さ+α
+            return row * (RowHeight + 7);//行の高さ+α
         }
     }
 }

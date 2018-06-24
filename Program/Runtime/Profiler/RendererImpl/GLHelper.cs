@@ -30,7 +30,8 @@ namespace IceMilkTea.Profiler
         /// <param name="width">横幅</param>
         /// <param name="height">縦幅</param>
         /// <param name="screenSize">画面サイズ</param>
-        public static void DrawBar(Vector3 position, Color color, float width, float height, Vector2 screenSize)
+        /// <returns>バーの右側のx座標</returns>
+        public static float DrawBar(Vector3 position, Color color, float width, float height, Vector2 screenSize)
         {
             var uvPosition = position / screenSize;
             var uvWidth = width / screenSize.x;
@@ -45,6 +46,8 @@ namespace IceMilkTea.Profiler
             SetVertex(color, Vector3.zero, tl);
             SetVertex(color, Vector3.zero, tr);
             SetVertex(color, Vector3.zero, br);
+
+            return tr.x * screenSize.x;
         }
 
         /// <summary>
@@ -54,7 +57,7 @@ namespace IceMilkTea.Profiler
         /// <param name="color">色</param>
         /// <param name="fontSize">フォントサイズ</param>
         /// <param name="screenSize">描画する画面のサイズ</param>
-        /// <returns></returns>
+        /// <returns>CharacterHelperインスタンス</returns>
         public static CharacterHelper CreateCharacterHelper(Font font, int fontSize, Vector2 screenSize)
         {
             return new CharacterHelper(font, fontSize, screenSize);
