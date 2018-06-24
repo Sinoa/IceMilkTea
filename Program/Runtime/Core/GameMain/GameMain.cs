@@ -36,21 +36,13 @@ namespace IceMilkTea.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Main()
         {
+            // ゲームメインをロードする
+            CurrentContext = LoadGameMain();
+
+
             // アプリケーションのイベントハンドラを登録
             Application.wantsToQuit += Internal_RequestShutdown;
             Application.quitting += Internal_Shutdown;
-
-
-            // 内部で保存されたGameMainのGameMainをロードする
-            CurrentContext = Resources.Load<GameMain>("GameMain");
-
-
-            // ロードが出来なかったのなら
-            if (CurrentContext == null)
-            {
-                // セーフ起動用のゲームメインを立ち上げる
-                CurrentContext = CreateInstance<SafeGameMain>();
-            }
 
 
             // GameMainを起動する
@@ -58,6 +50,60 @@ namespace IceMilkTea.Core
         }
 
 
+        #region ロジック群
+        /// <summary>
+        /// ゲームメインをロードします
+        /// </summary>
+        /// <returns>ロードされたゲームメインを返します</returns>
+        private static GameMain LoadGameMain()
+        {
+            // 内部で保存されたGameMainのGameMainをロードする
+            var gameMain = Resources.Load<GameMain>("GameMain");
+
+
+            // ロードが出来なかったのなら
+            if (gameMain == null)
+            {
+                // セーフ起動用のゲームメインで立ち上げる
+                return CreateInstance<SafeGameMain>();
+            }
+
+
+            // ロードしたゲームメインを返す
+            return gameMain;
+        }
+
+
+        /// <summary>
+        /// ゲームが起動してから消えるまで永続的に存在し続けるゲームオブジェクトを生成します。
+        /// ここで生成されるゲームオブジェクトはヒエラルキに表示されません
+        /// </summary>
+        /// <returns>生成された永続ゲームオブジェクトを返します</returns>
+        private static GameObject CreatePersistentGameObject()
+        {
+            // ゲームオブジェクトを生成する
+            var gameObject = new GameObject("__IceMilkTea_Persistent_GameObject__");
+
+
+            // ヒエラルキから姿を消して永続化
+            gameObject.hideFlags = HideFlags.HideInHierarchy;
+            DontDestroyOnLoad(gameObject);
+
+
+            // トランスフォームを取得して念の為初期値を入れる
+            var transform = gameObject.GetComponent<Transform>();
+            transform.position = Vector3.zero;
+            transform.rotation = Quaternion.identity;
+            transform.localScale = Vector3.one;
+
+
+            // 作ったゲームオブジェクトを返す
+            return gameObject;
+        }
+        #endregion
+
+
+        #region 内部イベントハンドラ
         /// <summary>
         /// このGameMainクラスのための Startup 関数です。
         /// </summary>
@@ -65,6 +111,16 @@ namespace IceMilkTea.Core
         {
             // 起動を叩く
             CurrentContext.Startup();
+        }
+
+
+        private static void Internal_OnApplicationFocus(bool focus)
+        {
+        }
+
+
+        private static void Internal_OnApplicationPause(bool pause)
+        {
         }
 
 
@@ -87,8 +143,10 @@ namespace IceMilkTea.Core
             // 終了を叩く
             CurrentContext.Shutdown();
         }
+        #endregion
 
 
+        #region 外部イベントハンドラ
         /// <summary>
         /// ゲームの起動処理を行います。
         /// サービスの初期化や他のサブシステムの初期化などを主に行います。
@@ -117,5 +175,6 @@ namespace IceMilkTea.Core
         protected virtual void Shutdown()
         {
         }
+        #endregion
     }
 }
