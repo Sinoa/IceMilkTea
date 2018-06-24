@@ -32,6 +32,12 @@ namespace IceMilkTea.Profiler
             private readonly int fontSize;
             private readonly Vector2 screenSize;
 
+            /// <summary>
+            /// CharacterHelperのコンストラクタです。
+            /// </summary>
+            /// <param name="font">描画するフォント</param>
+            /// <param name="fontSize">フォントサイズ</param>
+            /// <param name="screenSize">描画する画面のサイズ</param>
             public CharacterHelper(Font font, int fontSize, Vector2 screenSize)
             {
                 this.font = font;
@@ -203,8 +209,16 @@ namespace IceMilkTea.Profiler
             /// <summary>
             /// 1文字を描画するための情報を持ちます。
             /// </summary>
-            struct GLCharacterInfo
+            private struct GLCharacterInfo
             {
+                /// <summary>
+                /// GLCharacterInfoのコンストラクタです。
+                /// </summary>
+                /// <param name="characterInfo">Fontクラスから取得した、描画する文字のCharacterInfo</param>
+                /// <param name="drawUvBottomLeft">文字の左下の座標</param>
+                /// <param name="drawUvTopLeft">文字の左上の座標</param>
+                /// <param name="drawUvTopRight">文字の右上の座標</param>
+                /// <param name="drawUvBottomRight">文字の右下の座標</param>
                 public GLCharacterInfo(CharacterInfo characterInfo, Vector3 drawUvBottomLeft, Vector3 drawUvTopLeft, Vector3 drawUvTopRight, Vector3 drawUvBottomRight)
                 {
                     this.CharacterInfo = characterInfo;

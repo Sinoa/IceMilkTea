@@ -57,6 +57,9 @@ namespace IceMilkTea.Profiler
         private MaxDoubleValueCache textureRenderingResultCache;
         private CharacterHelper characterHelper;
 
+        /// <summary>
+        /// GraphicalPerformanceRendererのコンストラクタです。
+        /// </summary>
         public GraphicalPerformanceRenderer()
         {
             this.builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
@@ -183,7 +186,7 @@ namespace IceMilkTea.Profiler
         /// <param name="row">行番号</param>
         private float GetMarginTop(int row)
         {
-            return row * (RowHeight + 7);//行の高さ+α
+            return row * (RowHeight + 7);//行の高さ+ 行間の余白
         }
     }
 }

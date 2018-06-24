@@ -31,6 +31,11 @@ namespace IceMilkTea.Profiler
         double _value;
         public double Value { get { return this._value; } }
 
+        /// <summary>
+        /// MaxDoubleValueCacheのコンストラクタです。
+        /// </summary>
+        /// <param name="cacheMilliSeconds">キャッシュする時間(ミリ秒)</param>
+        /// <param name="initialValue">初期値</param>
         public MaxDoubleValueCache(int cacheMilliSeconds, double initialValue)
         {
             this.cacheMilliSeconds = cacheMilliSeconds;
