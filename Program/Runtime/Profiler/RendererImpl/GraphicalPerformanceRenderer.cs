@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static IceMilkTea.Profiler.GLHelper;
 
 namespace IceMilkTea.Profiler
 {
@@ -29,7 +30,7 @@ namespace IceMilkTea.Profiler
         private const float RowHeight = 20; //テキストやバーを表示する行の高さ
         private const float BarMaxWidthPercentage = 80; //バーの最大横幅(画面サイズに対する%)
         private const float FontMarginLeftPercentage = 2; //テキストの左側の余白
-        private const float BarMarginLeftPercentage = 8;//バーの左側の余白
+        private const float BarMarginLeftPercentage = 2;//バーの左側の余白
 
         private const float MaxMillisecondPerFrame = 33; //バーで計測できる1フレーム毎の実行時間(ミリ秒)
         private const int MaxValueCacheMilliseconds = 1000; //直近の最大値をどれだけの時間キャッシュするか(ミリ秒)
@@ -38,7 +39,6 @@ namespace IceMilkTea.Profiler
         private UnityStandardLoopProfileResult result;
         private Font builtinFont;
         private Material barMaterial;
-        private Material fontMaterial;
         private Vector2 screenSize;
         private float fontMarginLeft;
         private float barMarginLeft;
@@ -48,15 +48,13 @@ namespace IceMilkTea.Profiler
         private MaxDoubleValueCache updateResultCache;
         private MaxDoubleValueCache lateUpdateResultCache;
         private MaxDoubleValueCache renderingResultCache;
+        private CharacterHelper characterHelper;
 
         public GraphicalPerformanceRenderer()
         {
             this.builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
             this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
-
             this.barMaterial = new Material(Shader.Find("GUI/Text Shader"));
-            this.fontMaterial = new Material(Shader.Find("UI/Default"));
-
             this.screenSize = new Vector2(Screen.width, Screen.height);
 
             this.fontMarginLeft = FontMarginLeftPercentage / 100 * screenSize.x;
@@ -67,6 +65,7 @@ namespace IceMilkTea.Profiler
             this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
             this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
             this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, float.MinValue);
+            this.characterHelper = GLHelper.CreateCharacterHelper(this.builtinFont, FontSize, this.screenSize);
         }
 
         /// <summary>
@@ -105,7 +104,6 @@ namespace IceMilkTea.Profiler
             GL.PushMatrix();
             GL.LoadOrtho();
 
-            var characterHelper = GLHelper.CreateCharacterHelper(builtinFont, Color.black, FontSize, screenSize);
 
             //1段目:Update
             var row1Top = GetMarginTop(1);
@@ -127,9 +125,20 @@ namespace IceMilkTea.Profiler
             //テキスト
             this.builtinFont.material.SetPass(0);
             GL.Begin(GL.QUADS);
-            characterHelper.DrawCharacters($"Update:{this.updateResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row1Top), this.textScale);
-            characterHelper.DrawCharacters($"LateUpdate:{this.lateUpdateResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), this.textScale);
-            characterHelper.DrawCharacters($"RenderingTime:{this.renderingResultCache.Value}ms", new Vector3(this.fontMarginLeft, screenSize.y - row3Top), this.textScale);
+            //1段目
+            var lastXposition = this.characterHelper.DrawString("Update:", new Vector3(this.fontMarginLeft, screenSize.y - row1Top), Color.black, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.updateResultCache.Value, new Vector3(lastXposition, screenSize.y - row1Top), Color.black, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row1Top), Color.black, this.textScale);
+
+            //2段目
+            lastXposition = this.characterHelper.DrawString("LateUpdate:", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), Color.black, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.lateUpdateResultCache.Value, new Vector3(lastXposition, screenSize.y - row2Top), Color.black, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row2Top), Color.black, this.textScale);
+
+            //3段目
+            lastXposition = this.characterHelper.DrawString("RenderingTime:", new Vector3(this.fontMarginLeft, screenSize.y - row3Top), Color.black, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(this.renderingResultCache.Value, new Vector3(lastXposition, screenSize.y - row3Top), Color.black, this.textScale);
+            lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row3Top), Color.black, this.textScale);
             GL.End();
 
             GL.PopMatrix();
