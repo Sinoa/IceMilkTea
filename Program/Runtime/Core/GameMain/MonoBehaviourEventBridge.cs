@@ -44,6 +44,10 @@ namespace IceMilkTea.Core
             component.onApplicationPauseFunction = pauseFunction;
 
 
+            // インスペクタから姿を消す
+            component.hideFlags = HideFlags.HideInInspector;
+
+
             // 結果を返す
             return component;
         }
