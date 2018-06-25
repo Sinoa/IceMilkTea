@@ -21,7 +21,7 @@ namespace IceMilkTea.Profiler
     /// <summary>
     /// GLクラスを使った描画を簡単に行うためのヘルパーです。
     /// </summary>
-    partial class GLHelper
+    internal partial class GLHelper
     {
         /// <summary>
         /// 文字の描画を簡単に行うためのヘルパーです。

@@ -20,7 +20,7 @@ namespace IceMilkTea.Profiler
     /// <summary>
     /// GLクラスを使った描画を簡単に行うためのヘルパーです。
     /// </summary>
-    partial class GLHelper
+    internal partial class GLHelper
     {
         /// <summary>
         /// 四角形の図形描画を行います。

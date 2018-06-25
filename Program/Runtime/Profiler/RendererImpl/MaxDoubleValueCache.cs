@@ -24,7 +24,7 @@ namespace IceMilkTea.Profiler
     /// <summary>
     /// 最大値を更新するか、指定した時間が経過するまで値をキャッシュします。
     /// </summary>
-    class MaxDoubleValueCache
+    internal class MaxDoubleValueCache
     {
         private readonly int cacheMilliSeconds;
         long lastUpdateTick;
