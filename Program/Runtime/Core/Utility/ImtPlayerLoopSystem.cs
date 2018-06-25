@@ -76,18 +76,6 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// BuildAndSetUnityDefaultPlayerLoop関数によって最後に構築されたループシステムを取得します。
-        /// まだ一度も構築した経験がない場合は、GetUnityDefaultPlayerLoop関数の値を採用します。
-        /// </summary>
-        /// <returns>最後に構築されたループシステムを返します</returns>
-        public static ImtPlayerLoopSystem GetLastBuildLoopSystem()
-        {
-            // 過去に構築経験があれば返して、まだなければGetUnityDefaultPlayerLoopの結果を返す
-            return lastBuildLoopSystem ?? GetUnityDefaultPlayerLoop();
-        }
-
-
-        /// <summary>
         /// 指定されたPlayerLoopSystem構造体オブジェクトから値をコピーしてインスタンスの初期化を行います。
         /// また、指定されたPlayerLoopSystem構造体オブジェクトにサブループシステムが存在する場合は再帰的にインスタンスの初期化が行われます。
         /// </summary>
@@ -192,6 +180,18 @@ namespace IceMilkTea.Core
 
 
         #region コントロール関数群
+        /// <summary>
+        /// BuildAndSetUnityDefaultPlayerLoop関数によって最後に構築されたループシステムを取得します。
+        /// まだ一度も構築した経験がない場合は、GetUnityDefaultPlayerLoop関数の値を採用します。
+        /// </summary>
+        /// <returns>最後に構築されたループシステムを返します</returns>
+        public static ImtPlayerLoopSystem GetLastBuildLoopSystem()
+        {
+            // 過去に構築経験があれば返して、まだなければGetUnityDefaultPlayerLoopの結果を返す
+            return lastBuildLoopSystem ?? GetUnityDefaultPlayerLoop();
+        }
+
+
         /// <summary>
         /// 指定されたインデックスの位置に更新関数を挿入します。
         /// また、nullの更新関数を指定すると何もしないループシステムが生成されます。
