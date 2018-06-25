@@ -13,15 +13,13 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using UnityEngine;
-
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// ゲームメインクラスの実装をするための抽象クラスです。
-    /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
+    /// 起動するべきGameMainが見つからなかった場合や、起動できない場合において
+    /// 代わりに起動するための GameMain クラスです。
     /// </summary>
-    public abstract class GameMain : ScriptableObject
+    internal class SafeGameMain : GameMain
     {
     }
 }
