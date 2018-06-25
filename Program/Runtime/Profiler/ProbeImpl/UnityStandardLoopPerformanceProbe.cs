@@ -101,7 +101,7 @@ namespace IceMilkTea.Profiler
             // 各種アップデートの更新関数を登録する
             var rootLoopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
             rootLoopSystem.InsertLoopSystem<FixedUpdate.ClearLines, FixedUpdateProbeStart>(InsertTiming.BeforeInsert, () => fixedUpdateStartCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.InsertLoopSystem<PreUpdate.UpdateVideo, FixedUpdateProbeEnd>(InsertTiming.AfterInsert, () => fixedUpdateEndCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate, FixedUpdateProbeEnd>(InsertTiming.AfterInsert, () => fixedUpdateEndCount = stopwatch.ElapsedTicks);
             rootLoopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate, UpdateProbeStart>(InsertTiming.BeforeInsert, () => updateStartCount = stopwatch.ElapsedTicks);
             rootLoopSystem.InsertLoopSystem<Update.DirectorUpdate, UpdateProbeEnd>(InsertTiming.AfterInsert, () => updateEndCount = stopwatch.ElapsedTicks);
             rootLoopSystem.InsertLoopSystem<PreLateUpdate.AIUpdatePostScript, LateUpdateProbeStart>(InsertTiming.BeforeInsert, () => lateUpdateStartCount = stopwatch.ElapsedTicks);
