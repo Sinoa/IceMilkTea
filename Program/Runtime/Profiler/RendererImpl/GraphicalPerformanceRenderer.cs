@@ -63,7 +63,6 @@ namespace IceMilkTea.Profiler
         public GraphicalPerformanceRenderer()
         {
             this.builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
             this.barMaterial = new Material(Shader.Find("GUI/Text Shader"));
             this.screenSize = new Vector2(Screen.width, Screen.height);
 
@@ -78,6 +77,22 @@ namespace IceMilkTea.Profiler
             this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
             this.textureRenderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
             this.characterHelper = GLHelper.CreateCharacterHelper(this.builtinFont, FontSize, this.screenSize);
+
+            this.FontCharacterInitialize();
+
+            //フォントのテクスチャ再構築時に再度初期化
+            Font.textureRebuilt += font =>
+            {
+                if (font.name == this.builtinFont.name)
+                    this.FontCharacterInitialize();
+            };
+        }
+        /// <summary>
+        /// 描画に使用するFontの初期化を行います
+        /// </summary>
+        private void FontCharacterInitialize()
+        {
+            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
         }
 
         /// <summary>
