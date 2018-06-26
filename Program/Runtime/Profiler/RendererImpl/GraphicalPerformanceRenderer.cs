@@ -74,13 +74,6 @@ namespace IceMilkTea.Profiler
             this.characterHelper = GLHelper.CreateCharacterHelper(this.builtinFont, FontSize, this.screenSize);
 
             this.FontCharacterInitialize();
-
-            //フォントのテクスチャ再構築時に再度初期化
-            Font.textureRebuilt += font =>
-            {
-                if (font.name == this.builtinFont.name)
-                    this.FontCharacterInitialize();
-            };
         }
         /// <summary>
         /// 描画に使用するFontの初期化を行います
@@ -160,6 +153,7 @@ namespace IceMilkTea.Profiler
             GL.End();
 
             //テキスト
+            this.FontCharacterInitialize();
             this.builtinFont.material.SetPass(0);
             GL.Begin(GL.QUADS);
             //Update
