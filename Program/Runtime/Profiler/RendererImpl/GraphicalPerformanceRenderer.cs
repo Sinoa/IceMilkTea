@@ -50,11 +50,11 @@ namespace IceMilkTea.Profiler
         private float barMaxWidth;
         private float textScale;
 
-        private MaxDoubleValueCache updateResultCache;
-        private MaxDoubleValueCache lateUpdateResultCache;
-        private MaxDoubleValueCache fixedUpdateResultCache;
-        private MaxDoubleValueCache renderingResultCache;
-        private MaxDoubleValueCache textureRenderingResultCache;
+        private double lowPassFixedValue;
+        private double lowPassUpdateValue;
+        private double lowPassLateUpdateValue;
+        private double lowPassRenderingValue;
+        private double lowPassRenderTextureRenderingValue;
         private CharacterHelper characterHelper;
 
         /// <summary>
@@ -63,7 +63,6 @@ namespace IceMilkTea.Profiler
         public GraphicalPerformanceRenderer()
         {
             this.builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
             this.barMaterial = new Material(Shader.Find("GUI/Text Shader"));
             this.screenSize = new Vector2(Screen.width, Screen.height);
 
@@ -72,12 +71,16 @@ namespace IceMilkTea.Profiler
             this.barMaxWidth = BarMaxWidthPercentage / 100 * screenSize.x;
             this.textScale = RowHeight / FontSize;
 
-            this.updateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
-            this.lateUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
-            this.fixedUpdateResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
-            this.renderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
-            this.textureRenderingResultCache = new MaxDoubleValueCache(MaxValueCacheMilliseconds, double.MinValue);
             this.characterHelper = GLHelper.CreateCharacterHelper(this.builtinFont, FontSize, this.screenSize);
+
+            this.FontCharacterInitialize();
+        }
+        /// <summary>
+        /// 描画に使用するFontの初期化を行います
+        /// </summary>
+        private void FontCharacterInitialize()
+        {
+            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
         }
 
         /// <summary>
@@ -109,11 +112,14 @@ namespace IceMilkTea.Profiler
         /// </summary>
         public override void Render()
         {
-            this.updateResultCache.Update(this.result.UpdateTime);
-            this.lateUpdateResultCache.Update(this.result.LateUpdateTime);
-            this.fixedUpdateResultCache.Update(this.result.FixedUpdateTime);
-            this.renderingResultCache.Update(this.result.RenderingTime);
-            this.textureRenderingResultCache.Update(this.result.TextureRenderingTime);
+            // やや強めにローパスフィルタをかける（傾きの係数は後で外から渡せるように改良する）
+            var lowPassFactor = 0.3;
+            lowPassFixedValue = (result.FixedUpdateTime - lowPassFixedValue) * lowPassFactor + lowPassFixedValue;
+            lowPassUpdateValue = (result.UpdateTime - lowPassUpdateValue) * lowPassFactor + lowPassUpdateValue;
+            lowPassLateUpdateValue = (result.LateUpdateTime - lowPassLateUpdateValue) * lowPassFactor + lowPassLateUpdateValue;
+            lowPassRenderingValue = (result.RenderingTime - lowPassRenderingValue) * lowPassFactor + lowPassRenderingValue;
+            lowPassRenderTextureRenderingValue = (result.TextureRenderingTime - lowPassRenderTextureRenderingValue) * lowPassFactor + lowPassRenderTextureRenderingValue;
+
 
             GL.PushMatrix();
             GL.LoadOrtho();
@@ -138,40 +144,41 @@ namespace IceMilkTea.Profiler
             GL.Begin(GL.QUADS);
 
             GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), Color.black, this.barMaxWidth, RowHeight, this.screenSize);//黒背景
-            var xPosition = GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), UpdateColor, (float)(this.updateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
-            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), LateUpdateColor, (float)(this.lateUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
-            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), FixedUpdateColor, (float)(this.fixedUpdateResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
-            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), RenderingColor, (float)(this.renderingResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
-            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), TextureRenderingColor, (float)(this.textureRenderingResultCache.Value / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            var xPosition = GLHelper.DrawBar(new Vector3(this.barMarginLeft, screenSize.y - row1Top), UpdateColor, (float)(lowPassUpdateValue / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), LateUpdateColor, (float)(lowPassLateUpdateValue / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), FixedUpdateColor, (float)(lowPassFixedValue / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), RenderingColor, (float)(lowPassRenderingValue / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
+            xPosition = GLHelper.DrawBar(new Vector3(xPosition, screenSize.y - row1Top), TextureRenderingColor, (float)(lowPassRenderTextureRenderingValue / MaxMillisecondPerFrame * this.barMaxWidth), RowHeight, this.screenSize);
 
             GL.End();
 
             //テキスト
+            this.FontCharacterInitialize();
             this.builtinFont.material.SetPass(0);
             GL.Begin(GL.QUADS);
             //Update
             var lastXposition = this.characterHelper.DrawString("Update:", new Vector3(this.fontMarginLeft, screenSize.y - row2Top), UpdateColor, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.updateResultCache.Value, new Vector3(lastXposition, screenSize.y - row2Top), UpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(lowPassUpdateValue, new Vector3(lastXposition, screenSize.y - row2Top), UpdateColor, this.textScale);
             lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row2Top), UpdateColor, this.textScale);
 
             //LateUpdate
             lastXposition = this.characterHelper.DrawString("LateUpdate:", new Vector3(this.fontMarginLeft, screenSize.y - row3Top), LateUpdateColor, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.lateUpdateResultCache.Value, new Vector3(lastXposition, screenSize.y - row3Top), LateUpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(lowPassLateUpdateValue, new Vector3(lastXposition, screenSize.y - row3Top), LateUpdateColor, this.textScale);
             lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row3Top), LateUpdateColor, this.textScale);
 
             //FixedUpdate
             lastXposition = this.characterHelper.DrawString("FixedUpdate:", new Vector3(this.fontMarginLeft, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.fixedUpdateResultCache.Value, new Vector3(lastXposition, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(lowPassFixedValue, new Vector3(lastXposition, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
             lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row4Top), FixedUpdateColor, this.textScale);
 
             //Rendering
             lastXposition = this.characterHelper.DrawString("Rendering:", new Vector3(this.fontMarginLeft, screenSize.y - row5Top), RenderingColor, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.renderingResultCache.Value, new Vector3(lastXposition, screenSize.y - row5Top), RenderingColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(lowPassRenderingValue, new Vector3(lastXposition, screenSize.y - row5Top), RenderingColor, this.textScale);
             lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row5Top), RenderingColor, this.textScale);
 
             //TextureRendering
             lastXposition = this.characterHelper.DrawString("TextureRendering:", new Vector3(this.fontMarginLeft, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
-            lastXposition = this.characterHelper.DrawDouble(this.textureRenderingResultCache.Value, new Vector3(lastXposition, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
+            lastXposition = this.characterHelper.DrawDouble(lowPassRenderTextureRenderingValue, new Vector3(lastXposition, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
             lastXposition = this.characterHelper.DrawString("ms", new Vector3(lastXposition, screenSize.y - row6Top), TextureRenderingColor, this.textScale);
 
             GL.End();
