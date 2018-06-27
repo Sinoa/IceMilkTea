@@ -23,6 +23,11 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameMain : ScriptableObject
     {
+        // 以下クラス変数宣言
+        private static GameObject persistentGameObject;
+
+
+
         /// <summary>
         /// 現在のゲームメインコンテキストを取得します
         /// </summary>
@@ -36,8 +41,9 @@ namespace IceMilkTea.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Main()
         {
-            // ゲームメインをロードする
-            CurrentContext = LoadGameMain();
+            // 永続ゲームオブジェクトを生成してMonoBehaviourのイベントブリッジコンポーネントをつける
+            persistentGameObject = CreatePersistentGameObject();
+            MonoBehaviourEventBridge.Attach(persistentGameObject, Internal_OnApplicationFocus, Internal_OnApplicationPause);
 
 
             // アプリケーションのイベントハンドラを登録
@@ -45,12 +51,16 @@ namespace IceMilkTea.Core
             Application.quitting += Internal_Shutdown;
 
 
+            // ゲームメインをロードする
+            CurrentContext = LoadGameMain();
+
+
             // GameMainを起動する
             Internal_Startup();
         }
 
 
-        #region ロジック群
+        #region GameMain用ロジック群
         /// <summary>
         /// ゲームメインをロードします
         /// </summary>
@@ -114,13 +124,25 @@ namespace IceMilkTea.Core
         }
 
 
+        /// <summary>
+        /// このGameMainクラスのための OnApplicationFocus 関数です。
+        /// </summary>
+        /// <param name="focus">フォーカスを得られたときはtrueを、失ったときはfalse</param>
         private static void Internal_OnApplicationFocus(bool focus)
         {
+            // フォーカス変化イベントを叩く
+            CurrentContext.OnApplicationFocus(focus);
         }
 
 
+        /// <summary>
+        /// このGameMainクラスのための OnApplicationPause 関数です。
+        /// </summary>
+        /// <param name="pause">一時停止になったときはtrueを、再生状態になったときはfalse</param>
         private static void Internal_OnApplicationPause(bool pause)
         {
+            // ポーズ変化イベントを叩く
+            CurrentContext.OnApplicationPause(pause);
         }
 
 
@@ -152,6 +174,24 @@ namespace IceMilkTea.Core
         /// サービスの初期化や他のサブシステムの初期化などを主に行います。
         /// </summary>
         protected virtual void Startup()
+        {
+        }
+
+
+        /// <summary>
+        /// ゲームアプリケーションがウィンドウやプレイヤーなどのフォーカスの状態が変化したときの処理を行います
+        /// </summary>
+        /// <param name="focus">フォーカスを得られたときはtrueを、失ったときはfalse</param>
+        protected virtual void OnApplicationFocus(bool focus)
+        {
+        }
+
+
+        /// <summary>
+        /// ゲームアプリケーションの再生状態が変化したときの処理を行います
+        /// </summary>
+        /// <param name="pause">一時停止になったときはtrueを、再生状態になったときはfalse</param>
+        protected virtual void OnApplicationPause(bool pause)
         {
         }
 
