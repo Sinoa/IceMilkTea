@@ -63,7 +63,6 @@ namespace IceMilkTea.Profiler
         public GraphicalPerformanceRenderer()
         {
             this.builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
             this.barMaterial = new Material(Shader.Find("GUI/Text Shader"));
             this.screenSize = new Vector2(Screen.width, Screen.height);
 
@@ -73,6 +72,15 @@ namespace IceMilkTea.Profiler
             this.textScale = RowHeight / FontSize;
 
             this.characterHelper = GLHelper.CreateCharacterHelper(this.builtinFont, FontSize, this.screenSize);
+
+            this.FontCharacterInitialize();
+        }
+        /// <summary>
+        /// 描画に使用するFontの初期化を行います
+        /// </summary>
+        private void FontCharacterInitialize()
+        {
+            this.builtinFont.RequestCharactersInTexture("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-&_=:;%()[]?{}|/.,", FontSize);
         }
 
         /// <summary>
@@ -145,6 +153,7 @@ namespace IceMilkTea.Profiler
             GL.End();
 
             //テキスト
+            this.FontCharacterInitialize();
             this.builtinFont.material.SetPass(0);
             GL.Begin(GL.QUADS);
             //Update
