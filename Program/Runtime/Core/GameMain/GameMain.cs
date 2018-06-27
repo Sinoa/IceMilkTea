@@ -13,6 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using UnityEngine;
 
 namespace IceMilkTea.Core
@@ -108,6 +109,70 @@ namespace IceMilkTea.Core
 
 
             // 作ったゲームオブジェクトを返す
+            return gameObject;
+        }
+        #endregion
+
+
+        #region 永続ゲームオブジェクト用ロジック群
+        /// <summary>
+        /// GameMainが保有している永続ゲームオブジェクトに対象のコンポーネントをアタッチします
+        /// </summary>
+        /// <typeparam name="T">アタッチするコンポーネントの型</typeparam>
+        /// <returns>アタッチされたコンポーネントのインスタンスを返します</returns>
+        public T AddComponent<T>() where T : Component
+        {
+            // コンポーネントをアタッチして返す
+            return persistentGameObject.AddComponent<T>();
+        }
+
+
+        /// <summary>
+        /// GameMainが保有している永続ゲームオブジェクトに対象のゲームオブジェクトを子供として配置します。
+        /// また、配置する際に追加するゲームオブジェクトのワールド姿勢は維持されます。
+        /// </summary>
+        /// <param name="child">永続ゲームオブジェクトの子にするゲームオブジェクト</param>
+        public void AddChildGameObject(GameObject child)
+        {
+            // ワールド姿勢を維持したまま子に追加
+            AddChildGameObject(child, true);
+        }
+
+
+        /// <summary>
+        /// GameMainが保有している永続ゲームオブジェクトに対象のゲームオブジェクトを子供として配置します
+        /// </summary>
+        /// <param name="child">永続ゲームオブジェクトの子にするゲームオブジェクト</param>
+        /// <param name="worldPositionStays">子になるゲームオブジェクトのワールド姿勢を維持するか否か</param>
+        /// <exception cref="ArgumentNullException">childがnullです</exception>
+        public void AddChildGameObject(GameObject child, bool worldPositionStays)
+        {
+            // 引数チェック
+            if (child == null)
+            {
+                // nullは受け付けられない
+                throw new ArgumentNullException(nameof(child));
+            }
+
+
+            // 対象のゲームオブジェクトの親は永続ゲームオブジェクト
+            child.transform.SetParent(persistentGameObject.transform, worldPositionStays);
+        }
+
+
+        /// <summary>
+        /// GameMainが保有している永続ゲームオブジェクトに新しくゲームオブジェクトを生成します
+        /// </summary>
+        /// <param name="name">新しく生成するゲームオブジェクト名。nullまたは空白文字列の場合は"NewGameObject"の名前が採用されます</param>
+        /// <returns>生成したゲームオブジェクトを返します</returns>
+        public GameObject CreateChildGameObject(string name)
+        {
+            // ゲームオブジェクトを生成して子供の追加をする
+            var gameObject = new GameObject(string.IsNullOrWhiteSpace(name) ? "NewGameObject" : name);
+            AddChildGameObject(gameObject);
+
+
+            // 生成したゲームオブジェクトを返す
             return gameObject;
         }
         #endregion
