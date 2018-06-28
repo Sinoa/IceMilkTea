@@ -1,0 +1,10 @@
+{
+	"name": "jp.sinoa.icemilktea",
+	"displayName": "IceMilkTea",
+	"version": "0.0.1",
+	"unity": "2018.1",
+	"description": "This package provides Game develop support.",
+	"keywords": ["support", "framework", "ice", "milk", "tea"],
+	"category": "GameFramework",
+	"dependencies": {}
+}
