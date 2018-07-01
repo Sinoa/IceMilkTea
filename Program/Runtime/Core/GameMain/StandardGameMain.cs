@@ -13,6 +13,9 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using IceMilkTea.Profiler;
+using UnityEngine;
+
 namespace IceMilkTea.Core
 {
     /// <summary>
@@ -21,5 +24,25 @@ namespace IceMilkTea.Core
     /// </summary>
     public class StandardGameMain : GameMain
     {
+        // インスペクタ公開用メンバ変数定義
+        [SerializeField]
+        private bool useProfiler; //!< プロファイラを使用するか否か
+
+
+
+        /// <summary>
+        /// GameMainの起動処理を行います
+        /// </summary>
+        protected override void Startup()
+        {
+            // もしプロファイラを使うのなら
+            if (useProfiler)
+            {
+                // プロファイラの初期化とUnityの標準計測プロファイラを設定する
+                PerformanceMonitor.Instance.Initialize();
+                PerformanceMonitor.Instance.AddProbe(UnityStandardLoopPerformanceProbe.Instance);
+                PerformanceMonitor.Instance.AddRenderer(new GraphicalPerformanceRenderer());
+            }
+        }
     }
 }
