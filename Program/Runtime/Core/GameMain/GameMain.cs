@@ -80,6 +80,16 @@ namespace IceMilkTea.Core
             }
 
 
+            // リダイレクトするGameMainがあるか聞いて、存在するなら
+            var redirectGameMain = gameMain.RedirectGameMain();
+            if (redirectGameMain != null)
+            {
+                // ロードされたGameMainを解放して、リダイレクトされたGameMainを設定する
+                Destroy(gameMain);
+                gameMain = redirectGameMain;
+            }
+
+
             // ロードしたゲームメインを返す
             return gameMain;
         }
@@ -234,6 +244,19 @@ namespace IceMilkTea.Core
 
 
         #region 外部イベントハンドラ
+        /// <summary>
+        /// 起動するGameMainをリダイレクトします。
+        /// IceMilkTeaによって起動されたGameMainから他のGameMainへリダイレクトする場合は、
+        /// この関数をオーバーライドして起動するGameMainのインスタンスを返します。
+        /// </summary>
+        /// <returns>リダイレクトするGameMainがある場合はインスタンスを返しますが、ない場合はnullを返します</returns>
+        protected virtual GameMain RedirectGameMain()
+        {
+            // リダイレクト先GameMainはなし
+            return null;
+        }
+
+
         /// <summary>
         /// ゲームの起動処理を行います。
         /// サービスの初期化や他のサブシステムの初期化などを主に行います。
