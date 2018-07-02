@@ -13,7 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using UnityEngine;
 
 namespace IceMilkTea.Core
@@ -24,11 +23,6 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameMain : ScriptableObject
     {
-        // 以下クラス変数宣言
-        private static GameObject persistentGameObject;
-
-
-
         /// <summary>
         /// 現在のゲームメインコンテキストを取得します
         /// </summary>
@@ -42,22 +36,23 @@ namespace IceMilkTea.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Main()
         {
+            // ゲームメインをロードする
+            var gameMain = LoadGameMain();
+            CurrentContext = gameMain;
+
+
             // 永続ゲームオブジェクトを生成してMonoBehaviourのイベントブリッジコンポーネントをつける
-            persistentGameObject = CreatePersistentGameObject();
-            MonoBehaviourEventBridge.Attach(persistentGameObject, Internal_OnApplicationFocus, Internal_OnApplicationPause);
+            var persistentGameObject = CreatePersistentGameObject();
+            MonoBehaviourEventBridge.Attach(persistentGameObject, gameMain.OnApplicationFocus, gameMain.OnApplicationPause);
 
 
             // アプリケーションのイベントハンドラを登録
-            Application.wantsToQuit += Internal_RequestShutdown;
-            Application.quitting += Internal_Shutdown;
-
-
-            // ゲームメインをロードする
-            CurrentContext = LoadGameMain();
+            Application.wantsToQuit += gameMain.Internal_RequestShutdown;
+            Application.quitting += gameMain.Internal_Shutdown;
 
 
             // GameMainを起動する
-            Internal_Startup();
+            gameMain.Startup();
         }
 
 
@@ -124,126 +119,7 @@ namespace IceMilkTea.Core
         #endregion
 
 
-        #region 永続ゲームオブジェクト用ロジック群
-        /// <summary>
-        /// GameMainが保有している永続ゲームオブジェクトに対象のコンポーネントをアタッチします
-        /// </summary>
-        /// <typeparam name="T">アタッチするコンポーネントの型</typeparam>
-        /// <returns>アタッチされたコンポーネントのインスタンスを返します</returns>
-        public T AddComponent<T>() where T : Component
-        {
-            // コンポーネントをアタッチして返す
-            return persistentGameObject.AddComponent<T>();
-        }
-
-
-        /// <summary>
-        /// GameMainが保有している永続ゲームオブジェクトに対象のゲームオブジェクトを子供として配置します。
-        /// また、配置する際に追加するゲームオブジェクトのワールド姿勢は維持されます。
-        /// </summary>
-        /// <param name="child">永続ゲームオブジェクトの子にするゲームオブジェクト</param>
-        public void AddChildGameObject(GameObject child)
-        {
-            // ワールド姿勢を維持したまま子に追加
-            AddChildGameObject(child, true);
-        }
-
-
-        /// <summary>
-        /// GameMainが保有している永続ゲームオブジェクトに対象のゲームオブジェクトを子供として配置します
-        /// </summary>
-        /// <param name="child">永続ゲームオブジェクトの子にするゲームオブジェクト</param>
-        /// <param name="worldPositionStays">子になるゲームオブジェクトのワールド姿勢を維持するか否か</param>
-        /// <exception cref="ArgumentNullException">childがnullです</exception>
-        public void AddChildGameObject(GameObject child, bool worldPositionStays)
-        {
-            // 引数チェック
-            if (child == null)
-            {
-                // nullは受け付けられない
-                throw new ArgumentNullException(nameof(child));
-            }
-
-
-            // 対象のゲームオブジェクトの親は永続ゲームオブジェクト
-            child.transform.SetParent(persistentGameObject.transform, worldPositionStays);
-        }
-
-
-        /// <summary>
-        /// GameMainが保有している永続ゲームオブジェクトに新しくゲームオブジェクトを生成します
-        /// </summary>
-        /// <param name="name">新しく生成するゲームオブジェクト名。nullまたは空白文字列の場合は"NewGameObject"の名前が採用されます</param>
-        /// <returns>生成したゲームオブジェクトを返します</returns>
-        public GameObject CreateChildGameObject(string name)
-        {
-            // ゲームオブジェクトを生成して子供の追加をする
-            var gameObject = new GameObject(string.IsNullOrWhiteSpace(name) ? "NewGameObject" : name);
-            AddChildGameObject(gameObject);
-
-
-            // 生成したゲームオブジェクトを返す
-            return gameObject;
-        }
-        #endregion
-
-
-        #region 内部イベントハンドラ
-        /// <summary>
-        /// このGameMainクラスのための Startup 関数です。
-        /// </summary>
-        private static void Internal_Startup()
-        {
-            // 起動を叩く
-            CurrentContext.Startup();
-        }
-
-
-        /// <summary>
-        /// このGameMainクラスのための OnApplicationFocus 関数です。
-        /// </summary>
-        /// <param name="focus">フォーカスを得られたときはtrueを、失ったときはfalse</param>
-        private static void Internal_OnApplicationFocus(bool focus)
-        {
-            // フォーカス変化イベントを叩く
-            CurrentContext.OnApplicationFocus(focus);
-        }
-
-
-        /// <summary>
-        /// このGameMainクラスのための OnApplicationPause 関数です。
-        /// </summary>
-        /// <param name="pause">一時停止になったときはtrueを、再生状態になったときはfalse</param>
-        private static void Internal_OnApplicationPause(bool pause)
-        {
-            // ポーズ変化イベントを叩く
-            CurrentContext.OnApplicationPause(pause);
-        }
-
-
-        /// <summary>
-        /// このGameMainクラスのための RequestShutdown 関数です。
-        /// </summary>>
-        /// <returns>修了を許可する場合はtrueを、禁止する場合はfalseを返します</returns>
-        private static bool Internal_RequestShutdown()
-        {
-            // 終了処理の要求をして結果をそのまま返す
-            return CurrentContext.RequestShutdown();
-        }
-
-
-        /// <summary>
-        /// このGameMainクラスのための Shutdown 関数です。
-        /// </summary>
-        private static void Internal_Shutdown()
-        {
-            // 終了を叩く
-            CurrentContext.Shutdown();
-        }
-        #endregion
-
-
-        #region 外部イベントハンドラ
+        #region イベントハンドラ
         /// <summary>
         /// 起動するGameMainをリダイレクトします。
         /// IceMilkTeaによって起動されたGameMainから他のGameMainへリダイレクトする場合は、
@@ -285,6 +161,17 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// このGameMainクラスのための RequestShutdown 関数です。
+        /// </summary>>
+        /// <returns>修了を許可する場合はtrueを、禁止する場合はfalseを返します</returns>
+        private bool Internal_RequestShutdown()
+        {
+            // 終了処理の要求をして結果をそのまま返す
+            return RequestShutdown();
+        }
+
+
+        /// <summary>
         /// ゲームの終了処理の要求を処理します。
         /// ゲームが終了してよいのかどうかを判断し修了のコントロールを行います。
         /// </summary>
@@ -293,6 +180,16 @@ namespace IceMilkTea.Core
         {
             // 通常は終了を許容する
             return true;
+        }
+
+
+        /// <summary>
+        /// このGameMainクラスのための Shutdown 関数です。
+        /// </summary>
+        private void Internal_Shutdown()
+        {
+            // 終了を叩く
+            Shutdown();
         }
 
 
