@@ -23,7 +23,7 @@ namespace IceMilkTea.Core
     /// </summary>
     internal class MonoBehaviourEventBridge : MonoBehaviour
     {
-        // 以下メンバ変数宣言
+        // 以下メンバ変数定義
         private Action<bool> onApplicationFocusFunction;
         private Action<bool> onApplicationPauseFunction;
 
