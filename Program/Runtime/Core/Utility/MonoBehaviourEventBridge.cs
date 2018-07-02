@@ -54,6 +54,17 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// コンポーネントが破棄される時の処理を実行します
+        /// </summary>
+        private void OnDestroy()
+        {
+            // 関数の参照を殺す
+            onApplicationFocusFunction = null;
+            onApplicationPauseFunction = null;
+        }
+
+
+        /// <summary>
         /// ゲームアプリケーションがウィンドウなどプレイヤーのフォーカスの状態が変化したときの処理を行います
         /// </summary>
         /// <param name="focus">フォーカスを得られたときはtrueを、失ったときはfalse</param>
