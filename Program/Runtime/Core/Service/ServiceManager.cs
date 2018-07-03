@@ -203,11 +203,15 @@ namespace IceMilkTea.Core
         /// <returns>見つけられた場合は、サービスプロバイダのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
         private T FindService<T>() where T : ServiceProvider
         {
+            // 調べたい型
+            var serviceType = typeof(T);
+
+
             // サービスの数分ループ
             foreach (var inService in serviceList)
             {
                 // もし取得したい型なら
-                if (inService is T)
+                if (inService.GetType() == serviceType)
                 {
                     // そのサービスを返す
                     return (T)inService;
