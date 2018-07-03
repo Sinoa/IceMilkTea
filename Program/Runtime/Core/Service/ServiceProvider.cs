@@ -28,7 +28,19 @@ namespace IceMilkTea.Core
 
 
 
+    /// <summary>
+    /// ゲームのサブシステムをサービスとして提供するための基本クラスです。
+    /// ゲームのサブシステムを実装する場合は、このクラスを継承し適切な振る舞いを実装してください。
+    /// </summary>
     public abstract class ServiceProvider
     {
+        protected internal virtual void Startup()
+        {
+        }
+
+
+        protected internal virtual void Shutdown()
+        {
+        }
     }
 }
