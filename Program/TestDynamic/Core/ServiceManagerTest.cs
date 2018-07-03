@@ -16,7 +16,7 @@
 using IceMilkTea.Core;
 using NUnit.Framework;
 
-namespace IceMilkTeaTest.Core
+namespace IceMilkTeaTestDynamic.Core
 {
     /// <summary>
     /// テストで用いるサービスプロバイダAクラスです
