@@ -1,0 +1,15 @@
+{
+    "name": "IceMilkTeaTest",
+    "references": [
+        "IceMilkTea",
+        "IceMilkTeaEditor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
+}
