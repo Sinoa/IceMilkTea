@@ -43,9 +43,19 @@ namespace IceMilkTea.Core
         /// また、サービスプロバイダの型が同じインスタンスが存在する場合は例外がスローされます。
         /// </summary>
         /// <param name="service">追加するサービスプロバイダのインスタンス</param>
-        /// <exception cref="ServiceExistsAlreadyException">既に同じ型のサービスプロバイダが追加されています</exception>
+        /// <exception cref="ServiceAlreadyExistsException">既に同じ型のサービスプロバイダが追加されています</exception>
         public void AddService(ServiceProvider service)
         {
+            // 既にサービスが存在するなら
+            if (IsExistsService(service))
+            {
+                // 例外を投げる
+                throw new ServiceAlreadyExistsException(service.GetType());
+            }
+
+
+            // まだ追加されていないので追加する
+            serviceList.Add(service);
         }
 
 
@@ -57,7 +67,17 @@ namespace IceMilkTea.Core
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
         public bool TryAddService(ServiceProvider service)
         {
-            throw new System.NotImplementedException();
+            // 既にサービスが存在するなら
+            if (IsExistsService(service))
+            {
+                // 追加出来なかったことを返す
+                return false;
+            }
+
+
+            // サービスを追加して追加出来たことを返す
+            serviceList.Add(service);
+            return true;
         }
 
 
@@ -68,9 +88,19 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
         /// <returns>見つけられたサービスプロバイダのインスタンスを返します</returns>
         /// <exception cref="ServiceNotFoundException">指定された型のサービスプロバイダが見つかりませんでした</exception>
-        public T GetService<T>()
+        public T GetService<T>() where T : ServiceProvider
         {
-            throw new System.NotImplementedException();
+            // サービスを探して見つけられたのなら
+            var inService = FindService<T>();
+            if (inService != null)
+            {
+                // サービスを返す
+                return inService;
+            }
+
+
+            // ここまで来てしまったのなら例外を吐く
+            throw new ServiceNotFoundException(typeof(T));
         }
 
 
@@ -80,9 +110,21 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
         /// <param name="service">見つけられたサービスプロバイダのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
         /// <returns>サービスを取得できた場合は true を、出来なかった場合は false を返します</returns>
-        public bool TryGetService<T>(out T service)
+        public bool TryGetService<T>(out T service) where T : ServiceProvider
         {
-            throw new System.NotImplementedException();
+            // サービスを探して見つけられたのなら
+            var inService = FindService<T>();
+            if (inService != null)
+            {
+                // サービスを設定して成功を返す
+                service = inService;
+                return true;
+            }
+
+
+            // ここまで来てしまったのならnullを設定して失敗を返す
+            service = null;
+            return false;
         }
 
 
@@ -90,8 +132,21 @@ namespace IceMilkTea.Core
         /// 指定された型のサービスプロバイダを削除します
         /// </summary>
         /// <typeparam name="T">削除するサービスプロバイダの型</typeparam>
-        public void RemoveService<T>()
+        public void RemoveService<T>() where T : ServiceProvider
         {
+            // サービスの数分回る
+            for (int i = 0; i < serviceList.Count; ++i)
+            {
+                // もし指定された型のサービスなら
+                if (serviceList[i] is T)
+                {
+                    // 該当インデックスのサービスをシャットダウンして削除する
+                    var inService = serviceList[i];
+                    inService.Shutdown();
+                    serviceList.RemoveAt(i);
+                    return;
+                }
+            }
         }
 
 
@@ -100,6 +155,68 @@ namespace IceMilkTea.Core
         /// </summary>
         internal void RemoveAllService()
         {
+            // サービスの数分回る
+            foreach (var inService in serviceList)
+            {
+                // サービスのシャットダウンをする
+                inService.Shutdown();
+            }
+
+
+            // リストを空っぽにする
+            serviceList.Clear();
+        }
+
+
+        /// <summary>
+        /// 指定されたサービスプロバイダが存在するか否かを調べます
+        /// </summary>
+        /// <param name="service">調べるサービス</param>
+        /// <returns>存在するなら true を、存在しないなら false を返します</returns>
+        private bool IsExistsService(ServiceProvider service)
+        {
+            // サービスの型情報を取り出す
+            var serviceType = service.GetType();
+
+
+            // 現在所持中のサービス分ループ
+            foreach (var inService in serviceList)
+            {
+                // 指定されたサービスの型があるなら
+                if (inService.GetType() == serviceType)
+                {
+                    // 存在していることを返す
+                    return true;
+                }
+            }
+
+
+            // ここまで到達したのなら存在しないとする
+            return false;
+        }
+
+
+        /// <summary>
+        /// 指定された型のサービスプロバイダを検索します
+        /// </summary>
+        /// <typeparam name="T">検索するサービスプロバイダの型</typeparam>
+        /// <returns>見つけられた場合は、サービスプロバイダのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
+        private T FindService<T>() where T : ServiceProvider
+        {
+            // サービスの数分ループ
+            foreach (var inService in serviceList)
+            {
+                // もし取得したい型なら
+                if (inService is T)
+                {
+                    // そのサービスを返す
+                    return (T)inService;
+                }
+            }
+
+
+            // ここまで到達したのならnullを返す
+            return null;
         }
         #endregion
     }
