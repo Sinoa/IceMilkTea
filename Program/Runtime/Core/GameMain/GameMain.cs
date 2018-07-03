@@ -18,6 +18,24 @@ using UnityEngine;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// ゲームが終了要求に対する答えを表します
+    /// </summary>
+    public enum GameShutdownAnswer
+    {
+        /// <summary>
+        /// ゲームが終了することを許可します
+        /// </summary>
+        Approve,
+
+        /// <summary>
+        /// ゲームが終了することを拒否します
+        /// </summary>
+        Reject,
+    }
+
+
+
+    /// <summary>
     /// ゲームメインクラスの実装をするための抽象クラスです。
     /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
     /// </summary>
@@ -163,23 +181,23 @@ namespace IceMilkTea.Core
         /// <summary>
         /// このGameMainクラスのための RequestShutdown 関数です。
         /// </summary>>
-        /// <returns>修了を許可する場合はtrueを、禁止する場合はfalseを返します</returns>
+        /// <returns>終了を許可する場合は true を、禁止する場合は false を返します</returns>
         private bool Internal_RequestShutdown()
         {
-            // 終了処理の要求をして結果をそのまま返す
-            return RequestShutdown();
+            // 終了処理の要求をしてApproveならtrueを、それ以外ならfalseを返す
+            return RequestShutdown() == GameShutdownAnswer.Approve ? true : false;
         }
 
 
         /// <summary>
         /// ゲームの終了処理の要求を処理します。
-        /// ゲームが終了してよいのかどうかを判断し修了のコントロールを行います。
+        /// ゲームが終了してよいのかどうかを判断し終了のコントロールを行います。
         /// </summary>
-        /// <returns>修了を許可する場合はtrueを、禁止する場合はfalseを返します</returns>
-        protected virtual bool RequestShutdown()
+        /// <returns>終了を許可する場合は GameShutdownAnswer.Approve を、禁止する場合は GameShutdownAnswer.Reject を返します</returns>
+        protected virtual GameShutdownAnswer RequestShutdown()
         {
             // 通常は終了を許容する
-            return true;
+            return GameShutdownAnswer.Approve;
         }
 
 
