@@ -138,7 +138,7 @@ namespace IceMilkTea.Core
             for (int i = 0; i < serviceList.Count; ++i)
             {
                 // もし指定された型のサービスなら
-                if (serviceList[i] is T)
+                if (serviceList[i].GetType() == typeof(T))
                 {
                     // 該当インデックスのサービスをシャットダウンして削除する
                     var inService = serviceList[i];
