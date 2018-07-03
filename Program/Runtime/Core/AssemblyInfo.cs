@@ -50,4 +50,5 @@ using System.Runtime.InteropServices;
 // Internal公開
 #if DEBUG
 [assembly: InternalsVisibleTo("IceMilkTeaEditor")]
+[assembly: InternalsVisibleTo("IceMilkTeaTest")]
 #endif
