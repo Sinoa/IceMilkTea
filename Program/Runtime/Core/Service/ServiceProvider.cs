@@ -17,17 +17,6 @@ using System;
 
 namespace IceMilkTea.Core
 {
-    [Flags]
-    public enum ServiceUpdateTiming: uint
-    {
-        MainLoopHead = 0x00000001,
-        MainLoopTail = 0x00000002,
-        PreFixedUpdate = 0x00000004,
-        PostFixedUpdate = 0x00000008,
-    }
-
-
-
     /// <summary>
     /// ゲームのサブシステムをサービスとして提供するための基本クラスです。
     /// ゲームのサブシステムを実装する場合は、このクラスを継承し適切な振る舞いを実装してください。

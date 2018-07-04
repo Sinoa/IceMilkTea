@@ -13,10 +13,103 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using System.Collections.Generic;
 
 namespace IceMilkTea.Core
 {
+    /// <summary>
+    /// サービスプロバイダが動作するための更新タイミングを表します
+    /// </summary>
+    [Flags]
+    public enum ServiceUpdateTiming : UInt16
+    {
+        /// <summary>
+        /// メインループ最初のタイミング。
+        /// ただし、Time.frameCountや入力情報の更新直後となります。
+        /// </summary>
+        MainLoopHead = 0x0001,
+
+        /// <summary>
+        /// MonoBehaviour.FixedUpdate直前のタイミング
+        /// </summary>
+        PreFixedUpdate = 0x0002,
+
+        /// <summary>
+        /// MonoBehaviour.FixedUpdate直後のタイミング
+        /// </summary>
+        PostFixedUpdate = 0x0004,
+
+        /// <summary>
+        /// 物理シミュレーション直後のタイミング。
+        /// ただし、シミュレーションによる物理イベントキューが全て処理された直後となります。
+        /// </summary>
+        PostPhysicsSimulation = 0x0008,
+
+        /// <summary>
+        /// WaitForFixedUpdate直後のタイミング。
+        /// </summary>
+        PostWaitForFixedUpdate = 0x0010,
+
+        /// <summary>
+        /// UnitySynchronizationContextにPostされた関数キューが処理される直前のタイミング
+        /// </summary>
+        PreProcessSynchronizationContext = 0x0020,
+
+        /// <summary>
+        /// UnitySynchronizationContextにPostされた関数キューが処理された直後のタイミング
+        /// </summary>
+        PostProcessSynchronizationContext = 0x0040,
+
+        /// <summary>
+        /// MonoBehaviour.Update直前のタイミング
+        /// </summary>
+        PreUpdate = 0x0080,
+
+        /// <summary>
+        /// MonoBehaviour.Update直後のタイミング
+        /// </summary>
+        PostUpdate = 0x0100,
+
+        /// <summary>
+        /// UnityのAnimator(UpdateMode=Normal)によるポージング処理される直前のタイミング
+        /// </summary>
+        PreAnimation = 0x0200,
+
+        /// <summary>
+        /// UnityのAnimator(UpdateMode=Normal)によるポージング処理された直後のタイミング
+        /// </summary>
+        PostAnimation = 0x0400,
+
+        /// <summary>
+        /// MonoBehaviour.LateUpdate直前のタイミング
+        /// </summary>
+        PreLateUpdate = 0x0800,
+
+        /// <summary>
+        /// MonoBehaviour.LateUpdate直後のタイミング
+        /// </summary>
+        PostLateUpdate = 0x1000,
+
+        /// <summary>
+        /// レンダリングするほぼ直前のタイミング
+        /// </summary>
+        PreRendering = 0x2000,
+
+        /// <summary>
+        /// レンダリングしたほぼ直後のタイミング。
+        /// ただし、グラフィックスAPIのPresentされる直前です。
+        /// </summary>
+        PostRendering = 0x4000,
+
+        /// <summary>
+        /// メインループの最後のタイミング。
+        /// </summary>
+        MainLoopTail = 0x8000,
+    }
+
+
+
     /// <summary>
     /// IceMilkTeaのサービスを管理及び制御を行うクラスです
     /// </summary>
@@ -35,6 +128,92 @@ namespace IceMilkTea.Core
             // メンバの初期化をする
             serviceList = new List<ServiceProvider>();
         }
+
+
+        #region ロジック
+        #endregion
+
+
+        #region 各種Updateエントリポイント
+        private void MainLoopHead()
+        {
+        }
+
+
+        private void PreFixedUpdate()
+        {
+        }
+
+
+        private void PostFixedUpdate()
+        {
+        }
+
+
+        private void PostPhysicsSimulation()
+        {
+        }
+
+
+        private void PostWaitForFixedUpdate()
+        {
+        }
+
+
+        private void PreProcessSynchronizationContext()
+        {
+        }
+
+
+        private void PostProcessSynchronizationContext()
+        {
+        }
+
+
+        private void PreUpdate()
+        {
+        }
+
+
+        private void PostUpdate()
+        {
+        }
+
+
+        private void PreAnimation()
+        {
+        }
+
+
+        private void PostAnimation()
+        {
+        }
+
+
+        private void PreLateUpdate()
+        {
+        }
+
+
+        private void PostLateUpdate()
+        {
+        }
+
+
+        private void PreRendering()
+        {
+        }
+
+
+        private void PostRendering()
+        {
+        }
+
+
+        private void MainLoopTail()
+        {
+        }
+        #endregion
 
 
         #region リスト操作系
