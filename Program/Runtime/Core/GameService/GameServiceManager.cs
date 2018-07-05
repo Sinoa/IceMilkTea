@@ -22,7 +22,7 @@ namespace IceMilkTea.Core
     /// サービスが動作するための更新タイミングを表します
     /// </summary>
     [Flags]
-    public enum ServiceUpdateTiming : UInt16
+    public enum GameServiceUpdateTiming : UInt16
     {
         /// <summary>
         /// メインループ最初のタイミング。
