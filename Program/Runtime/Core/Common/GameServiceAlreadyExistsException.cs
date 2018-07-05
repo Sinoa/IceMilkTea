@@ -20,13 +20,13 @@ namespace IceMilkTea.Core
     /// <summary>
     /// サービスが既に存在している場合にスローされる例外クラスです
     /// </summary>
-    public class ServiceAlreadyExistsException : IceMilkTeaException
+    public class GameServiceAlreadyExistsException : IceMilkTeaException
     {
         /// <summary>
-        /// ServiceAlreadyExistsException インスタンスの初期化をします
+        /// GameServiceAlreadyExistsException インスタンスの初期化をします
         /// </summary>
         /// <param name="target">既に存在しているサービスのタイプ</param>
-        public ServiceAlreadyExistsException(Type target) : base($"This {target.Name} service is exists already.")
+        public GameServiceAlreadyExistsException(Type target) : base($"This {target.Name} service is exists already.")
         {
         }
     }

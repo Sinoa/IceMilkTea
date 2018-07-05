@@ -222,14 +222,14 @@ namespace IceMilkTea.Core
         /// また、サービスプロバイダの型が同じインスタンスが存在する場合は例外がスローされます。
         /// </summary>
         /// <param name="service">追加するサービスプロバイダのインスタンス</param>
-        /// <exception cref="ServiceAlreadyExistsException">既に同じ型のサービスプロバイダが追加されています</exception>
+        /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスプロバイダが追加されています</exception>
         public void AddService(GameService service)
         {
             // 既にサービスが存在するなら
             if (IsExistsService(service))
             {
                 // 例外を投げる
-                throw new ServiceAlreadyExistsException(service.GetType());
+                throw new GameServiceAlreadyExistsException(service.GetType());
             }
 
 
@@ -266,7 +266,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
         /// <returns>見つけられたサービスプロバイダのインスタンスを返します</returns>
-        /// <exception cref="ServiceNotFoundException">指定された型のサービスプロバイダが見つかりませんでした</exception>
+        /// <exception cref="GameServiceNotFoundException">指定された型のサービスプロバイダが見つかりませんでした</exception>
         public T GetService<T>() where T : GameService
         {
             // サービスを探して見つけられたのなら
@@ -279,7 +279,7 @@ namespace IceMilkTea.Core
 
 
             // ここまで来てしまったのなら例外を吐く
-            throw new ServiceNotFoundException(typeof(T));
+            throw new GameServiceNotFoundException(typeof(T));
         }
 
 

@@ -20,13 +20,13 @@ namespace IceMilkTea.Core
     /// <summary>
     /// サービスが見つからなかった場合にスローされる例外クラスです
     /// </summary>
-    public class ServiceNotFoundException : IceMilkTeaException
+    public class GameServiceNotFoundException : IceMilkTeaException
     {
         /// <summary>
-        /// ServiceNotFoundException インスタンスの初期化をします
+        /// GameServiceNotFoundException インスタンスの初期化をします
         /// </summary>
         /// <param name="target">見つけられなかったサービスのタイプ</param>
-        public ServiceNotFoundException(Type target) : base($"This {target.Name} service is not found.")
+        public GameServiceNotFoundException(Type target) : base($"This {target.Name} service is not found.")
         {
         }
     }

@@ -84,10 +84,10 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // 同じインスタンスの追加をしようとしてちゃんと例外を投げてくれるかを調べる
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(serviceA));
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(derivedA));
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(derivedB));
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(serviceB));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceA));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedA));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedB));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceB));
 
 
             // サービスの新しいインスタンスの生成し直し（参照が変わる）
@@ -98,10 +98,10 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // インスタンスが変わっても同じ型のサービスの追加をしようとしたら、ちゃんと例外を投げてくれるかを調べる
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(serviceA));
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(derivedA));
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(derivedB));
-            Assert.Throws<ServiceAlreadyExistsException>(() => manager.AddService(serviceB));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceA));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedA));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedB));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceB));
         }
 
 
@@ -162,11 +162,11 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // 今の段階でサービスの取得を試みて、ちゃんと例外を吐いてくれるかを調べる
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<GameService>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
 
 
             // 各種サービスのインスタンスを生成
@@ -179,17 +179,17 @@ namespace IceMilkTeaTestDynamic.Core
             // 派生サービスA、基本サービスBを追加して、それ以外はちゃんと例外を吐いてくれるかを調べる
             manager.AddService(derivedA);
             manager.AddService(serviceB);
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<GameService>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceB>());
             Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
 
 
             // 残りのサービスも追加してServiceProviderの基本型のみだけ例外を吐いてくれるかを調べる
             manager.AddService(serviceA);
             manager.AddService(derivedB);
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<GameService>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
@@ -288,18 +288,18 @@ namespace IceMilkTeaTestDynamic.Core
             manager.RemoveService<DerivedServiceA>();
             manager.RemoveService<TestServiceB>();
             Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<DerivedServiceB>());
 
 
             // 残りのサービスも全員削除して、全て死んでいることを確認する
             manager.RemoveService<TestServiceA>();
             manager.RemoveService<DerivedServiceB>();
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
         }
 
 
@@ -329,10 +329,10 @@ namespace IceMilkTeaTestDynamic.Core
 
             // 全サービス削除をして、全て死んでいることを確認する
             manager.RemoveAllService();
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
         }
     }
 }
