@@ -19,7 +19,7 @@ using NUnit.Framework;
 namespace IceMilkTeaTestStatic.Core
 {
     /// <summary>
-    /// テストで用いるサービスプロバイダAクラスです
+    /// テストで用いるサービスAクラスです
     /// </summary>
     public class TestServiceA : GameService
     {
@@ -28,7 +28,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
     /// <summary>
-    /// テストで用いるサービスプロバイダBクラスです
+    /// テストで用いるサービスBクラスです
     /// </summary>
     public class TestServiceB : GameService
     {
@@ -37,7 +37,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
     /// <summary>
-    /// テストで用いるサービスプロバイダAから派生した派生サービスAクラスです
+    /// テストで用いるサービスAから派生した派生サービスAクラスです
     /// </summary>
     public class DerivedServiceA : TestServiceA
     {
@@ -46,7 +46,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
     /// <summary>
-    /// テストで用いるサービスプロバイダBから派生した派生サービスBクラスです
+    /// テストで用いるサービスBから派生した派生サービスBクラスです
     /// </summary>
     public class DerivedServiceB : TestServiceB
     {

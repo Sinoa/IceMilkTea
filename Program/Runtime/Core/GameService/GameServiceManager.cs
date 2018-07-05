@@ -19,7 +19,7 @@ using System.Collections.Generic;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// サービスプロバイダが動作するための更新タイミングを表します
+    /// サービスが動作するための更新タイミングを表します
     /// </summary>
     [Flags]
     public enum ServiceUpdateTiming : UInt16
@@ -218,11 +218,11 @@ namespace IceMilkTea.Core
 
         #region リスト操作系
         /// <summary>
-        /// 指定されたサービスプロバイダの追加をします。
-        /// また、サービスプロバイダの型が同じインスタンスが存在する場合は例外がスローされます。
+        /// 指定されたサービスの追加をします。
+        /// また、サービスの型が同じインスタンスが存在する場合は例外がスローされます。
         /// </summary>
-        /// <param name="service">追加するサービスプロバイダのインスタンス</param>
-        /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスプロバイダが追加されています</exception>
+        /// <param name="service">追加するサービスのインスタンス</param>
+        /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスが追加されています</exception>
         public void AddService(GameService service)
         {
             // 既にサービスが存在するなら
@@ -239,10 +239,10 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定されたサービスプロバイダの追加をします。
+        /// 指定されたサービスの追加をします。
         /// この関数は AddService() 関数と違い、同じ型のサービスの追加は出来ませんが、例外をスローしません。
         /// </summary>
-        /// <param name="service">追加するサービスプロバイダのインスタンス</param>
+        /// <param name="service">追加するサービスのインスタンス</param>
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
         public bool TryAddService(GameService service)
         {
@@ -261,12 +261,12 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型のサービスプロバイダを取得します。
-        /// また、サービスプロバイダが見つけられなかった場合は例外がスローされます。
+        /// 指定された型のサービスを取得します。
+        /// また、サービスが見つけられなかった場合は例外がスローされます。
         /// </summary>
-        /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
-        /// <returns>見つけられたサービスプロバイダのインスタンスを返します</returns>
-        /// <exception cref="GameServiceNotFoundException">指定された型のサービスプロバイダが見つかりませんでした</exception>
+        /// <typeparam name="T">取得するサービスの型</typeparam>
+        /// <returns>見つけられたサービスのインスタンスを返します</returns>
+        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         public T GetService<T>() where T : GameService
         {
             // サービスを探して見つけられたのなら
@@ -284,10 +284,10 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型のサービスプロバイダを取得します
+        /// 指定された型のサービスを取得します
         /// </summary>
-        /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
-        /// <param name="service">見つけられたサービスプロバイダのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
+        /// <typeparam name="T">取得するサービスの型</typeparam>
+        /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
         /// <returns>サービスを取得できた場合は true を、出来なかった場合は false を返します</returns>
         public bool TryGetService<T>(out T service) where T : GameService
         {
@@ -308,9 +308,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型のサービスプロバイダを削除します
+        /// 指定された型のサービスを削除します
         /// </summary>
-        /// <typeparam name="T">削除するサービスプロバイダの型</typeparam>
+        /// <typeparam name="T">削除するサービスの型</typeparam>
         public void RemoveService<T>() where T : GameService
         {
             // サービスの数分回る
@@ -330,7 +330,7 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// サービスマネージャが保持しているすべてのサービスプロバイダを削除します
+        /// サービスマネージャが保持しているすべてのサービスを削除します
         /// </summary>
         internal void RemoveAllService()
         {
@@ -348,7 +348,7 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定されたサービスプロバイダが存在するか否かを調べます
+        /// 指定されたサービスが存在するか否かを調べます
         /// </summary>
         /// <param name="service">調べるサービス</param>
         /// <returns>存在するなら true を、存在しないなら false を返します</returns>
@@ -376,10 +376,10 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型のサービスプロバイダを検索します
+        /// 指定された型のサービスを検索します
         /// </summary>
-        /// <typeparam name="T">検索するサービスプロバイダの型</typeparam>
-        /// <returns>見つけられた場合は、サービスプロバイダのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
+        /// <typeparam name="T">検索するサービスの型</typeparam>
+        /// <returns>見つけられた場合は、サービスのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
         private T FindService<T>() where T : GameService
         {
             // 調べたい型
