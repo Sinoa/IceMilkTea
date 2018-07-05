@@ -19,98 +19,6 @@ using System.Collections.Generic;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// サービスが動作するための更新タイミングを表します
-    /// </summary>
-    [Flags]
-    public enum GameServiceUpdateTiming : UInt16
-    {
-        /// <summary>
-        /// メインループ最初のタイミング。
-        /// ただし、Time.frameCountや入力情報の更新直後となります。
-        /// </summary>
-        MainLoopHead = 0x0001,
-
-        /// <summary>
-        /// MonoBehaviour.FixedUpdate直前のタイミング
-        /// </summary>
-        PreFixedUpdate = 0x0002,
-
-        /// <summary>
-        /// MonoBehaviour.FixedUpdate直後のタイミング
-        /// </summary>
-        PostFixedUpdate = 0x0004,
-
-        /// <summary>
-        /// 物理シミュレーション直後のタイミング。
-        /// ただし、シミュレーションによる物理イベントキューが全て処理された直後となります。
-        /// </summary>
-        PostPhysicsSimulation = 0x0008,
-
-        /// <summary>
-        /// WaitForFixedUpdate直後のタイミング。
-        /// </summary>
-        PostWaitForFixedUpdate = 0x0010,
-
-        /// <summary>
-        /// UnitySynchronizationContextにPostされた関数キューが処理される直前のタイミング
-        /// </summary>
-        PreProcessSynchronizationContext = 0x0020,
-
-        /// <summary>
-        /// UnitySynchronizationContextにPostされた関数キューが処理された直後のタイミング
-        /// </summary>
-        PostProcessSynchronizationContext = 0x0040,
-
-        /// <summary>
-        /// MonoBehaviour.Update直前のタイミング
-        /// </summary>
-        PreUpdate = 0x0080,
-
-        /// <summary>
-        /// MonoBehaviour.Update直後のタイミング
-        /// </summary>
-        PostUpdate = 0x0100,
-
-        /// <summary>
-        /// UnityのAnimator(UpdateMode=Normal)によるポージング処理される直前のタイミング
-        /// </summary>
-        PreAnimation = 0x0200,
-
-        /// <summary>
-        /// UnityのAnimator(UpdateMode=Normal)によるポージング処理された直後のタイミング
-        /// </summary>
-        PostAnimation = 0x0400,
-
-        /// <summary>
-        /// MonoBehaviour.LateUpdate直前のタイミング
-        /// </summary>
-        PreLateUpdate = 0x0800,
-
-        /// <summary>
-        /// MonoBehaviour.LateUpdate直後のタイミング
-        /// </summary>
-        PostLateUpdate = 0x1000,
-
-        /// <summary>
-        /// レンダリングするほぼ直前のタイミング
-        /// </summary>
-        PreRendering = 0x2000,
-
-        /// <summary>
-        /// レンダリングしたほぼ直後のタイミング。
-        /// ただし、グラフィックスAPIのPresentされる直前です。
-        /// </summary>
-        PostRendering = 0x4000,
-
-        /// <summary>
-        /// メインループの最後のタイミング。
-        /// </summary>
-        MainLoopTail = 0x8000,
-    }
-
-
-
-    /// <summary>
     /// IceMilkTeaのサービスを管理及び制御を行うクラスです
     /// </summary>
     public sealed class GameServiceManager
@@ -229,7 +137,7 @@ namespace IceMilkTea.Core
             if (IsExistsService(service))
             {
                 // 例外を投げる
-                throw new GameServiceAlreadyExistsException(service.GetType());
+                throw new GameServiceAlreadyExistsException(service.GetType(), service.GetType());
             }
 
 
@@ -344,6 +252,36 @@ namespace IceMilkTea.Core
 
             // リストを空っぽにする
             serviceList.Clear();
+        }
+
+
+        /// <summary>
+        /// 指定されたサービスの型からサービスを取得できるかどうかを調べます。
+        /// また GameService クラスを継承していない型か GameService 型そのものを指定された場合は例外をスローします。
+        /// </summary>
+        /// <param name="serviceType">確認するサービスの型</param>
+        /// <returns>指定されたサービスの型から、サービスが取得が可能な場合は true を、取得ができない場合は false を返します</returns>
+        /// <exception cref="ArgumentException">指定された型は GameService 型そのものか GameService を継承していません</exception>
+        private bool CanTakeService(Type serviceType)
+        {
+            // もし serviceType が GameService 型 または GameService 型から継承していないなら
+            var gameServiceType = typeof(GameService);
+            if (serviceType == gameServiceType || !gameServiceType.IsAssignableFrom(serviceType))
+            {
+                // 例外を投げる
+                throw new ArgumentException($"'{nameof(serviceType)}'は'{gameServiceType.Name}'型か、'{gameServiceType.Name}'を継承していません");
+            }
+
+
+            // 指定されたサービスの型から GameService を直接継承している型が出るまでループ
+            var objectType = typeof(Object);
+            var superType = serviceType.BaseType;
+            while (superType != typeof(GameService))
+            {
+            }
+
+
+            return false;
         }
 
 
