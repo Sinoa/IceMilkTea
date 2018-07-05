@@ -25,8 +25,18 @@ namespace IceMilkTea.Core
         /// <summary>
         /// GameServiceNotFoundException インスタンスの初期化をします
         /// </summary>
-        /// <param name="target">見つけられなかったサービスのタイプ</param>
-        public GameServiceNotFoundException(Type target) : base($"This {target.Name} service is not found.")
+        /// <param name="serviceType">見つけられなかったサービスのタイプ</param>
+        public GameServiceNotFoundException(Type serviceType) : base($"This {serviceType.Name} service is not found.")
+        {
+        }
+
+
+        /// <summary>
+        /// GameServiceNotFoundException インスタンスの初期化をします
+        /// </summary>
+        /// <param name="serviceType">見つけられなかったサービスのタイプ</param>
+        /// <param name="inner">この例外がスローされる原因となった例外</param>
+        public GameServiceNotFoundException(Type serviceType, Exception inner) : base($"This {serviceType.Name} service is not found.", inner)
         {
         }
     }

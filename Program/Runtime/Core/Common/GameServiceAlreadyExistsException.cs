@@ -25,8 +25,18 @@ namespace IceMilkTea.Core
         /// <summary>
         /// GameServiceAlreadyExistsException インスタンスの初期化をします
         /// </summary>
-        /// <param name="target">既に存在しているサービスのタイプ</param>
-        public GameServiceAlreadyExistsException(Type target) : base($"This {target.Name} service is exists already.")
+        /// <param name="serviceType">既に存在しているサービスのタイプ</param>
+        public GameServiceAlreadyExistsException(Type serviceType) : base($"This {serviceType.Name} service is exists already.")
+        {
+        }
+
+
+        /// <summary>
+        /// GameServiceAlreadyExistsException インスタンスの初期化をします
+        /// </summary>
+        /// <param name="serviceType">既に存在しているサービスのタイプ</param>
+        /// <param name="inner">この例外がスローされる原因となったら例外</param>
+        public GameServiceAlreadyExistsException(Type serviceType, Exception inner) : base($"This {serviceType.Name} service is exists already.", inner)
         {
         }
     }
