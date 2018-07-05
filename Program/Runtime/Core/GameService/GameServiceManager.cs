@@ -116,7 +116,7 @@ namespace IceMilkTea.Core
     public sealed class GameServiceManager
     {
         // メンバ変数定義
-        private List<ServiceProvider> serviceList;
+        private List<GameService> serviceList;
 
 
 
@@ -126,7 +126,7 @@ namespace IceMilkTea.Core
         internal GameServiceManager()
         {
             // メンバの初期化をする
-            serviceList = new List<ServiceProvider>();
+            serviceList = new List<GameService>();
         }
 
 
@@ -223,7 +223,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="service">追加するサービスプロバイダのインスタンス</param>
         /// <exception cref="ServiceAlreadyExistsException">既に同じ型のサービスプロバイダが追加されています</exception>
-        public void AddService(ServiceProvider service)
+        public void AddService(GameService service)
         {
             // 既にサービスが存在するなら
             if (IsExistsService(service))
@@ -244,7 +244,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="service">追加するサービスプロバイダのインスタンス</param>
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
-        public bool TryAddService(ServiceProvider service)
+        public bool TryAddService(GameService service)
         {
             // 既にサービスが存在するなら
             if (IsExistsService(service))
@@ -267,7 +267,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
         /// <returns>見つけられたサービスプロバイダのインスタンスを返します</returns>
         /// <exception cref="ServiceNotFoundException">指定された型のサービスプロバイダが見つかりませんでした</exception>
-        public T GetService<T>() where T : ServiceProvider
+        public T GetService<T>() where T : GameService
         {
             // サービスを探して見つけられたのなら
             var inService = FindService<T>();
@@ -289,7 +289,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">取得するサービスプロバイダの型</typeparam>
         /// <param name="service">見つけられたサービスプロバイダのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
         /// <returns>サービスを取得できた場合は true を、出来なかった場合は false を返します</returns>
-        public bool TryGetService<T>(out T service) where T : ServiceProvider
+        public bool TryGetService<T>(out T service) where T : GameService
         {
             // サービスを探して見つけられたのなら
             var inService = FindService<T>();
@@ -311,7 +311,7 @@ namespace IceMilkTea.Core
         /// 指定された型のサービスプロバイダを削除します
         /// </summary>
         /// <typeparam name="T">削除するサービスプロバイダの型</typeparam>
-        public void RemoveService<T>() where T : ServiceProvider
+        public void RemoveService<T>() where T : GameService
         {
             // サービスの数分回る
             for (int i = 0; i < serviceList.Count; ++i)
@@ -352,7 +352,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="service">調べるサービス</param>
         /// <returns>存在するなら true を、存在しないなら false を返します</returns>
-        private bool IsExistsService(ServiceProvider service)
+        private bool IsExistsService(GameService service)
         {
             // サービスの型情報を取り出す
             var serviceType = service.GetType();
@@ -380,7 +380,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">検索するサービスプロバイダの型</typeparam>
         /// <returns>見つけられた場合は、サービスプロバイダのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
-        private T FindService<T>() where T : ServiceProvider
+        private T FindService<T>() where T : GameService
         {
             // 調べたい型
             var serviceType = typeof(T);

@@ -21,7 +21,7 @@ namespace IceMilkTeaTestDynamic.Core
     /// <summary>
     /// テストで用いるサービスプロバイダAクラスです
     /// </summary>
-    public class TestServiceA : ServiceProvider
+    public class TestServiceA : GameService
     {
     }
 
@@ -30,7 +30,7 @@ namespace IceMilkTeaTestDynamic.Core
     /// <summary>
     /// テストで用いるサービスプロバイダBクラスです
     /// </summary>
-    public class TestServiceB : ServiceProvider
+    public class TestServiceB : GameService
     {
     }
 
@@ -162,7 +162,7 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // 今の段階でサービスの取得を試みて、ちゃんと例外を吐いてくれるかを調べる
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<ServiceProvider>());
+            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<GameService>());
             Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceA>());
             Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceB>());
             Assert.Throws<ServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
@@ -179,7 +179,7 @@ namespace IceMilkTeaTestDynamic.Core
             // 派生サービスA、基本サービスBを追加して、それ以外はちゃんと例外を吐いてくれるかを調べる
             manager.AddService(derivedA);
             manager.AddService(serviceB);
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<ServiceProvider>());
+            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<GameService>());
             Assert.Throws<ServiceNotFoundException>(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceB>());
             Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
@@ -189,7 +189,7 @@ namespace IceMilkTeaTestDynamic.Core
             // 残りのサービスも追加してServiceProviderの基本型のみだけ例外を吐いてくれるかを調べる
             manager.AddService(serviceA);
             manager.AddService(derivedB);
-            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<ServiceProvider>());
+            Assert.Throws<ServiceNotFoundException>(() => manager.GetService<GameService>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
@@ -208,7 +208,7 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // 各種サービスの結果受け取り変数の用意
-            var baseService = default(ServiceProvider);
+            var baseService = default(GameService);
             var serviceA = default(TestServiceA);
             var serviceB = default(TestServiceB);
             var derivedA = default(DerivedServiceA);
@@ -277,7 +277,7 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // 最基底クラスであるServiceProviderで削除を要求してどのサービスも死んでいないことを確認する
-            manager.RemoveService<ServiceProvider>();
+            manager.RemoveService<GameService>();
             Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
             Assert.DoesNotThrow(() => manager.GetService<TestServiceB>());
             Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());

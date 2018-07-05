@@ -13,15 +13,13 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
-
 namespace IceMilkTea.Core
 {
     /// <summary>
     /// ゲームのサブシステムをサービスとして提供するための基本クラスです。
     /// ゲームのサブシステムを実装する場合は、このクラスを継承し適切な振る舞いを実装してください。
     /// </summary>
-    public abstract class ServiceProvider
+    public abstract class GameService
     {
         protected internal virtual void Startup()
         {
