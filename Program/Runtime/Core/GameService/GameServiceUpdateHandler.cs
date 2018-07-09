@@ -24,7 +24,6 @@ namespace IceMilkTea.Core
     {
         // メンバ変数定義
         private ReadOnlyCollection<GameService> serviceCollection;
-        private bool disposed;
 
 
 
@@ -116,6 +115,41 @@ namespace IceMilkTea.Core
 
 
         private void MainLoopTail()
+        {
+        }
+
+
+        private void OnApplicationFocusIn()
+        {
+        }
+
+
+        private void OnApplicationFocusOut()
+        {
+        }
+
+
+        private void OnApplicationSuspend()
+        {
+        }
+
+
+        private void OnApplicationResume()
+        {
+        }
+
+
+        private void CameraPreCulling()
+        {
+        }
+
+
+        private void CameraPreRendering()
+        {
+        }
+
+
+        private void CameraPostRendering()
         {
         }
         #endregion

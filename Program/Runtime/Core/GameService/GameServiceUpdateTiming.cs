@@ -21,7 +21,7 @@ namespace IceMilkTea.Core
     /// サービスが動作するための更新タイミングを表します
     /// </summary>
     [Flags]
-    public enum GameServiceUpdateTiming : UInt16
+    public enum GameServiceUpdateTiming : UInt32
     {
         /// <summary>
         /// メインループ最初のタイミング。
@@ -91,12 +91,12 @@ namespace IceMilkTea.Core
         PostLateUpdate = (1 << 12),
 
         /// <summary>
-        /// レンダリングするほぼ直前のタイミング
+        /// メインスレッドにおけるレンダリングするほぼ直前のタイミング
         /// </summary>
         PreRendering = (1 << 13),
 
         /// <summary>
-        /// レンダリングしたほぼ直後のタイミング。
+        /// メインスレッドにおけるレンダリングしたほぼ直後のタイミング。
         /// ただし、グラフィックスAPIのPresentされる直前です。
         /// </summary>
         PostRendering = (1 << 14),
@@ -105,5 +105,50 @@ namespace IceMilkTea.Core
         /// メインループの最後のタイミング。
         /// </summary>
         MainLoopTail = (1 << 15),
+
+        /// <summary>
+        /// Unityプレイヤーのフォーカスが得られたときのタイミング。
+        /// OnApplicationFocus(true)。
+        /// </summary>
+        OnApplicationFocusIn = (1 << 16),
+
+        /// <summary>
+        /// Unityプレイヤーのフォーカスが失われたときのタイミング。
+        /// OnApplicationFocus(false)。
+        /// </summary>
+        OnApplicationFocusOut = (1 << 17),
+
+        /// <summary>
+        /// Unityプレイヤーのメインループが一時停止したときのタイミング。
+        /// OnApplicationPause(true)。
+        /// </summary>
+        OnApplicationSuspend = (1 << 18),
+
+        /// <summary>
+        /// Unityプレイヤーのメインループが再開したときのタイミング。
+        /// OnApplicationPause(false)。
+        /// </summary>
+        OnApplicationResume = (1 << 19),
+
+        /// <summary>
+        /// あらゆるカメラのカリングが行われる直前のタイミング。
+        /// ただし、カメラが存在する数分１フレームで複数回呼び出される可能性があります。
+        /// さらに、スレッドはメインスレッド上におけるタイミングとなります。
+        /// </summary>
+        CameraPreCulling = (1 << 20),
+
+        /// <summary>
+        /// あらゆるカメラのレンダリングが行われる直前のタイミング。
+        /// ただし、カメラが存在する数分１フレームで複数回呼び出される可能性があります。
+        /// さらに、スレッドはメインスレッド上におけるタイミングとなります。
+        /// </summary>
+        CameraPreRendering = (1 << 21),
+
+        /// <summary>
+        /// あらゆるカメラのレンダリングが行われた直後のタイミング。
+        /// ただし、カメラが存在する数分１フレームで複数回呼び出される可能性があります。
+        /// さらに、スレッドはメインスレッド上におけるタイミングとなります。
+        /// </summary>
+        CameraPostRendering = (1 << 22),
     }
 }
