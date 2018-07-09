@@ -27,83 +27,83 @@ namespace IceMilkTea.Core
         /// メインループ最初のタイミング。
         /// ただし、Time.frameCountや入力情報の更新直後となります。
         /// </summary>
-        MainLoopHead = 0x0001,
+        MainLoopHead = (1 << 0),
 
         /// <summary>
         /// MonoBehaviour.FixedUpdate直前のタイミング
         /// </summary>
-        PreFixedUpdate = 0x0002,
+        PreFixedUpdate = (1 << 1),
 
         /// <summary>
         /// MonoBehaviour.FixedUpdate直後のタイミング
         /// </summary>
-        PostFixedUpdate = 0x0004,
+        PostFixedUpdate = (1 << 2),
 
         /// <summary>
         /// 物理シミュレーション直後のタイミング。
         /// ただし、シミュレーションによる物理イベントキューが全て処理された直後となります。
         /// </summary>
-        PostPhysicsSimulation = 0x0008,
+        PostPhysicsSimulation = (1 << 3),
 
         /// <summary>
         /// WaitForFixedUpdate直後のタイミング。
         /// </summary>
-        PostWaitForFixedUpdate = 0x0010,
+        PostWaitForFixedUpdate = (1 << 4),
 
         /// <summary>
         /// UnitySynchronizationContextにPostされた関数キューが処理される直前のタイミング
         /// </summary>
-        PreProcessSynchronizationContext = 0x0020,
+        PreProcessSynchronizationContext = (1 << 5),
 
         /// <summary>
         /// UnitySynchronizationContextにPostされた関数キューが処理された直後のタイミング
         /// </summary>
-        PostProcessSynchronizationContext = 0x0040,
+        PostProcessSynchronizationContext = (1 << 6),
 
         /// <summary>
         /// MonoBehaviour.Update直前のタイミング
         /// </summary>
-        PreUpdate = 0x0080,
+        PreUpdate = (1 << 7),
 
         /// <summary>
         /// MonoBehaviour.Update直後のタイミング
         /// </summary>
-        PostUpdate = 0x0100,
+        PostUpdate = (1 << 8),
 
         /// <summary>
         /// UnityのAnimator(UpdateMode=Normal)によるポージング処理される直前のタイミング
         /// </summary>
-        PreAnimation = 0x0200,
+        PreAnimation = (1 << 9),
 
         /// <summary>
         /// UnityのAnimator(UpdateMode=Normal)によるポージング処理された直後のタイミング
         /// </summary>
-        PostAnimation = 0x0400,
+        PostAnimation = (1 << 10),
 
         /// <summary>
         /// MonoBehaviour.LateUpdate直前のタイミング
         /// </summary>
-        PreLateUpdate = 0x0800,
+        PreLateUpdate = (1 << 11),
 
         /// <summary>
         /// MonoBehaviour.LateUpdate直後のタイミング
         /// </summary>
-        PostLateUpdate = 0x1000,
+        PostLateUpdate = (1 << 12),
 
         /// <summary>
         /// レンダリングするほぼ直前のタイミング
         /// </summary>
-        PreRendering = 0x2000,
+        PreRendering = (1 << 13),
 
         /// <summary>
         /// レンダリングしたほぼ直後のタイミング。
         /// ただし、グラフィックスAPIのPresentされる直前です。
         /// </summary>
-        PostRendering = 0x4000,
+        PostRendering = (1 << 14),
 
         /// <summary>
         /// メインループの最後のタイミング。
         /// </summary>
-        MainLoopTail = 0x8000,
+        MainLoopTail = (1 << 15),
     }
 }
