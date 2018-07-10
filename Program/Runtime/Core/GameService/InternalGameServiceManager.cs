@@ -41,7 +41,8 @@ namespace IceMilkTea.Core
         #region リスト操作系
         /// <summary>
         /// 指定されたサービスの追加をします。
-        /// また、サービスの型が同じインスタンスが存在する場合は例外がスローされます。
+        /// また、サービスの型が同じインスタンスまたは同一継承元インスタンスが存在する場合は例外がスローされます。
+        /// ただし、サービスは直ちには起動せずフレーム開始のタイミングで起動することに注意してください。
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
         /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスが追加されています</exception>
@@ -62,7 +63,8 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// 指定されたサービスの追加をします。
-        /// この関数は AddService() 関数と違い、同じ型のサービスの追加は出来ませんが、例外をスローしません。
+        /// この関数は AddService() 関数と違い、同じ型のサービスまたは同一継承元インスタンスの追加は出来ませんが、例外をスローしません。
+        /// ただし、サービスは直ちには起動せずフレーム開始のタイミングで起動することに注意してください。
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
@@ -110,7 +112,6 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">取得するサービスの型</typeparam>
         /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
-        /// <returns>サービスを取得できた場合は true を、出来なかった場合は false を返します</returns>
         public override bool TryGetService<T>(out T service)
         {
             // サービスを探して見つけられたのなら
@@ -130,7 +131,8 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型のサービスを削除します
+        /// 指定された型のサービスを削除します。
+        /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
         /// </summary>
         /// <typeparam name="T">削除するサービスの型</typeparam>
         public override void RemoveService<T>()
@@ -152,7 +154,8 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// サービスマネージャが保持しているすべてのサービスを削除します
+        /// サービスマネージャが保持しているすべてのサービスを削除します。
+        /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
         /// </summary>
         protected internal override void RemoveAllService()
         {

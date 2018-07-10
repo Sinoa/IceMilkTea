@@ -15,6 +15,7 @@
 
 using System;
 using UnityEngine;
+using UnityEngine.Experimental.PlayerLoop;
 
 namespace IceMilkTea.Core
 {
@@ -24,6 +25,19 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameMain : ScriptableObject
     {
+        /// <summary>
+        /// ゲームサービスマネージャのサービス起動ルーチンを実行する型です
+        /// </summary>
+        public struct GameServiceManagerStartup { }
+
+
+        /// <summary>
+        /// ゲームサービスマネージャのサービス終了ルーチンを実行する型です
+        /// </summary>
+        public struct GameServiceManagerCleanup { }
+
+
+
         /// <summary>
         /// 現在のゲームメインコンテキストを取得します
         /// </summary>
@@ -58,6 +72,13 @@ namespace IceMilkTea.Core
 
             // アプリケーションの終了イベントを引っ掛けておく
             Application.quitting += CurrentContext.Shutdown;
+
+
+            // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
+            var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
+            loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime, GameServiceManagerStartup>(InsertTiming.AfterInsert, StartupGameService);
+            loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks, GameServiceManagerCleanup>(InsertTiming.AfterInsert, CleanupGameService);
+            loopSystem.BuildAndSetUnityDefaultPlayerLoop();
 
 
             // ゲームの起動を開始する
@@ -95,6 +116,26 @@ namespace IceMilkTea.Core
 
             // ロードしたゲームメインを返す
             return gameMain;
+        }
+
+
+        /// <summary>
+        /// ゲームサービスマネージャのサービススタートアップ処理を呼び出します
+        /// </summary>
+        private static void StartupGameService()
+        {
+            // スタートアップをする
+            CurrentContext.ServiceManager.StartupServices();
+        }
+
+
+        /// <summary>
+        /// ゲームサービスマネージャ
+        /// </summary>
+        private static void CleanupGameService()
+        {
+            // クリーンアップをする
+            CurrentContext.ServiceManager.CleanupServices();
         }
 
 
