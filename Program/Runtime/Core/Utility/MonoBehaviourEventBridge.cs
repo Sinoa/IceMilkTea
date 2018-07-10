@@ -36,12 +36,21 @@ namespace IceMilkTea.Core
         /// <param name="focusFunction">OnApplicationFocusを実行する関数</param>
         /// <param name="pauseFunction">OnApplicationPauseを実行する関数</param>
         /// <returns>新規でアタッチした MonoBehaviourEventBridge のインスタンスを返します</returns>
+        /// <exception cref="ArgumentNullException">targetGameObject が null です</exception>
         public static MonoBehaviourEventBridge Attach(GameObject targetGameObject, Action<bool> focusFunction, Action<bool> pauseFunction)
         {
+            // nullなゲームオブジェクトを渡されたら
+            if (targetGameObject == null)
+            {
+                // そんなことは許さない
+                throw new ArgumentNullException(nameof(targetGameObject));
+            }
+
+
             // 自身をアタッチして初期化をする
             var component = targetGameObject.AddComponent<MonoBehaviourEventBridge>();
-            component.onApplicationFocusFunction = focusFunction;
-            component.onApplicationPauseFunction = pauseFunction;
+            component.onApplicationFocusFunction = focusFunction ?? new Action<bool>(_ => { });
+            component.onApplicationPauseFunction = pauseFunction ?? new Action<bool>(_ => { });
 
 
             // インスペクタから姿を消す

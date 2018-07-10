@@ -55,7 +55,7 @@ namespace IceMilkTeaTestDynamic.Core
 
 
     /// <summary>
-    /// IceMilkTeaの GameServiceManager をテストするクラスです
+    /// IceMilkTeaの InternalGameServiceManager をテストするクラスです
     /// </summary>
     public class ServiceManagerTest
     {
@@ -66,7 +66,7 @@ namespace IceMilkTeaTestDynamic.Core
         public void AddServiceTest()
         {
             // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            var manager = new InternalGameServiceManager();
 
 
             // 各種サービスのインスタンスを生成
@@ -112,7 +112,7 @@ namespace IceMilkTeaTestDynamic.Core
         public void TryAddServiceTest()
         {
             // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            var manager = new InternalGameServiceManager();
 
 
             // 各種サービスのインスタンスを生成
@@ -158,7 +158,7 @@ namespace IceMilkTeaTestDynamic.Core
         public void GetServiceTest()
         {
             // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            var manager = new InternalGameServiceManager();
 
 
             // 今の段階でサービスの取得を試みて、ちゃんと例外を吐いてくれるかを調べる
@@ -204,7 +204,7 @@ namespace IceMilkTeaTestDynamic.Core
         public void TryGetServiceTest()
         {
             // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            var manager = new InternalGameServiceManager();
 
 
             // 各種サービスの結果受け取り変数の用意
@@ -266,7 +266,7 @@ namespace IceMilkTeaTestDynamic.Core
         public void RemoveServiceTest()
         {
             // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            var manager = new InternalGameServiceManager();
 
 
             // 各種サービスのインスタンスを生成して追加する
@@ -310,7 +310,7 @@ namespace IceMilkTeaTestDynamic.Core
         public void RemoveAllServiceTest()
         {
             // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            var manager = new InternalGameServiceManager();
 
 
             // 各種サービスのインスタンスを生成して追加する

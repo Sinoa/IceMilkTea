@@ -21,7 +21,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// IceMilkTeaのサービスを管理及び制御を行うクラスです
     /// </summary>
-    public sealed class GameServiceManager
+    public abstract class GameServiceManager
     {
         // メンバ変数定義
         private List<GameService> serviceList;
@@ -31,7 +31,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// GameServiceManager の初期化を行います
         /// </summary>
-        internal GameServiceManager()
+        public GameServiceManager()
         {
             // メンバの初期化をする
             serviceList = new List<GameService>();

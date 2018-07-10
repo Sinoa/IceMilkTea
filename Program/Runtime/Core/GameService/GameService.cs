@@ -13,6 +13,9 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Collections.Generic;
+using System;
+
 namespace IceMilkTea.Core
 {
     /// <summary>
@@ -21,6 +24,16 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameService
     {
+        protected internal virtual KeyValuePair<GameServiceUpdateTiming, Action>[] Setup()
+        {
+            return new KeyValuePair<GameServiceUpdateTiming, Action>[]
+            {
+                new KeyValuePair<GameServiceUpdateTiming, Action>(GameServiceUpdateTiming.PreFixedUpdate, Startup),
+                new KeyValuePair<GameServiceUpdateTiming, Action>(GameServiceUpdateTiming.PostFixedUpdate, Shutdown),
+            };
+        }
+
+
         protected internal virtual void Startup()
         {
         }

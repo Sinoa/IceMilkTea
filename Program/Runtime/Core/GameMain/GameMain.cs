@@ -13,28 +13,11 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using UnityEngine;
 
 namespace IceMilkTea.Core
 {
-    /// <summary>
-    /// ゲームが終了要求に対する答えを表します
-    /// </summary>
-    public enum GameShutdownAnswer
-    {
-        /// <summary>
-        /// ゲームが終了することを許可します
-        /// </summary>
-        Approve,
-
-        /// <summary>
-        /// ゲームが終了することを拒否します
-        /// </summary>
-        Reject,
-    }
-
-
-
     /// <summary>
     /// ゲームメインクラスの実装をするための抽象クラスです。
     /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
@@ -47,6 +30,12 @@ namespace IceMilkTea.Core
         public static GameMain CurrentContext { get; private set; }
 
 
+        /// <summary>
+        /// 現在のゲームメインが保持しているサービスマネージャを取得します
+        /// </summary>
+        public GameServiceManager ServiceManager { get; private set; }
+
+
 
         /// <summary>
         /// Unity起動時に実行されるゲームのエントリポイントです
@@ -55,26 +44,27 @@ namespace IceMilkTea.Core
         private static void Main()
         {
             // ゲームメインをロードする
-            var gameMain = LoadGameMain();
-            CurrentContext = gameMain;
+            CurrentContext = LoadGameMain();
 
 
-            // 永続ゲームオブジェクトを生成してMonoBehaviourのイベントブリッジコンポーネントをつける
-            var persistentGameObject = CreatePersistentGameObject();
-            MonoBehaviourEventBridge.Attach(persistentGameObject, gameMain.OnApplicationFocus, gameMain.OnApplicationPause);
+            // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
+            CurrentContext.ServiceManager = CurrentContext.CreateGameServiceManager();
+            if (CurrentContext.ServiceManager == null)
+            {
+                // ゲームシステムは破壊的な死亡をした
+                throw new InvalidOperationException("GameServiceManager の正しいインスタンスが生成されませんでした。");
+            }
 
 
-            // アプリケーションのイベントハンドラを登録
-            Application.wantsToQuit += gameMain.Internal_RequestShutdown;
-            Application.quitting += gameMain.Internal_Shutdown;
+            // アプリケーションの終了イベントを引っ掛けておく
+            Application.quitting += CurrentContext.Shutdown;
 
 
-            // GameMainを起動する
-            gameMain.Startup();
+            // ゲームの起動を開始する
+            CurrentContext.Startup();
         }
 
 
-        #region GameMain用ロジック群
         /// <summary>
         /// ゲームメインをロードします
         /// </summary>
@@ -109,36 +99,6 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ゲームが起動してから消えるまで永続的に存在し続けるゲームオブジェクトを生成します。
-        /// ここで生成されるゲームオブジェクトはヒエラルキに表示されません
-        /// </summary>
-        /// <returns>生成された永続ゲームオブジェクトを返します</returns>
-        private static GameObject CreatePersistentGameObject()
-        {
-            // ゲームオブジェクトを生成する
-            var gameObject = new GameObject("__IceMilkTea_Persistent_GameObject__");
-
-
-            // ヒエラルキから姿を消して永続化
-            gameObject.hideFlags = HideFlags.HideInHierarchy;
-            DontDestroyOnLoad(gameObject);
-
-
-            // トランスフォームを取得して念の為初期値を入れる
-            var transform = gameObject.GetComponent<Transform>();
-            transform.position = Vector3.zero;
-            transform.rotation = Quaternion.identity;
-            transform.localScale = Vector3.one;
-
-
-            // 作ったゲームオブジェクトを返す
-            return gameObject;
-        }
-        #endregion
-
-
-        #region イベントハンドラ
-        /// <summary>
         /// 起動するGameMainをリダイレクトします。
         /// IceMilkTeaによって起動されたGameMainから他のGameMainへリダイレクトする場合は、
         /// この関数をオーバーライドして起動するGameMainのインスタンスを返します。
@@ -152,8 +112,21 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ゲームサービスを管理する、サービスマネージャを生成します。
+        /// ゲームサービスの管理をカスタマイズする場合は、
+        /// この関数をオーバーライドしてGameServiceManagerを継承したクラスのインスタンスを返します。
+        /// </summary>
+        /// <returns>GameServiceManager のインスタンスを返します</returns>
+        protected virtual GameServiceManager CreateGameServiceManager()
+        {
+            // 通常は内部ゲームサービスマネージャを生成して返す
+            return new InternalGameServiceManager();
+        }
+
+
+        /// <summary>
         /// ゲームの起動処理を行います。
-        /// サービスの初期化や他のサブシステムの初期化などを主に行います。
+        /// 主に、ゲームサービスの初期登録や必要な追加モジュールの初期化などを行います。
         /// </summary>
         protected virtual void Startup()
         {
@@ -161,63 +134,12 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ゲームアプリケーションがウィンドウやプレイヤーなどのフォーカスの状態が変化したときの処理を行います
-        /// </summary>
-        /// <param name="focus">フォーカスを得られたときはtrueを、失ったときはfalse</param>
-        protected virtual void OnApplicationFocus(bool focus)
-        {
-        }
-
-
-        /// <summary>
-        /// ゲームアプリケーションの再生状態が変化したときの処理を行います
-        /// </summary>
-        /// <param name="pause">一時停止になったときはtrueを、再生状態になったときはfalse</param>
-        protected virtual void OnApplicationPause(bool pause)
-        {
-        }
-
-
-        /// <summary>
-        /// このGameMainクラスのための RequestShutdown 関数です。
-        /// </summary>>
-        /// <returns>終了を許可する場合は true を、禁止する場合は false を返します</returns>
-        private bool Internal_RequestShutdown()
-        {
-            // 終了処理の要求をしてApproveならtrueを、それ以外ならfalseを返す
-            return RequestShutdown() == GameShutdownAnswer.Approve ? true : false;
-        }
-
-
-        /// <summary>
-        /// ゲームの終了処理の要求を処理します。
-        /// ゲームが終了してよいのかどうかを判断し終了のコントロールを行います。
-        /// </summary>
-        /// <returns>終了を許可する場合は GameShutdownAnswer.Approve を、禁止する場合は GameShutdownAnswer.Reject を返します</returns>
-        protected virtual GameShutdownAnswer RequestShutdown()
-        {
-            // 通常は終了を許容する
-            return GameShutdownAnswer.Approve;
-        }
-
-
-        /// <summary>
-        /// このGameMainクラスのための Shutdown 関数です。
-        /// </summary>
-        private void Internal_Shutdown()
-        {
-            // 終了を叩く
-            Shutdown();
-        }
-
-
-        /// <summary>
         /// ゲームの終了処理を行います。
-        /// サービスの終了処理や他のサブシステムの終了処理などを主に行います。
+        /// ゲームサービスそのものの終了処理は、サービス側で処理されるべきで、
+        /// この関数では主に、追加モジュールなどの解放やサービス管轄外の解放などを行うべきです。
         /// </summary>
         protected virtual void Shutdown()
         {
         }
-        #endregion
     }
 }
