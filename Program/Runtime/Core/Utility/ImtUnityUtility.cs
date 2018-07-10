@@ -20,7 +20,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// Unity関連実装でユーティリティな関数として使えるような、関数が実装されているクラスです
     /// </summary>
-    public static class IceUnityUtility
+    public static class ImtUnityUtility
     {
         /// <summary>
         /// 永続的に存在し続けるゲームオブジェクトを生成します。
