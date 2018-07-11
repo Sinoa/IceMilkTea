@@ -13,7 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using System.Collections.Generic;
 
 namespace IceMilkTea.Core
@@ -36,6 +35,18 @@ namespace IceMilkTea.Core
             // メンバの初期化をする
             serviceList = new List<GameService>();
         }
+
+
+        #region 起動と停止
+        protected internal override void Startup()
+        {
+        }
+
+
+        protected internal override void Shutdown()
+        {
+        }
+        #endregion
 
 
         #region 更新系
@@ -162,25 +173,6 @@ namespace IceMilkTea.Core
                     return;
                 }
             }
-        }
-
-
-        /// <summary>
-        /// サービスマネージャが保持しているすべてのサービスを削除します。
-        /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
-        /// </summary>
-        protected internal override void RemoveAllService()
-        {
-            // サービスの数分回る
-            foreach (var inService in serviceList)
-            {
-                // サービスのシャットダウンをする
-                inService.Shutdown();
-            }
-
-
-            // リストを空っぽにする
-            serviceList.Clear();
         }
         #endregion
 

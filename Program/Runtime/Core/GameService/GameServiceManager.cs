@@ -20,6 +20,22 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameServiceManager
     {
+        #region 起動と停止
+        /// <summary>
+        /// サービスマネージャの起動処理を行います。
+        /// サービス登録やその他リスト制御系の処理が受け付けられるように初期化します。
+        /// </summary>
+        protected internal abstract void Startup();
+
+
+        /// <summary>
+        /// サービスマネージャの停止処理を行います。
+        /// 全サービスを正しく停止する制御を、この関数で行います。
+        /// </summary>
+        protected internal abstract void Shutdown();
+        #endregion
+
+
         #region 更新系
         /// <summary>
         /// サービスマネージャに要求されたサービスの追加を行います。
@@ -82,13 +98,6 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">削除するサービスの型</typeparam>
         public abstract void RemoveService<T>() where T : GameService;
-
-
-        /// <summary>
-        /// サービスマネージャが保持しているすべてのサービスを削除します。
-        /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
-        /// </summary>
-        protected internal abstract void RemoveAllService();
         #endregion
     }
 }
