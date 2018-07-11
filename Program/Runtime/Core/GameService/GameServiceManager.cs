@@ -36,6 +36,26 @@ namespace IceMilkTea.Core
         #endregion
 
 
+        #region コントロール系
+        /// <summary>
+        /// 指定されたサービスのアクティブ状態を設定します。
+        /// </summary>
+        /// <typeparam name="T">アクティブ状態を設定する対象のサービスの型</typeparam>
+        /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
+        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
+        public abstract void SetActiveService<T>(bool active);
+
+
+        /// <summary>
+        /// 指定されたサービスがアクティブかどうかを確認します。
+        /// </summary>
+        /// <typeparam name="T">アクティブ状態を確認するサービスの型</typeparam>
+        /// <returns>アクティブの場合は true を、非アクティブの場合は false を返します</returns>
+        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
+        public abstract bool IsActiveService<T>();
+        #endregion
+
+
         #region 更新系
         /// <summary>
         /// サービスマネージャに要求されたサービスの追加を行います。
