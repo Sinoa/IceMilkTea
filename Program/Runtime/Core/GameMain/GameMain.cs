@@ -75,8 +75,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // イベントハンドラの登録をする
-            RegisterEventHandler();
+            // ハンドラの登録をする
+            RegisterHandler();
 
 
             // ゲームの起動を開始する
@@ -118,9 +118,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// GameMainの動作に必要なイベントハンドラの登録処理を行います
+        /// GameMainの動作に必要なハンドラの登録処理を行います
         /// </summary>
-        private static void RegisterEventHandler()
+        private static void RegisterHandler()
         {
             // アプリケーションの終了イベントを引っ掛けておく
             Application.quitting += CurrentContext.Shutdown;
