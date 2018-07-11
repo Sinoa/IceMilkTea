@@ -79,8 +79,26 @@ namespace IceMilkTea.Core
             RegisterHandler();
 
 
+            // サービスマネージャを起動する
+            CurrentContext.ServiceManager.Startup();
+
+
             // ゲームの起動を開始する
             CurrentContext.Startup();
+        }
+
+
+        /// <summary>
+        /// Unityのアプリケーション終了時に処理するべき後処理を行います
+        /// </summary>
+        private static void InternalShutdown()
+        {
+            // サービスマネージャを停止する
+            CurrentContext.ServiceManager.Shutdown();
+
+
+            // ゲームのシャットダウンをする
+            CurrentContext.Shutdown();
         }
 
 
@@ -123,7 +141,7 @@ namespace IceMilkTea.Core
         private static void RegisterHandler()
         {
             // アプリケーションの終了イベントを引っ掛けておく
-            Application.quitting += CurrentContext.Shutdown;
+            Application.quitting += InternalShutdown;
 
 
             // サービスマネージャの開始と終了のループシステムを生成
