@@ -38,11 +38,18 @@ namespace IceMilkTea.Core
 
 
         #region 起動と停止
+        /// <summary>
+        /// サービスマネージャの起動をします。
+        /// このクラスでは何もしません。
+        /// </summary>
         protected internal override void Startup()
         {
         }
 
 
+        /// <summary>
+        /// サービスマネージャの停止をします。
+        /// </summary>
         protected internal override void Shutdown()
         {
         }
@@ -50,11 +57,17 @@ namespace IceMilkTea.Core
 
 
         #region 更新系
+        /// <summary>
+        /// Addされたサービスの起動処理を行います。
+        /// </summary>
         protected internal override void StartupServices()
         {
         }
 
 
+        /// <summary>
+        /// Removeされたサービスの停止処理を行います。
+        /// </summary>
         protected internal override void CleanupServices()
         {
         }
