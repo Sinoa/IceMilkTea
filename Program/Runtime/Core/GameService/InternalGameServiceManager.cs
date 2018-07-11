@@ -38,6 +38,18 @@ namespace IceMilkTea.Core
         }
 
 
+        #region 更新系
+        protected internal override void StartupServices()
+        {
+        }
+
+
+        protected internal override void CleanupServices()
+        {
+        }
+        #endregion
+
+
         #region リスト操作系
         /// <summary>
         /// 指定されたサービスの追加をします。
@@ -170,8 +182,10 @@ namespace IceMilkTea.Core
             // リストを空っぽにする
             serviceList.Clear();
         }
+        #endregion
 
 
+        #region ユーティリティ系
         /// <summary>
         /// 指定されたサービスの型からサービスを取得できるかどうかを調べます。
         /// また GameService クラスを継承していない型か GameService 型そのものを指定された場合は例外をスローします。
@@ -256,15 +270,122 @@ namespace IceMilkTea.Core
             // ここまで到達したのならnullを返す
             return null;
         }
+        #endregion
 
-        protected internal override void StartupServices()
+
+        #region 各種更新関数
+        private void MainLoopHead()
         {
-            throw new NotImplementedException();
         }
 
-        protected internal override void CleanupServices()
+
+        private void PreFixedUpdate()
         {
-            throw new NotImplementedException();
+        }
+
+
+        private void PostFixedUpdate()
+        {
+        }
+
+
+        private void PostPhysicsSimulation()
+        {
+        }
+
+
+        private void PostWaitForFixedUpdate()
+        {
+        }
+
+
+        private void PreProcessSynchronizationContext()
+        {
+        }
+
+
+        private void PostProcessSynchronizationContext()
+        {
+        }
+
+
+        private void PreUpdate()
+        {
+        }
+
+
+        private void PostUpdate()
+        {
+        }
+
+
+        private void PreAnimation()
+        {
+        }
+
+
+        private void PostAnimation()
+        {
+        }
+
+
+        private void PreLateUpdate()
+        {
+        }
+
+
+        private void PostLateUpdate()
+        {
+        }
+
+
+        private void PreRendering()
+        {
+        }
+
+
+        private void PostRendering()
+        {
+        }
+
+
+        private void MainLoopTail()
+        {
+        }
+
+
+        private void OnApplicationFocusIn()
+        {
+        }
+
+
+        private void OnApplicationFocusOut()
+        {
+        }
+
+
+        private void OnApplicationSuspend()
+        {
+        }
+
+
+        private void OnApplicationResume()
+        {
+        }
+
+
+        private void CameraPreCulling()
+        {
+        }
+
+
+        private void CameraPreRendering()
+        {
+        }
+
+
+        private void CameraPostRendering()
+        {
         }
         #endregion
     }
