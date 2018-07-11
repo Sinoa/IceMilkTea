@@ -20,6 +20,23 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameServiceManager
     {
+        #region 更新系
+        /// <summary>
+        /// サービスマネージャに要求されたサービスの追加を行います。
+        /// サービスのStartupが呼び出されるタイミングもこのタイミングになります。
+        /// </summary>
+        protected internal abstract void StartupServices();
+
+
+        /// <summary>
+        /// サービスマネージャに要求されたサービスの削除を行います。
+        /// サービスのShutdownが呼び出されるタイミングもこのタイミングになります。
+        /// </summary>
+        protected internal abstract void CleanupServices();
+        #endregion
+
+
+        #region リスト操作系
         /// <summary>
         /// 指定されたサービスの追加をします。
         /// また、サービスの型が同じインスタンスまたは同一継承元インスタンスが存在する場合は例外がスローされます。
@@ -72,19 +89,6 @@ namespace IceMilkTea.Core
         /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
         /// </summary>
         protected internal abstract void RemoveAllService();
-
-
-        /// <summary>
-        /// サービスマネージャに要求されたサービスの追加を行います。
-        /// サービスのStartupが呼び出されるタイミングもこのタイミングになります。
-        /// </summary>
-        protected internal abstract void StartupServices();
-
-
-        /// <summary>
-        /// サービスマネージャに要求されたサービスの削除を行います。
-        /// サービスのShutdownが呼び出されるタイミングもこのタイミングになります。
-        /// </summary>
-        protected internal abstract void CleanupServices();
+        #endregion
     }
 }
