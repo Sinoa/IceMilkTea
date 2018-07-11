@@ -25,6 +25,7 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameMain : ScriptableObject
     {
+        #region PlayerLoopSystem用型定義
         /// <summary>
         /// ゲームサービスマネージャのサービス起動ルーチンを実行する型です
         /// </summary>
@@ -35,9 +36,11 @@ namespace IceMilkTea.Core
         /// ゲームサービスマネージャのサービス終了ルーチンを実行する型です
         /// </summary>
         public struct GameServiceManagerCleanup { }
+        #endregion
 
 
 
+        #region プロパティ
         /// <summary>
         /// 現在のゲームメインコンテキストを取得します
         /// </summary>
@@ -48,9 +51,11 @@ namespace IceMilkTea.Core
         /// 現在のゲームメインが保持しているサービスマネージャを取得します
         /// </summary>
         public GameServiceManager ServiceManager { get; private set; }
+        #endregion
 
 
 
+        #region エントリポイントとロジック関数
         /// <summary>
         /// Unity起動時に実行されるゲームのエントリポイントです
         /// </summary>
@@ -70,15 +75,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // アプリケーションの終了イベントを引っ掛けておく
-            Application.quitting += CurrentContext.Shutdown;
-
-
-            // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
-            var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
-            loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime, GameServiceManagerStartup>(InsertTiming.AfterInsert, StartupGameService);
-            loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks, GameServiceManagerCleanup>(InsertTiming.AfterInsert, CleanupGameService);
-            loopSystem.BuildAndSetUnityDefaultPlayerLoop();
+            // イベントハンドラの登録をする
+            RegisterEventHandler();
 
 
             // ゲームの起動を開始する
@@ -120,22 +118,45 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ゲームサービスマネージャのサービススタートアップ処理を呼び出します
+        /// GameMainの動作に必要なイベントハンドラの登録処理を行います
         /// </summary>
-        private static void StartupGameService()
+        private static void RegisterEventHandler()
         {
-            // スタートアップをする
-            CurrentContext.ServiceManager.StartupServices();
+            // アプリケーションの終了イベントを引っ掛けておく
+            Application.quitting += CurrentContext.Shutdown;
+
+
+            // サービスマネージャの開始と終了のループシステムを生成
+            var startupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerStartup), CurrentContext.ServiceManager.StartupServices);
+            var cleanupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerCleanup), CurrentContext.ServiceManager.CleanupServices);
+
+
+            // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
+            var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
+            loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
+            loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
+            loopSystem.BuildAndSetUnityDefaultPlayerLoop();
+        }
+        #endregion
+
+
+        #region オーバーライド可能なGameMainのハンドラ関数
+        /// <summary>
+        /// ゲームの起動処理を行います。
+        /// 主に、ゲームサービスの初期登録や必要な追加モジュールの初期化などを行います。
+        /// </summary>
+        protected virtual void Startup()
+        {
         }
 
 
         /// <summary>
-        /// ゲームサービスマネージャ
+        /// ゲームの終了処理を行います。
+        /// ゲームサービスそのものの終了処理は、サービス側で処理されるべきで、
+        /// この関数では主に、追加モジュールなどの解放やサービス管轄外の解放などを行うべきです。
         /// </summary>
-        private static void CleanupGameService()
+        protected virtual void Shutdown()
         {
-            // クリーンアップをする
-            CurrentContext.ServiceManager.CleanupServices();
         }
 
 
@@ -163,24 +184,6 @@ namespace IceMilkTea.Core
             // 通常は内部ゲームサービスマネージャを生成して返す
             return new InternalGameServiceManager();
         }
-
-
-        /// <summary>
-        /// ゲームの起動処理を行います。
-        /// 主に、ゲームサービスの初期登録や必要な追加モジュールの初期化などを行います。
-        /// </summary>
-        protected virtual void Startup()
-        {
-        }
-
-
-        /// <summary>
-        /// ゲームの終了処理を行います。
-        /// ゲームサービスそのものの終了処理は、サービス側で処理されるべきで、
-        /// この関数では主に、追加モジュールなどの解放やサービス管轄外の解放などを行うべきです。
-        /// </summary>
-        protected virtual void Shutdown()
-        {
-        }
+        #endregion
     }
 }
