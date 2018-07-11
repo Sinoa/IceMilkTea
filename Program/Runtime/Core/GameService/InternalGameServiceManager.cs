@@ -187,36 +187,6 @@ namespace IceMilkTea.Core
 
         #region ユーティリティ系
         /// <summary>
-        /// 指定されたサービスの型からサービスを取得できるかどうかを調べます。
-        /// また GameService クラスを継承していない型か GameService 型そのものを指定された場合は例外をスローします。
-        /// </summary>
-        /// <param name="serviceType">確認するサービスの型</param>
-        /// <returns>指定されたサービスの型から、サービスが取得が可能な場合は true を、取得ができない場合は false を返します</returns>
-        /// <exception cref="ArgumentException">指定された型は GameService 型そのものか GameService を継承していません</exception>
-        private bool CanTakeService(Type serviceType)
-        {
-            // もし serviceType が GameService 型 または GameService 型から継承していないなら
-            var gameServiceType = typeof(GameService);
-            if (serviceType == gameServiceType || !gameServiceType.IsAssignableFrom(serviceType))
-            {
-                // 例外を投げる
-                throw new ArgumentException($"'{nameof(serviceType)}'は'{gameServiceType.Name}'型か、'{gameServiceType.Name}'を継承していません");
-            }
-
-
-            // 指定されたサービスの型から GameService を直接継承している型が出るまでループ
-            var objectType = typeof(Object);
-            var superType = serviceType.BaseType;
-            while (superType != typeof(GameService))
-            {
-            }
-
-
-            return false;
-        }
-
-
-        /// <summary>
         /// 指定されたサービスが存在するか否かを調べます
         /// </summary>
         /// <param name="service">調べるサービス</param>
