@@ -13,32 +13,47 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 
 namespace IceMilkTea.Core
 {
+    /// <summary>
+    /// ゲームサービスが動作を開始するための情報を保持する構造体です
+    /// </summary>
+    public struct GameServiceStartupInfo
+    {
+        /// <summary>
+        /// サービスが更新処理として必要としている更新関数テーブル
+        /// </summary>
+        public Dictionary<GameServiceUpdateTiming, Action> UpdateFunctionTable { get; set; }
+    }
+
+
+
     /// <summary>
     /// ゲームのサブシステムをサービスとして提供するための基本クラスです。
     /// ゲームのサブシステムを実装する場合は、このクラスを継承し適切な振る舞いを実装してください。
     /// </summary>
     public abstract class GameService
     {
-        protected internal virtual KeyValuePair<GameServiceUpdateTiming, Action>[] Setup()
+        /// <summary>
+        /// サービスを起動します。
+        /// </summary>
+        /// <param name="info">サービスが起動する時に必要とする情報を設定します</param>
+        protected internal virtual void Startup(out GameServiceStartupInfo info)
         {
-            return new KeyValuePair<GameServiceUpdateTiming, Action>[]
+            // 特に何もしない起動情報を設定して修了
+            info = new GameServiceStartupInfo()
             {
-                new KeyValuePair<GameServiceUpdateTiming, Action>(GameServiceUpdateTiming.PreFixedUpdate, Startup),
-                new KeyValuePair<GameServiceUpdateTiming, Action>(GameServiceUpdateTiming.PostFixedUpdate, Shutdown),
+                UpdateFunctionTable = null,
             };
         }
 
 
-        protected internal virtual void Startup()
-        {
-        }
-
-
+        /// <summary>
+        /// サービスをシャットダウンします
+        /// </summary>
         protected internal virtual void Shutdown()
         {
         }

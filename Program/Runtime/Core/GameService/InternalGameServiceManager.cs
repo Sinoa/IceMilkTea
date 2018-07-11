@@ -13,6 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using System.Collections.Generic;
 
 namespace IceMilkTea.Core
@@ -27,7 +28,37 @@ namespace IceMilkTea.Core
         /// </summary>
         private enum ServiceStatus
         {
+            /// <summary>
+            /// サービスが生成され、動作を開始する準備が出来ました。
+            /// </summary>
+            Ready,
+
+            /// <summary>
+            /// サービスが生成され、動作を開始する準備が出来ていますが、休止中です。
+            /// </summary>
+            ReadyButSleeping,
+
+            /// <summary>
+            /// サービスは動作中です。
+            /// </summary>
+            Running,
+
+            /// <summary>
+            /// サービスは休止中です。
+            /// </summary>
+            Sleeping,
+
+            /// <summary>
+            /// サービスは破棄対象としてマークされ、シャットダウン状態になりました。
+            /// </summary>
+            Shutdown,
+
+            /// <summary>
+            /// サービスは破棄対象としてマークされましたが、シャットダウン処理は実行されずそのまま破棄される状態になりました。
+            /// </summary>
+            SilentShutdown,
         }
+
 
 
         /// <summary>
@@ -35,12 +66,34 @@ namespace IceMilkTea.Core
         /// </summary>
         private class ServiceManagementInfo
         {
+            /// <summary>
+            /// サービス本体への参照
+            /// </summary>
+            public GameService Service { get; set; }
+
+
+            /// <summary>
+            /// サービスの状態
+            /// </summary>
+            public ServiceStatus Status { get; set; }
+
+
+            /// <summary>
+            /// 管理しているサービス本体のクラスが継承している型で、GameService型を直接継承している基本となるサービスの型
+            /// </summary>
+            public Type BaseGameServiceType { get; set; }
+
+
+            /// <summary>
+            /// このサービスが利用している更新関数テーブル
+            /// </summary>
+            public Dictionary<GameServiceUpdateTiming, Action> UpdateFunctionTable { get; set; }
         }
 
 
 
         // メンバ変数定義
-        private List<GameService> serviceList;
+        private List<ServiceManagementInfo> serviceManageList;
 
 
 
@@ -49,18 +102,18 @@ namespace IceMilkTea.Core
         /// </summary>
         public InternalGameServiceManager()
         {
-            // メンバの初期化をする
-            serviceList = new List<GameService>();
+            // サービス管理用リストのインスタンスを生成
+            serviceManageList = new List<ServiceManagementInfo>();
         }
 
 
         #region 起動と停止
         /// <summary>
         /// サービスマネージャの起動をします。
-        /// このクラスでは何もしません。
         /// </summary>
         protected internal override void Startup()
         {
+            // ここでPlayerLoopに各種更新関数をラムダで登録する
         }
 
 
@@ -69,6 +122,7 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void Shutdown()
         {
+            // ここで全サービスのシャットダウンを行う（状態をちゃんと適切に判断することを忘れずに）
         }
         #endregion
 
@@ -80,8 +134,10 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">アクティブ状態を設定する対象のサービスの型</typeparam>
         /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
+        /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
         public override void SetActiveService<T>(bool active)
         {
+            throw new NotImplementedException();
         }
 
 
@@ -93,7 +149,7 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         public override bool IsActiveService<T>()
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
         #endregion
 
@@ -104,6 +160,26 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void StartupServices()
         {
+            // サービスの起動情報を受け取る変数を用意
+            var serviceStartupInfo = default(GameServiceStartupInfo);
+
+
+            // サービスの数分ループ
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービスの状態がReady以外なら
+                if (serviceManageList[i].Status != ServiceStatus.Ready)
+                {
+                    // 次の項目へ
+                    continue;
+                }
+
+
+                // サービスを起動状態に設定、サービスの起動処理を実行して更新関数テーブルのキャッシュをする
+                serviceManageList[i].Status = ServiceStatus.Running;
+                serviceManageList[i].Service.Startup(out serviceStartupInfo);
+                serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
+            }
         }
 
 
@@ -112,6 +188,52 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void CleanupServices()
         {
+            // 実際の破棄そのもののステップ必要かどうかを検知するための変数を用意
+            var needDeleteStep = false;
+
+
+            // サービスの数分ループ
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービスの状態がShutdownでないなら
+                if (serviceManageList[i].Status != ServiceStatus.Shutdown)
+                {
+                    // サービスの状態がサイレントシャットダウンなら
+                    if (serviceManageList[i].Status == ServiceStatus.SilentShutdown)
+                    {
+                        // シャットダウン関数を呼びはしないが破棄ステップでは破棄されるようにマーク
+                        needDeleteStep = true;
+                    }
+
+
+                    // 次の項目へ
+                    continue;
+                }
+
+
+                // サービスの停止処理を実行する（が、このタイミングでは破棄しない、破棄のタイミングは次のステップで行う）
+                serviceManageList[i].Service.Shutdown();
+
+
+                // 破棄処理を行うようにマーク
+                needDeleteStep = true;
+            }
+
+
+            // もし破棄処理をしないなら
+            if (!needDeleteStep)
+            {
+                // ここで終了
+                return;
+            }
+
+
+            // サービスの数分ループ
+            for (int i = serviceManageList.Count - 1; i >= 0; --i)
+            {
+                // リストからサービスをパージする
+                serviceManageList.RemoveAt(i);
+            }
         }
         #endregion
 
@@ -126,16 +248,7 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスが追加されています</exception>
         public override void AddService(GameService service)
         {
-            // 既にサービスが存在するなら
-            if (IsExistsService(service))
-            {
-                // 例外を投げる
-                throw new GameServiceAlreadyExistsException(service.GetType(), service.GetType());
-            }
-
-
-            // まだ追加されていないので追加する
-            serviceList.Add(service);
+            throw new NotImplementedException();
         }
 
 
@@ -148,17 +261,7 @@ namespace IceMilkTea.Core
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
         public override bool TryAddService(GameService service)
         {
-            // 既にサービスが存在するなら
-            if (IsExistsService(service))
-            {
-                // 追加出来なかったことを返す
-                return false;
-            }
-
-
-            // サービスを追加して追加出来たことを返す
-            serviceList.Add(service);
-            return true;
+            throw new NotImplementedException();
         }
 
 
@@ -171,17 +274,7 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         public override T GetService<T>()
         {
-            // サービスを探して見つけられたのなら
-            var inService = FindService<T>();
-            if (inService != null)
-            {
-                // サービスを返す
-                return inService;
-            }
-
-
-            // ここまで来てしまったのなら例外を吐く
-            throw new GameServiceNotFoundException(typeof(T));
+            throw new NotImplementedException();
         }
 
 
@@ -192,19 +285,7 @@ namespace IceMilkTea.Core
         /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
         public override bool TryGetService<T>(out T service)
         {
-            // サービスを探して見つけられたのなら
-            var inService = FindService<T>();
-            if (inService != null)
-            {
-                // サービスを設定して成功を返す
-                service = inService;
-                return true;
-            }
-
-
-            // ここまで来てしまったのならnullを設定して失敗を返す
-            service = null;
-            return false;
+            throw new NotImplementedException();
         }
 
 
@@ -215,19 +296,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">削除するサービスの型</typeparam>
         public override void RemoveService<T>()
         {
-            // サービスの数分回る
-            for (int i = 0; i < serviceList.Count; ++i)
-            {
-                // もし指定された型のサービスなら
-                if (serviceList[i].GetType() == typeof(T))
-                {
-                    // 該当インデックスのサービスをシャットダウンして削除する
-                    var inService = serviceList[i];
-                    inService.Shutdown();
-                    serviceList.RemoveAt(i);
-                    return;
-                }
-            }
+            throw new NotImplementedException();
         }
         #endregion
 
@@ -240,24 +309,7 @@ namespace IceMilkTea.Core
         /// <returns>存在するなら true を、存在しないなら false を返します</returns>
         private bool IsExistsService(GameService service)
         {
-            // サービスの型情報を取り出す
-            var serviceType = service.GetType();
-
-
-            // 現在所持中のサービス分ループ
-            foreach (var inService in serviceList)
-            {
-                // 指定されたサービスの型があるなら
-                if (inService.GetType() == serviceType)
-                {
-                    // 存在していることを返す
-                    return true;
-                }
-            }
-
-
-            // ここまで到達したのなら存在しないとする
-            return false;
+            throw new NotImplementedException();
         }
 
 
@@ -268,141 +320,7 @@ namespace IceMilkTea.Core
         /// <returns>見つけられた場合は、サービスのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
         private T FindService<T>() where T : GameService
         {
-            // 調べたい型
-            var serviceType = typeof(T);
-
-
-            // サービスの数分ループ
-            foreach (var inService in serviceList)
-            {
-                // もし取得したい型なら
-                if (inService.GetType() == serviceType)
-                {
-                    // そのサービスを返す
-                    return (T)inService;
-                }
-            }
-
-
-            // ここまで到達したのならnullを返す
-            return null;
-        }
-        #endregion
-
-
-        #region 各種更新関数
-        private void MainLoopHead()
-        {
-        }
-
-
-        private void PreFixedUpdate()
-        {
-        }
-
-
-        private void PostFixedUpdate()
-        {
-        }
-
-
-        private void PostPhysicsSimulation()
-        {
-        }
-
-
-        private void PostWaitForFixedUpdate()
-        {
-        }
-
-
-        private void PreProcessSynchronizationContext()
-        {
-        }
-
-
-        private void PostProcessSynchronizationContext()
-        {
-        }
-
-
-        private void PreUpdate()
-        {
-        }
-
-
-        private void PostUpdate()
-        {
-        }
-
-
-        private void PreAnimation()
-        {
-        }
-
-
-        private void PostAnimation()
-        {
-        }
-
-
-        private void PreLateUpdate()
-        {
-        }
-
-
-        private void PostLateUpdate()
-        {
-        }
-
-
-        private void PreRendering()
-        {
-        }
-
-
-        private void PostRendering()
-        {
-        }
-
-
-        private void MainLoopTail()
-        {
-        }
-
-
-        private void OnApplicationFocusIn()
-        {
-        }
-
-
-        private void OnApplicationFocusOut()
-        {
-        }
-
-
-        private void OnApplicationSuspend()
-        {
-        }
-
-
-        private void OnApplicationResume()
-        {
-        }
-
-
-        private void CameraPreCulling()
-        {
-        }
-
-
-        private void CameraPreRendering()
-        {
-        }
-
-
-        private void CameraPostRendering()
-        {
+            throw new NotImplementedException();
         }
         #endregion
     }
