@@ -300,9 +300,38 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">アクティブ状態を設定する対象のサービスの型</typeparam>
         /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
+        /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、シャットダウン状態になっています</exception>
         public virtual void SetActiveService<T>(bool active) where T : GameService
         {
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null || !(serviceInfo.Service is T))
+            {
+                // サービスを見つけられなかったとして例外を吐く
+                throw new GameServiceNotFoundException(typeof(T));
+            }
+
+
+            // もしサービスがシャットダウン予定になっているのなら
+            var shutdownStatus = (serviceInfo.Status == ServiceStatus.Shutdown || serviceInfo.Status == ServiceStatus.SilentShutdown);
+            if (shutdownStatus)
+            {
+                // 無効な操作として例外を吐く
+                throw new InvalidOperationException($"サービス'{typeof(T).Name}'は、シャットダウン状態です。");
+            }
+
+
+            // アクティブにするなら
+            if (active)
+            {
+                // 現在の状態によって遷移先状態を変える
+                serviceInfo.Status = serviceInfo.Status == ServiceStatus.ReadyButSleeping ? ServiceStatus.Ready : ServiceStatus.Running;
+            }
+            else
+            {
+                // 現在の状態によって遷移先状態を変える
+                serviceInfo.Status = serviceInfo.Status == ServiceStatus.Ready ? ServiceStatus.ReadyButSleeping : ServiceStatus.Sleeping;
+            }
         }
 
 
@@ -314,7 +343,17 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         public virtual bool IsActiveService<T>() where T : GameService
         {
-            return false;
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null || !(serviceInfo.Service is T))
+            {
+                // サービスを見つけられなかったとして例外を吐く
+                throw new GameServiceNotFoundException(typeof(T));
+            }
+
+
+            // Running, Ready以外は全部非アクティブ
+            return serviceInfo.Status == ServiceStatus.Ready || serviceInfo.Status == ServiceStatus.Running;
         }
         #endregion
 
