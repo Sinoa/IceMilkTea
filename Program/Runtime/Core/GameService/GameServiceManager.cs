@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Experimental.PlayerLoop;
 
 namespace IceMilkTea.Core
@@ -152,6 +153,17 @@ namespace IceMilkTea.Core
             loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
             loopSystem.InsertLoopSystem<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
             loopSystem.BuildAndSetUnityPlayerLoop();
+
+
+            // 永続ゲームオブジェクトを生成してアプリケーションのフォーカス、ポーズのハンドラを登録する
+            var persistentGameObject = ImtUnityUtility.CreatePersistentGameObject();
+            MonoBehaviourEventBridge.Attach(persistentGameObject, OnApplicationFocus, OnApplicationPause);
+
+
+            // カメラのハンドラを登録する
+            Camera.onPreCull += OnCameraPreCulling;
+            Camera.onPreRender += OnCameraPreRendering;
+            Camera.onPostRender += OnCameraPostRendering;
         }
 
 
@@ -160,6 +172,12 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Shutdown()
         {
+            // カメラのハンドラを解除する
+            Camera.onPreCull -= OnCameraPreCulling;
+            Camera.onPreRender -= OnCameraPreRendering;
+            Camera.onPostRender -= OnCameraPostRendering;
+
+
             // サービスの数分ループ
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
@@ -356,6 +374,81 @@ namespace IceMilkTea.Core
         #endregion
 
 
+        #region Unityイベントハンドラ
+        /// <summary>
+        /// Unityプレイヤーのフォーカス状態に変化があった時の処理を行います
+        /// </summary>
+        /// <param name="focus">フォーカスを得られたときは true を、得られなかったときは false が渡されます</param>
+        private void OnApplicationFocus(bool focus)
+        {
+            // もしフォーカスを得られたのなら
+            if (focus)
+            {
+                // FocusInのサービス呼び出しをする
+                DoUpdateService(GameServiceUpdateTiming.OnApplicationFocusIn);
+                return;
+            }
+
+
+            // FocusOutのサービス呼び出しをする
+            DoUpdateService(GameServiceUpdateTiming.OnApplicationFocusOut);
+        }
+
+
+        /// <summary>
+        /// Unityプレイヤーの再生状態に変化があった時の処理を行います
+        /// </summary>
+        /// <param name="pause">一時停止した場合は true を、再開した場合は false が渡されます</param>
+        private void OnApplicationPause(bool pause)
+        {
+            // もし一時停止なら
+            if (pause)
+            {
+                // Suspendのサービス呼び出しをする
+                DoUpdateService(GameServiceUpdateTiming.OnApplicationSuspend);
+                return;
+            }
+
+
+            // Resumeのサービス呼び出しをする
+            DoUpdateService(GameServiceUpdateTiming.OnApplicationResume);
+        }
+
+
+        /// <summary>
+        /// カメラのカリング処理を始める直前の処理を行います
+        /// </summary>
+        /// <param name="targetCamera">処理するカメラ</param>
+        private void OnCameraPreCulling(Camera targetCamera)
+        {
+            // CameraPreCullingのサービス呼び出しをする
+            DoUpdateService(GameServiceUpdateTiming.CameraPreCulling);
+        }
+
+
+        /// <summary>
+        /// カメラのレンダリング処理を始める直前の処理を行います
+        /// </summary>
+        /// <param name="targetCamera">処理するカメラ</param>
+        private void OnCameraPreRendering(Camera targetCamera)
+        {
+            // CameraPreRenderingのサービス呼び出しをする
+            DoUpdateService(GameServiceUpdateTiming.CameraPreRendering);
+        }
+
+
+        /// <summary>
+        /// カメラのレンダリング処理が終わった直後の処理を行います
+        /// </summary>
+        /// <param name="targetCamera"></param>
+        private void OnCameraPostRendering(Camera targetCamera)
+        {
+            // CameraPostRenderingのサービス呼び出しをする
+            DoUpdateService(GameServiceUpdateTiming.CameraPostRendering);
+        }
+        #endregion
+
+
         #region 共通ロジック系
         /// <summary>
         /// 指定されたタイミングのサービス更新関数を実行します。
@@ -391,28 +484,6 @@ namespace IceMilkTea.Core
                 // 該当タイミングの更新関数を持っているのなら更新関数を叩く
                 updateFunction();
             }
-        }
-
-
-        /// <summary>
-        /// 指定されたサービスが存在するか否かを調べます
-        /// </summary>
-        /// <param name="service">調べるサービス</param>
-        /// <returns>存在するなら true を、存在しないなら false を返します</returns>
-        private bool IsExistsService(GameService service)
-        {
-            throw new NotImplementedException();
-        }
-
-
-        /// <summary>
-        /// 指定された型のサービスを検索します
-        /// </summary>
-        /// <typeparam name="T">検索するサービスの型</typeparam>
-        /// <returns>見つけられた場合は、サービスのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
-        private T FindService<T>() where T : GameService
-        {
-            throw new NotImplementedException();
         }
         #endregion
     }
