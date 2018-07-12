@@ -13,26 +13,117 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.Collections.Generic;
+
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// IceMilkTeaのゲームサービスを管理及び制御を行う抽象クラスです。
+    /// IceMilkTeaのゲームサービスを管理及び制御を行うクラスです。
     /// </summary>
-    public abstract class GameServiceManager
+    public class GameServiceManager
     {
+        /// <summary>
+        /// サービスの状態を表します
+        /// </summary>
+        protected enum ServiceStatus
+        {
+            /// <summary>
+            /// サービスが生成され、動作を開始する準備が出来ました。
+            /// </summary>
+            Ready,
+
+            /// <summary>
+            /// サービスが生成され、動作を開始する準備が出来ていますが、休止中です。
+            /// </summary>
+            ReadyButSleeping,
+
+            /// <summary>
+            /// サービスは動作中です。
+            /// </summary>
+            Running,
+
+            /// <summary>
+            /// サービスは休止中です。
+            /// </summary>
+            Sleeping,
+
+            /// <summary>
+            /// サービスは破棄対象としてマークされ、シャットダウン状態になりました。
+            /// </summary>
+            Shutdown,
+
+            /// <summary>
+            /// サービスは破棄対象としてマークされましたが、シャットダウン処理は実行されずそのまま破棄される状態になりました。
+            /// </summary>
+            SilentShutdown,
+        }
+
+
+
+        /// <summary>
+        /// サービスマネージャが管理するサービスの管理情報を保持するデータクラスです
+        /// </summary>
+        protected class ServiceManagementInfo
+        {
+            /// <summary>
+            /// サービス本体への参照
+            /// </summary>
+            public GameService Service { get; set; }
+
+
+            /// <summary>
+            /// サービスの状態
+            /// </summary>
+            public ServiceStatus Status { get; set; }
+
+
+            /// <summary>
+            /// 管理しているサービス本体のクラスが継承している型で、GameService型を直接継承している基本となるサービスの型
+            /// </summary>
+            public Type BaseGameServiceType { get; set; }
+
+
+            /// <summary>
+            /// このサービスが利用している更新関数テーブル
+            /// </summary>
+            public Dictionary<GameServiceUpdateTiming, Action> UpdateFunctionTable { get; set; }
+        }
+
+
+
+        // メンバ変数定義
+        protected List<ServiceManagementInfo> serviceManageList;
+
+
+
+        /// <summary>
+        /// GameServiceManager の初期化を行います
+        /// </summary>
+        public GameServiceManager()
+        {
+            // サービス管理用リストのインスタンスを生成
+            serviceManageList = new List<ServiceManagementInfo>();
+        }
+
+
         #region 起動と停止
         /// <summary>
-        /// サービスマネージャの起動処理を行います。
-        /// サービス登録やその他リスト制御系の処理が受け付けられるように初期化します。
+        /// サービスマネージャの起動をします。
         /// </summary>
-        protected internal abstract void Startup();
+        protected internal virtual void Startup()
+        {
+            // ここでPlayerLoopに各種更新関数をラムダで登録する
+        }
 
 
         /// <summary>
-        /// サービスマネージャの停止処理を行います。
-        /// 全サービスを正しく停止する制御を、この関数で行います。
+        /// サービスマネージャの停止をします。
         /// </summary>
-        protected internal abstract void Shutdown();
+        protected internal virtual void Shutdown()
+        {
+            // ここで全サービスのシャットダウンを行う（状態をちゃんと適切に判断することを忘れずに）
+        }
         #endregion
 
 
@@ -43,7 +134,11 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">アクティブ状態を設定する対象のサービスの型</typeparam>
         /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        public abstract void SetActiveService<T>(bool active);
+        /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
+        public virtual void SetActiveService<T>(bool active)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -52,23 +147,94 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">アクティブ状態を確認するサービスの型</typeparam>
         /// <returns>アクティブの場合は true を、非アクティブの場合は false を返します</returns>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        public abstract bool IsActiveService<T>();
+        public virtual bool IsActiveService<T>()
+        {
+            throw new NotImplementedException();
+        }
         #endregion
 
 
         #region 更新系
         /// <summary>
-        /// サービスマネージャに要求されたサービスの追加を行います。
-        /// サービスのStartupが呼び出されるタイミングもこのタイミングになります。
+        /// Addされたサービスの起動処理を行います。
         /// </summary>
-        protected internal abstract void StartupServices();
+        protected internal virtual void StartupServices()
+        {
+            // サービスの起動情報を受け取る変数を用意
+            var serviceStartupInfo = default(GameServiceStartupInfo);
+
+
+            // サービスの数分ループ
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービスの状態がReady以外なら
+                if (serviceManageList[i].Status != ServiceStatus.Ready)
+                {
+                    // 次の項目へ
+                    continue;
+                }
+
+
+                // サービスを起動状態に設定、サービスの起動処理を実行して更新関数テーブルのキャッシュをする
+                serviceManageList[i].Status = ServiceStatus.Running;
+                serviceManageList[i].Service.Startup(out serviceStartupInfo);
+                serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
+            }
+        }
 
 
         /// <summary>
-        /// サービスマネージャに要求されたサービスの削除を行います。
-        /// サービスのShutdownが呼び出されるタイミングもこのタイミングになります。
+        /// Removeされたサービスの停止処理を行います。
         /// </summary>
-        protected internal abstract void CleanupServices();
+        protected internal virtual void CleanupServices()
+        {
+            // 実際の破棄そのもののステップ必要かどうかを検知するための変数を用意
+            var needDeleteStep = false;
+
+
+            // サービスの数分ループ
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービスの状態がShutdownでないなら
+                if (serviceManageList[i].Status != ServiceStatus.Shutdown)
+                {
+                    // サービスの状態がサイレントシャットダウンなら
+                    if (serviceManageList[i].Status == ServiceStatus.SilentShutdown)
+                    {
+                        // シャットダウン関数を呼びはしないが破棄ステップでは破棄されるようにマーク
+                        needDeleteStep = true;
+                    }
+
+
+                    // 次の項目へ
+                    continue;
+                }
+
+
+                // サービスの停止処理を実行する（が、このタイミングでは破棄しない、破棄のタイミングは次のステップで行う）
+                serviceManageList[i].Service.Shutdown();
+
+
+                // 破棄処理を行うようにマーク
+                needDeleteStep = true;
+            }
+
+
+            // もし破棄処理をしないなら
+            if (!needDeleteStep)
+            {
+                // ここで終了
+                return;
+            }
+
+
+            // サービスの数分ループ
+            for (int i = serviceManageList.Count - 1; i >= 0; --i)
+            {
+                // リストからサービスをパージする
+                serviceManageList.RemoveAt(i);
+            }
+        }
         #endregion
 
 
@@ -80,7 +246,10 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
         /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスが追加されています</exception>
-        public abstract void AddService(GameService service);
+        public virtual void AddService(GameService service)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -90,7 +259,10 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
-        public abstract bool TryAddService(GameService service);
+        public virtual bool TryAddService(GameService service)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -100,7 +272,10 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">取得するサービスの型</typeparam>
         /// <returns>見つけられたサービスのインスタンスを返します</returns>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        public abstract T GetService<T>() where T : GameService;
+        public virtual T GetService<T>()
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -108,8 +283,10 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">取得するサービスの型</typeparam>
         /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
-        /// <returns>サービスを取得できた場合は true を、出来なかった場合は false を返します</returns>
-        public abstract bool TryGetService<T>(out T service) where T : GameService;
+        public virtual bool TryGetService<T>(out T service)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -117,7 +294,34 @@ namespace IceMilkTea.Core
         /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
         /// </summary>
         /// <typeparam name="T">削除するサービスの型</typeparam>
-        public abstract void RemoveService<T>() where T : GameService;
+        public virtual void RemoveService<T>()
+        {
+            throw new NotImplementedException();
+        }
+        #endregion
+
+
+        #region ユーティリティ系
+        /// <summary>
+        /// 指定されたサービスが存在するか否かを調べます
+        /// </summary>
+        /// <param name="service">調べるサービス</param>
+        /// <returns>存在するなら true を、存在しないなら false を返します</returns>
+        private bool IsExistsService(GameService service)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// 指定された型のサービスを検索します
+        /// </summary>
+        /// <typeparam name="T">検索するサービスの型</typeparam>
+        /// <returns>見つけられた場合は、サービスのインスタンスを返しますが、見つけられなかった場合はnullを返します</returns>
+        private T FindService<T>() where T : GameService
+        {
+            throw new NotImplementedException();
+        }
         #endregion
     }
 }

@@ -199,8 +199,8 @@ namespace IceMilkTea.Core
         /// <returns>GameServiceManager のインスタンスを返します</returns>
         protected virtual GameServiceManager CreateGameServiceManager()
         {
-            // 通常は内部ゲームサービスマネージャを生成して返す
-            return new InternalGameServiceManager();
+            // 通常は、素のゲームサービスマネージャを生成して返す
+            return new GameServiceManager();
         }
         #endregion
     }
