@@ -157,7 +157,7 @@ namespace IceMilkTea.Core
             var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
             loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
             loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
-            loopSystem.BuildAndSetUnityDefaultPlayerLoop();
+            loopSystem.BuildAndSetUnityPlayerLoop();
         }
 
 

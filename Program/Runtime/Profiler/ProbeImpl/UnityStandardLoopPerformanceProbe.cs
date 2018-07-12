@@ -106,7 +106,7 @@ namespace IceMilkTea.Profiler
             rootLoopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate, UpdateProbeEnd>(InsertTiming.AfterInsert, () => updateEndCount = stopwatch.ElapsedTicks);
             rootLoopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate, LateUpdateProbeStart>(InsertTiming.BeforeInsert, () => lateUpdateStartCount = stopwatch.ElapsedTicks);
             rootLoopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate, LateUpdateProbeEnd>(InsertTiming.AfterInsert, () => lateUpdateEndCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.BuildAndSetUnityDefaultPlayerLoop();
+            rootLoopSystem.BuildAndSetUnityPlayerLoop();
 
 
             // レンダリング系の計測はカメラクラスにいるハンドラを使う

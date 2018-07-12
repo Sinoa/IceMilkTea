@@ -166,9 +166,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// このインスタンスを本来の構造へ構築し、Unityの標準プレイヤーループへ設定します
+        /// このインスタンスを本来の構造へ構築し、Unityのプレイヤーループへ設定します
         /// </summary>
-        public void BuildAndSetUnityDefaultPlayerLoop()
+        public void BuildAndSetUnityPlayerLoop()
         {
             // 最後に構築した経験のあるループシステムとして覚えて、自身をキャストして設定するだけ
             lastBuildLoopSystem = this;
