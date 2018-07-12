@@ -301,7 +301,44 @@ namespace IceMilkTea.Core
         #endregion
 
 
-        #region ユーティリティ系
+        #region 共通ロジック系
+        /// <summary>
+        /// 指定されたタイミングのサービス更新関数を実行します。
+        /// また、実行する対象はステータスに応じた呼び出しを行います。
+        /// </summary>
+        /// <param name="timing">実行するべきサービスの更新関数のタイミング</param>
+        private void DoUpdateService(GameServiceUpdateTiming timing)
+        {
+            // サービスの数分回る
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービス情報を取得する
+                var serviceInfo = serviceManageList[i];
+
+
+                // サービスの状態がRunning以外なら
+                if (serviceInfo.Status != ServiceStatus.Running)
+                {
+                    // 次のサービスへ
+                    continue;
+                }
+
+
+                // 該当のタイミングの更新関数を持っていないなら
+                Action updateFunction;
+                if (!serviceInfo.UpdateFunctionTable.TryGetValue(timing, out updateFunction))
+                {
+                    // 次のサービスへ
+                    continue;
+                }
+
+
+                // 該当タイミングの更新関数を持っているのなら更新関数を叩く
+                updateFunction();
+            }
+        }
+
+
         /// <summary>
         /// 指定されたサービスが存在するか否かを調べます
         /// </summary>
