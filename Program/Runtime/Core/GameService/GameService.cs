@@ -19,6 +19,24 @@ using System.Collections.Generic;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// ゲームが終了要求に対する答えを表します
+    /// </summary>
+    public enum GameShutdownAnswer
+    {
+        /// <summary>
+        /// ゲームが終了することを許可します
+        /// </summary>
+        Approve,
+
+        /// <summary>
+        /// ゲームが終了することを拒否します
+        /// </summary>
+        Reject,
+    }
+
+
+
+    /// <summary>
     /// ゲームサービスが動作を開始するための情報を保持する構造体です
     /// </summary>
     public struct GameServiceStartupInfo
@@ -48,6 +66,17 @@ namespace IceMilkTea.Core
             {
                 UpdateFunctionTable = null,
             };
+        }
+
+
+        /// <summary>
+        /// ゲームアプリケーションが終了することを許可するかどうかを判断します。
+        /// </summary>
+        /// <returns>アプリケーションが終了することを許可する場合は GameShutdownAnswer.Approve を、許可しない場合は GameShutdownAnswer.Reject を返します</returns>
+        protected internal virtual GameShutdownAnswer JudgeGameShutdown()
+        {
+            // 通常は許可をする
+            return GameShutdownAnswer.Approve;
         }
 
 

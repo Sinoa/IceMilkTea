@@ -164,6 +164,10 @@ namespace IceMilkTea.Core
             Camera.onPreCull += OnCameraPreCulling;
             Camera.onPreRender += OnCameraPreRendering;
             Camera.onPostRender += OnCameraPostRendering;
+
+
+            // アプリケーション終了要求ハンドラを登録する
+            Application.wantsToQuit += OnApplicationWantsToQuit;
         }
 
 
@@ -172,6 +176,10 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Shutdown()
         {
+            // 終了要求ハンドラを解除する
+            Application.wantsToQuit -= OnApplicationWantsToQuit;
+
+
             // カメラのハンドラを解除する
             Camera.onPreCull -= OnCameraPreCulling;
             Camera.onPreRender -= OnCameraPreRendering;
@@ -375,6 +383,38 @@ namespace IceMilkTea.Core
 
 
         #region Unityイベントハンドラ
+        /// <summary>
+        /// アプリケーションが終了を要求してきた時の処理を行います
+        /// </summary>
+        /// <returns>サービスが終了を許可した場合は true を、拒否された場合は false を返します</returns>
+        private bool OnApplicationWantsToQuit()
+        {
+            // サービスの数分回る
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービスの状態が Running 以外なら
+                var service = serviceManageList[i];
+                if (service.Status != ServiceStatus.Running)
+                {
+                    // 次へ
+                    continue;
+                }
+
+
+                // サービスに終了判断をしてもらい、拒否されたら
+                if (service.Service.JudgeGameShutdown() == GameShutdownAnswer.Reject)
+                {
+                    // この段階でfalseを返す
+                    return false;
+                }
+            }
+
+
+            // 最後まで回りきったら全員が許可したとしてtrueを返す
+            return true;
+        }
+
+
         /// <summary>
         /// Unityプレイヤーのフォーカス状態に変化があった時の処理を行います
         /// </summary>
