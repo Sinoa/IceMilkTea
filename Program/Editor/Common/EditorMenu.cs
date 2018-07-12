@@ -13,13 +13,30 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-namespace IceMilkTea.Core
+using IceMilkTeaEditor.Window;
+using UnityEditor;
+
+namespace IceMilkTeaEditor.Common
 {
     /// <summary>
-    /// IceMilkTeaが提供する標準なゲームメインクラスを提供します。
-    /// IceMilkTeaのあらゆるシステムを簡単にセットアップし構築する場合に有用です。
+    /// UnityエディタのメニューにIceMilkTeaのメニューを取りまとめるクラスです
     /// </summary>
-    public class StandardGameMain : GameMain
+    internal static class EditorMenu
     {
+        // 定数定義
+        private const string RootMenuName = "IceMilkTea";
+        private const string WindowMenuName = RootMenuName + "/Window";
+
+
+
+        /// <summary>
+        /// GameMainAssetGenerateウィンドウを開きます
+        /// </summary>
+        [MenuItem(WindowMenuName + "/GameMainAsset")]
+        public static void OpenGameMainAssetGenerateWindow()
+        {
+            // GameMainGenerateWindowを開く
+            GameMainAssetGenerateWindow.OpenWindow();
+        }
     }
 }

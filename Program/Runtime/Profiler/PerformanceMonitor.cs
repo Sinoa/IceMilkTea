@@ -99,7 +99,7 @@ namespace IceMilkTea.Profiler
             rootLoopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime, StartProfile>(InsertTiming.AfterInsert, StartProfiler);
             rootLoopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw, EndProfile>(InsertTiming.BeforeInsert, EndProfiler);
             rootLoopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw, DrawProfile>(InsertTiming.BeforeInsert, DrawProfiler);
-            rootLoopSystem.BuildAndSetUnityDefaultPlayerLoop();
+            rootLoopSystem.BuildAndSetUnityPlayerLoop();
 
 
             // 初期化は完了

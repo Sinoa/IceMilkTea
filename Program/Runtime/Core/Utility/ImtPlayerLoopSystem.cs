@@ -71,7 +71,7 @@ namespace IceMilkTea.Core
         static ImtPlayerLoopSystem()
         {
             // アプリケーション終了イベントを登録する
-            Application.wantsToQuit += OnApplicationQuitRequest;
+            Application.quitting += OnApplicationQuit;
         }
 
 
@@ -141,16 +141,14 @@ namespace IceMilkTea.Core
         /// <summary>
         /// Unityがアプリケーションの終了をする時に呼び出されます
         /// </summary>
-        /// <returns>この関数は常にtrueを返します</returns>
-        private static bool OnApplicationQuitRequest()
+        private static void OnApplicationQuit()
         {
+            //イベントの登録を解除する
+            Application.quitting -= OnApplicationQuit;
+
+
             // Unityの弄り倒したループ構成をもとに戻してあげる
             PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
-
-
-            //イベントの登録を解除する
-            Application.wantsToQuit -= OnApplicationQuitRequest;
-            return true;
         }
         #endregion
 
@@ -168,9 +166,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// このインスタンスを本来の構造へ構築し、Unityの標準プレイヤーループへ設定します
+        /// このインスタンスを本来の構造へ構築し、Unityのプレイヤーループへ設定します
         /// </summary>
-        public void BuildAndSetUnityDefaultPlayerLoop()
+        public void BuildAndSetUnityPlayerLoop()
         {
             // 最後に構築した経験のあるループシステムとして覚えて、自身をキャストして設定するだけ
             lastBuildLoopSystem = this;
