@@ -44,7 +44,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 現在のゲームメインコンテキストを取得します
         /// </summary>
-        public static GameMain CurrentContext { get; private set; }
+        public static GameMain Current { get; private set; }
 
 
         /// <summary>
@@ -63,12 +63,12 @@ namespace IceMilkTea.Core
         private static void Main()
         {
             // ゲームメインをロードする
-            CurrentContext = LoadGameMain();
+            Current = LoadGameMain();
 
 
             // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
-            CurrentContext.ServiceManager = CurrentContext.CreateGameServiceManager();
-            if (CurrentContext.ServiceManager == null)
+            Current.ServiceManager = Current.CreateGameServiceManager();
+            if (Current.ServiceManager == null)
             {
                 // ゲームシステムは破壊的な死亡をした
                 throw new InvalidOperationException("GameServiceManager の正しいインスタンスが生成されませんでした。");
@@ -80,11 +80,11 @@ namespace IceMilkTea.Core
 
 
             // サービスマネージャを起動する
-            CurrentContext.ServiceManager.Startup();
+            Current.ServiceManager.Startup();
 
 
             // ゲームの起動を開始する
-            CurrentContext.Startup();
+            Current.Startup();
         }
 
 
@@ -98,11 +98,11 @@ namespace IceMilkTea.Core
 
 
             // サービスマネージャを停止する
-            CurrentContext.ServiceManager.Shutdown();
+            Current.ServiceManager.Shutdown();
 
 
             // ゲームのシャットダウンをする
-            CurrentContext.Shutdown();
+            Current.Shutdown();
         }
 
 
@@ -149,8 +149,8 @@ namespace IceMilkTea.Core
 
 
             // サービスマネージャの開始と終了のループシステムを生成
-            var startupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerStartup), CurrentContext.ServiceManager.StartupServices);
-            var cleanupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerCleanup), CurrentContext.ServiceManager.CleanupServices);
+            var startupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerStartup), Current.ServiceManager.StartupServices);
+            var cleanupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerCleanup), Current.ServiceManager.CleanupServices);
 
 
             // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
