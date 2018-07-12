@@ -93,6 +93,10 @@ namespace IceMilkTea.Core
         /// </summary>
         private static void InternalShutdown()
         {
+            // ハンドラの解除をする
+            UnregisterHandler();
+
+
             // サービスマネージャを停止する
             CurrentContext.ServiceManager.Shutdown();
 
@@ -154,6 +158,17 @@ namespace IceMilkTea.Core
             loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
             loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
             loopSystem.BuildAndSetUnityDefaultPlayerLoop();
+        }
+
+
+        /// <summary>
+        /// GameMainの動作に必要なハンドラの解除処理を行います
+        /// </summary>
+        private static void UnregisterHandler()
+        {
+            // アプリケーション終了イベントを外す
+            // （PlayerLoopSystemはPlayerLoopSystem自身が登録解除まで担保してくれているのでそのまま）
+            Application.quitting -= InternalShutdown;
         }
         #endregion
 
