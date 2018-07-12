@@ -18,6 +18,94 @@ using System;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// PlayerLoopSystemに登録する際に必要になる型情報を定義したGameService用構造体です
+    /// </summary>
+    public struct GameServiceUpdate
+    {
+        /// <summary>
+        /// MainLoopHead 用型定義
+        /// </summary>
+        public struct GameServiceMainLoopHead { }
+
+        /// <summary>
+        /// PreFixedUpdate 用型定義
+        /// </summary>
+        public struct GameServicePreFixedUpdate { }
+
+        /// <summary>
+        /// PostFixedUpdate 用型定義
+        /// </summary>
+        public struct GameServicePostFixedUpdate { }
+
+        /// <summary>
+        /// PostPhysicsSimulation 用型定義
+        /// </summary>
+        public struct GameServicePostPhysicsSimulation { }
+
+        /// <summary>
+        /// PostWaitForFixedUpdate 用型定義
+        /// </summary>
+        public struct GameServicePostWaitForFixedUpdate { }
+
+        /// <summary>
+        /// PreProcessSynchronizationContext 用型定義
+        /// </summary>
+        public struct GameServicePreProcessSynchronizationContext { }
+
+        /// <summary>
+        /// PostProcessSynchronizationContext 用型定義
+        /// </summary>
+        public struct GameServicePostProcessSynchronizationContext { }
+
+        /// <summary>
+        /// PreUpdate 用型定義
+        /// </summary>
+        public struct GameServicePreUpdate { }
+
+        /// <summary>
+        /// PostUpdate 用型定義
+        /// </summary>
+        public struct GameServicePostUpdate { }
+
+        /// <summary>
+        /// PreAnimation 用型定義
+        /// </summary>
+        public struct GameServicePreAnimation { }
+
+        /// <summary>
+        /// PostAnimation 用型定義
+        /// </summary>
+        public struct GameServicePostAnimation { }
+
+        /// <summary>
+        /// PreLateUpdate 用型定義
+        /// </summary>
+        public struct GameServicePreLateUpdate { }
+
+        /// <summary>
+        /// PostLateUpdate 用型定義
+        /// </summary>
+        public struct GameServicePostLateUpdate { }
+
+        /// <summary>
+        /// PreDrawPresent 用型定義
+        /// </summary>
+        public struct GameServicePreDrawPresent { }
+
+        /// <summary>
+        /// PostDrawPresent 用型定義
+        /// </summary>
+        public struct GameServicePostDrawPresent { }
+
+        /// <summary>
+        /// MainLoopTail 用型定義
+        /// </summary>
+        public struct GameServiceMainLoopTail { }
+    }
+
+
+
+    /// <summary>
     /// サービスが動作するための更新タイミングを表します
     /// </summary>
     [Flags]
@@ -91,15 +179,14 @@ namespace IceMilkTea.Core
         PostLateUpdate = (1 << 12),
 
         /// <summary>
-        /// メインスレッドにおけるレンダリングするほぼ直前のタイミング
+        /// メインスレッドにおける描画デバイスのPresentする直前のタイミング
         /// </summary>
-        PreRendering = (1 << 13),
+        PreDrawPresent = (1 << 13),
 
         /// <summary>
-        /// メインスレッドにおけるレンダリングしたほぼ直後のタイミング。
-        /// ただし、グラフィックスAPIのPresentされる直前です。
+        /// メインスレッドにおける描画デバイスのPresentされた直後のタイミング
         /// </summary>
-        PostRendering = (1 << 14),
+        PostDrawPresent = (1 << 14),
 
         /// <summary>
         /// メインループの最後のタイミング。

@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine.Experimental.PlayerLoop;
 
 namespace IceMilkTea.Core
 {
@@ -113,7 +114,44 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Startup()
         {
-            // ここでPlayerLoopに各種更新関数をラムダで登録する
+            // 各種更新関数のLoopSystemを生成する
+            var mainLoopHead = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopHead), () => DoUpdateService(GameServiceUpdateTiming.MainLoopHead));
+            var preFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreFixedUpdate));
+            var postFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostFixedUpdate));
+            var postPhysicsSimulation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostPhysicsSimulation), () => DoUpdateService(GameServiceUpdateTiming.PostPhysicsSimulation));
+            var postWaitForFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostWaitForFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostWaitForFixedUpdate));
+            var preUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreUpdate));
+            var postUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostUpdate));
+            var preProcessSynchronizationContext = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreProcessSynchronizationContext), () => DoUpdateService(GameServiceUpdateTiming.PreProcessSynchronizationContext));
+            var postProcessSynchronizationContext = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostProcessSynchronizationContext), () => DoUpdateService(GameServiceUpdateTiming.PostProcessSynchronizationContext));
+            var preAnimation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreAnimation), () => DoUpdateService(GameServiceUpdateTiming.PreAnimation));
+            var postAnimation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostAnimation), () => DoUpdateService(GameServiceUpdateTiming.PostAnimation));
+            var preLateUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreLateUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreLateUpdate));
+            var postLateUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostLateUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostLateUpdate));
+            var preDrawPresent = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreDrawPresent), () => DoUpdateService(GameServiceUpdateTiming.PreDrawPresent));
+            var postDrawPresent = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostDrawPresent), () => DoUpdateService(GameServiceUpdateTiming.PostDrawPresent));
+            var mainLoopTail = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopTail), () => DoUpdateService(GameServiceUpdateTiming.MainLoopTail));
+
+
+            // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
+            var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
+            loopSystem.InsertLoopSystem<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
+            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
+            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
+            loopSystem.InsertLoopSystem<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
+            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
+            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
+            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
+            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
+            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
+            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
+            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
+            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
+            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
+            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
+            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
+            loopSystem.InsertLoopSystem<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
+            loopSystem.BuildAndSetUnityDefaultPlayerLoop();
         }
 
 
@@ -122,34 +160,25 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Shutdown()
         {
-            // ここで全サービスのシャットダウンを行う（状態をちゃんと適切に判断することを忘れずに）
-        }
-        #endregion
+            // サービスの数分ループ
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // サービスの状態が Running, Shutdown, Sleeping 以外なら
+                var serviceInfo = serviceManageList[i];
+                if (!(serviceInfo.Status == ServiceStatus.Running || serviceInfo.Status == ServiceStatus.Shutdown || serviceInfo.Status == ServiceStatus.Sleeping))
+                {
+                    // 次へ
+                    continue;
+                }
 
 
-        #region コントロール系
-        /// <summary>
-        /// 指定されたサービスのアクティブ状態を設定します。
-        /// </summary>
-        /// <typeparam name="T">アクティブ状態を設定する対象のサービスの型</typeparam>
-        /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
-        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
-        public virtual void SetActiveService<T>(bool active)
-        {
-            throw new NotImplementedException();
-        }
+                // サービスのシャットダウンを呼ぶ
+                serviceInfo.Service.Shutdown();
+            }
 
 
-        /// <summary>
-        /// 指定されたサービスがアクティブかどうかを確認します。
-        /// </summary>
-        /// <typeparam name="T">アクティブ状態を確認するサービスの型</typeparam>
-        /// <returns>アクティブの場合は true を、非アクティブの場合は false を返します</returns>
-        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        public virtual bool IsActiveService<T>()
-        {
-            throw new NotImplementedException();
+            // 管理リストをクリアする
+            serviceManageList.Clear();
         }
         #endregion
 
@@ -238,6 +267,33 @@ namespace IceMilkTea.Core
         #endregion
 
 
+        #region コントロール系
+        /// <summary>
+        /// 指定されたサービスのアクティブ状態を設定します。
+        /// </summary>
+        /// <typeparam name="T">アクティブ状態を設定する対象のサービスの型</typeparam>
+        /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
+        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
+        /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
+        public virtual void SetActiveService<T>(bool active)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// 指定されたサービスがアクティブかどうかを確認します。
+        /// </summary>
+        /// <typeparam name="T">アクティブ状態を確認するサービスの型</typeparam>
+        /// <returns>アクティブの場合は true を、非アクティブの場合は false を返します</returns>
+        /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
+        public virtual bool IsActiveService<T>()
+        {
+            throw new NotImplementedException();
+        }
+        #endregion
+
+
         #region リスト操作系
         /// <summary>
         /// 指定されたサービスの追加をします。
@@ -248,7 +304,6 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスが追加されています</exception>
         public virtual void AddService(GameService service)
         {
-            throw new NotImplementedException();
         }
 
 
@@ -261,7 +316,7 @@ namespace IceMilkTea.Core
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
         public virtual bool TryAddService(GameService service)
         {
-            throw new NotImplementedException();
+            return false;
         }
 
 
@@ -272,9 +327,9 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">取得するサービスの型</typeparam>
         /// <returns>見つけられたサービスのインスタンスを返します</returns>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        public virtual T GetService<T>()
+        public virtual T GetService<T>() where T : GameService
         {
-            throw new NotImplementedException();
+            return null;
         }
 
 
@@ -283,9 +338,10 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">取得するサービスの型</typeparam>
         /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
-        public virtual bool TryGetService<T>(out T service)
+        public virtual bool TryGetService<T>(out T service) where T : GameService
         {
-            throw new NotImplementedException();
+            service = null;
+            return false;
         }
 
 
@@ -294,9 +350,8 @@ namespace IceMilkTea.Core
         /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
         /// </summary>
         /// <typeparam name="T">削除するサービスの型</typeparam>
-        public virtual void RemoveService<T>()
+        public virtual void RemoveService<T>() where T : GameService
         {
-            throw new NotImplementedException();
         }
         #endregion
 
