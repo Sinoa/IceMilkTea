@@ -301,7 +301,7 @@ namespace IceMilkTea.Core
         /// <param name="active">設定する状態（true=アクティブ false=非アクティブ）</param>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
-        public virtual void SetActiveService<T>(bool active)
+        public virtual void SetActiveService<T>(bool active) where T : GameService
         {
         }
 
@@ -312,7 +312,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">アクティブ状態を確認するサービスの型</typeparam>
         /// <returns>アクティブの場合は true を、非アクティブの場合は false を返します</returns>
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
-        public virtual bool IsActiveService<T>()
+        public virtual bool IsActiveService<T>() where T : GameService
         {
             return false;
         }
@@ -422,7 +422,17 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         public virtual T GetService<T>() where T : GameService
         {
-            return null;
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null || !(serviceInfo.Service is T))
+            {
+                // サービスを見つけられなかったとして例外を吐く
+                throw new GameServiceNotFoundException(typeof(T));
+            }
+
+
+            // 見つけたサービスを返す
+            return (T)serviceInfo.Service;
         }
 
 
@@ -433,8 +443,19 @@ namespace IceMilkTea.Core
         /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
         public virtual bool TryGetService<T>(out T service) where T : GameService
         {
-            service = null;
-            return false;
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null || !(serviceInfo.Service is T))
+            {
+                // サービスにnullを設定して取得できなかったことを返す
+                service = null;
+                return false;
+            }
+
+
+            // 見つけたサービスを設定して見つけられた事を返す
+            service = (T)serviceInfo.Service;
+            return true;
         }
 
 
@@ -445,6 +466,27 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">削除するサービスの型</typeparam>
         public virtual void RemoveService<T>() where T : GameService
         {
+            // 管理リストから情報を取得して失敗したら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null)
+            {
+                // 何事ものなかったかのように終了する
+                return;
+            }
+
+
+            // サービスの状態がまだReady系なら静かに死ぬようにマークする
+            var readyStatus = (serviceInfo.Status == ServiceStatus.Ready || serviceInfo.Status == ServiceStatus.ReadyButSleeping);
+            if (readyStatus)
+            {
+                // 静かに消えるがよい
+                serviceInfo.Status = ServiceStatus.SilentShutdown;
+                return;
+            }
+
+
+            // 通常は普通に死ぬようにマークする
+            serviceInfo.Status = ServiceStatus.Shutdown;
         }
         #endregion
 
