@@ -303,7 +303,6 @@ namespace IceMilkTea.Core
         /// <exception cref="InvalidOperationException">指定された型のサービスは見つかりましたが、破棄状態になっています</exception>
         public virtual void SetActiveService<T>(bool active)
         {
-            throw new NotImplementedException();
         }
 
 
@@ -315,7 +314,7 @@ namespace IceMilkTea.Core
         /// <exception cref="GameServiceNotFoundException">指定された型のサービスが見つかりませんでした</exception>
         public virtual bool IsActiveService<T>()
         {
-            throw new NotImplementedException();
+            return false;
         }
         #endregion
 
@@ -325,11 +324,51 @@ namespace IceMilkTea.Core
         /// 指定されたサービスの追加をします。
         /// また、サービスの型が同じインスタンスまたは同一継承元インスタンスが存在する場合は例外がスローされます。
         /// ただし、サービスは直ちには起動せずフレーム開始のタイミングで起動することに注意してください。
+        /// さらに、シャットダウン対象となっているサービスの場合は無効な操作として例外がスローされます。
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
+        /// <exception cref="ArgumentNullException">service が null です</exception>
         /// <exception cref="GameServiceAlreadyExistsException">既に同じ型のサービスが追加されています</exception>
+        /// <exception cref="InvalidOperationException">追加しようとしたサービスが既にシャットダウン状態です</exception>
         public virtual void AddService(GameService service)
         {
+            // null が渡されちゃったら
+            if (service == null)
+            {
+                // そんな処理は許されない
+                throw new ArgumentNullException(nameof(service));
+            }
+
+
+            // まずは管理リストから情報が取り出せるなら
+            var serviceInfo = GetServiceInfo(service.GetType());
+            if (serviceInfo != null)
+            {
+                // 既に存在しているサービスの型を取り出す
+                var existsServiceType = serviceInfo.Service.GetType();
+
+
+                // もし既にシャットダウン状態でかつ、追加しようとしたサービスの型が一致していたら
+                var shutdownState = (serviceInfo.Status == ServiceStatus.Shutdown || serviceInfo.Status == ServiceStatus.SilentShutdown);
+                if (shutdownState && existsServiceType == service.GetType())
+                {
+                    // サービスはシャットダウン状態である例外を吐く
+                    throw new InvalidOperationException($"サービス'{service.GetType().Name}'は、既にシャットダウン状態です。");
+                }
+
+
+                // 既に同じサービスがあるとして例外を吐く
+                throw new GameServiceAlreadyExistsException(existsServiceType, serviceInfo.BaseGameServiceType);
+            }
+
+
+            // 管理リストから情報を取り出せないのなら追加が可能なサービスとして追加する
+            serviceManageList.Add(new ServiceManagementInfo()
+            {
+                Status = ServiceStatus.Ready,
+                Service = service,
+                BaseGameServiceType = GetBaseGameServiceType(service),
+            });
         }
 
 
@@ -340,9 +379,37 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
+        /// <exception cref="ArgumentNullException">service が null です</exception>
         public virtual bool TryAddService(GameService service)
         {
-            return false;
+            // null が渡されちゃったら
+            if (service == null)
+            {
+                // いくらTry系関数とは言えど、そんな処理は許されない
+                throw new ArgumentNullException(nameof(service));
+            }
+
+
+            // 管理リストから情報が取り出せるなら
+            var serviceInfo = GetServiceInfo(service.GetType());
+            if (serviceInfo != null)
+            {
+                // 既に登録済みの何かのサービスがいるとしてfalseを返す
+                return false;
+            }
+
+
+            // 管理リストから情報を取り出せないのなら追加が可能なサービスとして追加する
+            serviceManageList.Add(new ServiceManagementInfo()
+            {
+                Status = ServiceStatus.Ready,
+                Service = service,
+                BaseGameServiceType = GetBaseGameServiceType(service),
+            });
+
+
+            // 追加が出来たということを返す
+            return true;
         }
 
 
@@ -524,6 +591,82 @@ namespace IceMilkTea.Core
                 // 該当タイミングの更新関数を持っているのなら更新関数を叩く
                 updateFunction();
             }
+        }
+
+
+        /// <summary>
+        /// 指定された型からサービス管理情報を取得します。
+        /// また、型一致条件は基本クラス一致となります。
+        /// </summary>
+        /// <param name="serviceType">取得したいサービスの型。ただし、内部ではGameServiceを直接継承している型が採用されます。</param>
+        /// <returns>指定された型から取り出せるサービス管理情報を返しますが、取得できなかった場合は null を返します。</returns>
+        private ServiceManagementInfo GetServiceInfo(Type serviceType)
+        {
+            // まずは基本型を取り出すがこの時点で取り出せなかったら
+            var baseGameServiceType = GetBaseGameServiceType(serviceType);
+            if (baseGameServiceType == null)
+            {
+                // ダメだったよ
+                return null;
+            }
+
+
+            // サービスの数分回る
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                // 基本型が一致するサービスなら
+                var serviceInfo = serviceManageList[i];
+                if (serviceInfo.BaseGameServiceType == baseGameServiceType)
+                {
+                    // この情報を返す
+                    return serviceInfo;
+                }
+            }
+
+
+            // ループから抜けてきたという事は見つからなかったということ
+            return null;
+        }
+
+
+        /// <summary>
+        /// 指定されたゲームサービスの、GameService型を直接継承している基本クラスの型を取得します
+        /// </summary>
+        /// <param name="service">GameService型を直接継承しているクラスの型を取り出したいサービス</param>
+        /// <returns>GameService型を直接継承している基本クラスの型を返します</returns>
+        private Type GetBaseGameServiceType(GameService service)
+        {
+            // 渡されたサービスの型を受け取って型取得結果をそのまま返す（GameServiceで受け取っているのでnullになることはない）
+            return GetBaseGameServiceType(service.GetType());
+        }
+
+
+        /// <summary>
+        /// 指定された型から、GameService型を直接継承している基本クラスの型を取得します
+        /// </summary>
+        /// <param name="serviceType">GameService型を直接継承しているクラスの型を取り出したい型</param>
+        /// <returns>GameService型を直接継承している基本クラスの型が見つけられた場合はその型を返しますが、見つけられなかった場合は null を返します</returns>
+        private Type GetBaseGameServiceType(Type serviceType)
+        {
+            // GameServiceの型を取得
+            var gameServiceType = typeof(GameService);
+
+
+            // 直接GameService型を継承している型にたどり着くまでループ
+            while (serviceType.BaseType != gameServiceType)
+            {
+                // 現在のサービス型の継承元の型を現在のサービスの型にするがnullなら
+                serviceType = serviceType.BaseType;
+                if (serviceType == null)
+                {
+                    // そもそも見つけられなかった
+                    return null;
+                }
+            }
+
+
+            // たどり着いた型を返す
+            return serviceType;
         }
         #endregion
     }
