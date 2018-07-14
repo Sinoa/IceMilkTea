@@ -66,6 +66,16 @@ namespace IceMilkTea.Core
             Current = LoadGameMain();
 
 
+            // IceMilkTeaはこのまま起動を継続してはいけないのなら
+            if (!Current.Continue())
+            {
+                // ロードしたばかりのGameMainを解放して起動を中止する
+                Current = null;
+                Resources.UnloadUnusedAssets();
+                return;
+            }
+
+
             // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
             Current.ServiceManager = Current.CreateGameServiceManager();
             if (Current.ServiceManager == null)
@@ -128,9 +138,9 @@ namespace IceMilkTea.Core
             var redirectGameMain = gameMain.RedirectGameMain();
             if (redirectGameMain != null)
             {
-                // ロードされたGameMainを解放して、リダイレクトされたGameMainを設定する
-                Destroy(gameMain);
+                // リダイレクトされたGameMainを設定して、ロードされたGameMainを解放
                 gameMain = redirectGameMain;
+                Resources.UnloadUnusedAssets();
             }
 
 
@@ -174,6 +184,17 @@ namespace IceMilkTea.Core
 
 
         #region オーバーライド可能なGameMainのハンドラ関数
+        /// <summary>
+        /// IceMilkTeaのシステムがこのまま継続して起動するかどうかを判断します
+        /// </summary>
+        /// <returns>起動を継続する場合は true を、継続しない場合は false を返します</returns>
+        protected virtual bool Continue()
+        {
+            // 通常は起動を継続する
+            return true;
+        }
+
+
         /// <summary>
         /// ゲームの起動処理を行います。
         /// 主に、ゲームサービスの初期登録や必要な追加モジュールの初期化などを行います。

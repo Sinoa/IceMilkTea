@@ -21,5 +21,14 @@ namespace IceMilkTea.Core
     /// </summary>
     internal class SafeGameMain : GameMain
     {
+        /// <summary>
+        /// セーフ起動時のIceMilkTeaは、起動を継続しないようにします。
+        /// </summary>
+        /// <returns>この関数は常にfalseを返します</returns>
+        protected override bool Continue()
+        {
+            // 起動を止めるようにする
+            return false;
+        }
     }
 }
