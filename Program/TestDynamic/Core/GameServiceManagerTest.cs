@@ -160,9 +160,40 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(10)]
         public IEnumerator AddServiceTest()
         {
-            // 今は失敗するように振る舞う
-            Assert.Fail();
-            yield break;
+            // サービスAクラスは末端の2系サービスを追加し、別のクラスが登録出来ないことを確認
+            // サービスBクラスは中間の1系サービスを追加し、基本クラス及び末端クラスの登録が出来ない事を確認
+
+
+            // サービスA2_0、サービスB1_0を登録できる事を確認する
+            Assert.DoesNotThrow(() => manager.AddService(new ServiceA_2_0()));
+            Assert.DoesNotThrow(() => manager.AddService(new ServiceB_1_0()));
+
+
+            // サービスAのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceBaseA()));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_1_0()));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_1()));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_0())); // 重複確認
+
+
+            // サービスBのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceBaseB()));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_0()));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_1()));
+            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_1_0())); // 重複確認
+
+
+            // フレームを進める
+            yield return null;
+
+
+            // 後続テストのためにサービスを削除する
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+
+
+            // フレームを進める
+            yield return null;
         }
 
 
@@ -224,6 +255,18 @@ namespace IceMilkTeaTestDynamic.Core
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
         [UnityTest, Order(60)]
         public IEnumerator ActiveDeactiveTest()
+        {
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
+        }
+
+
+        /// <summary>
+        /// サービスの起動停止の処理が想定タイミングで行われるかをテストします
+        /// </summary>
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        public IEnumerator StartupAndShutdownTest()
         {
             // 今は失敗するように振る舞う
             Assert.Fail();
