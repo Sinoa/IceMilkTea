@@ -150,6 +150,7 @@ namespace IceMilkTeaTestDynamic.Core
         }
 
 
+        #region Add系テスト
         /// <summary>
         /// サービスの追加をテストします
         /// </summary>
@@ -157,40 +158,47 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(10)]
         public IEnumerator AddServiceTest()
         {
-            // サービスAクラスは末端の2系サービスを追加し、別のクラスが登録出来ないことを確認
-            // サービスBクラスは中間の1系サービスを追加し、基本クラス及び末端クラスの登録が出来ない事を確認
+            // サービス追加に成功する関数
+            var addSuccess = new Action(() =>
+            {
+                // サービスA2_0、サービスB1_0を登録できる事を確認する
+                Assert.DoesNotThrow(() => manager.AddService(new ServiceA_2_0()));
+                Assert.DoesNotThrow(() => manager.AddService(new ServiceB_1_0()));
+            });
 
 
-            // サービスA2_0、サービスB1_0を登録できる事を確認する
-            Assert.DoesNotThrow(() => manager.AddService(new ServiceA_2_0()));
-            Assert.DoesNotThrow(() => manager.AddService(new ServiceB_1_0()));
+            // サービスの追加に失敗する関数
+            var addFailed = new Action(() =>
+            {
+                // サービスA、サービスBのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceBaseA()));
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_1_0()));
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_0())); // 重複確認
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_1()));
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceBaseB()));
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_1_0())); // 重複確認
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_0()));
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_1()));
+            });
 
 
-            // サービスAのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceBaseA()));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_1_0()));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_1()));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_0())); // 重複確認
+            // サービスのシャットダウン中のため追加に失敗する関数
+            var addInvalidOperation = new Action(() =>
+            {
+                // サービスの削除中の場合Get可能なサービスはInvalidOperationが発生し、関係ないサービスは引き続き追加済み例外が発生することを確認する
+                Assert.Throws<InvalidOperationException>(() => manager.AddService(new ServiceBaseA()));
+                Assert.Throws<InvalidOperationException>(() => manager.AddService(new ServiceA_1_0()));
+                Assert.Throws<InvalidOperationException>(() => manager.AddService(new ServiceA_2_0())); // 重複確認
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceA_2_1()));
+                Assert.Throws<InvalidOperationException>(() => manager.AddService(new ServiceBaseB()));
+                Assert.Throws<InvalidOperationException>(() => manager.AddService(new ServiceB_1_0())); // 重複確認
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_0()));
+                Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_1()));
+            });
 
 
-            // サービスBのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceBaseB()));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_0()));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_2_1()));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(new ServiceB_1_0())); // 重複確認
-
-
-            // フレームを進める
-            yield return null;
-
-
-            // 後続テストの為にサービスを削除する（削除自体のテストは別途タイミングで行う）
-            manager.RemoveService<ServiceA_2_0>();
-            manager.RemoveService<ServiceB_1_0>();
-
-
-            // フレームを進める
-            yield return null;
+            // 共通の追加テスト関数を呼ぶ
+            return AddTestCommon(addSuccess, addFailed, addInvalidOperation);
         }
 
 
@@ -201,43 +209,74 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(20)]
         public IEnumerator TryAddServiceTest()
         {
-            // TryAddServiceの基本の振る舞いはAddServiceと同じで
-            // リザルトが例外ではなく戻り値の確認となる
+            // サービス追加に成功する関数
+            var addSuccess = new Action(() =>
+            {
+                // サービスA2_0、サービスB1_0を登録できる事を確認する
+                Assert.IsTrue(manager.TryAddService(new ServiceA_2_0()));
+                Assert.IsTrue(manager.TryAddService(new ServiceB_1_0()));
+            });
 
 
-            // サービスA2_0、サービスB1_0を登録できる事を確認する
-            Assert.IsTrue(manager.TryAddService(new ServiceA_2_0()));
-            Assert.IsTrue(manager.TryAddService(new ServiceB_1_0()));
+            // サービスの追加に失敗する関数
+            var addFailed = new Action(() =>
+            {
+                // サービスA、サービスBのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
+                Assert.IsFalse(manager.TryAddService(new ServiceBaseA()));
+                Assert.IsFalse(manager.TryAddService(new ServiceA_1_0()));
+                Assert.IsFalse(manager.TryAddService(new ServiceA_2_1()));
+                Assert.IsFalse(manager.TryAddService(new ServiceA_2_0())); // 重複確認
+                Assert.IsFalse(manager.TryAddService(new ServiceBaseB()));
+                Assert.IsFalse(manager.TryAddService(new ServiceB_2_0()));
+                Assert.IsFalse(manager.TryAddService(new ServiceB_2_1()));
+                Assert.IsFalse(manager.TryAddService(new ServiceB_1_0())); // 重複確認
+            });
 
 
-            // サービスAのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
-            Assert.IsFalse(manager.TryAddService(new ServiceBaseA()));
-            Assert.IsFalse(manager.TryAddService(new ServiceA_1_0()));
-            Assert.IsFalse(manager.TryAddService(new ServiceA_2_1()));
-            Assert.IsFalse(manager.TryAddService(new ServiceA_2_0())); // 重複確認
-
-
-            // サービスBのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
-            Assert.IsFalse(manager.TryAddService(new ServiceBaseB()));
-            Assert.IsFalse(manager.TryAddService(new ServiceB_2_0()));
-            Assert.IsFalse(manager.TryAddService(new ServiceB_2_1()));
-            Assert.IsFalse(manager.TryAddService(new ServiceB_1_0())); // 重複確認
-
-
-            // フレームを進める
-            yield return null;
-
-
-            // 後続テストの為にサービスを削除する（削除自体のテストは別途タイミングで行う）
-            manager.RemoveService<ServiceA_2_0>();
-            manager.RemoveService<ServiceB_1_0>();
-
-
-            // フレームを進める
-            yield return null;
+            // 共通の追加テスト関数を呼ぶ（TryAddは例外を気にしない関数のため、この関数は通常のAddFailedの処理とみなす）
+            return AddTestCommon(addSuccess, addFailed, addFailed);
         }
 
 
+
+        /// <summary>
+        /// AddService系の共通テスト関数です。
+        /// </summary>
+        /// <param name="addSuccess">AddServiceが成功する関数</param>
+        /// <param name="addFailed">AddService全般失敗する関数</param>
+        /// <param name="addInvalidOperation">削除中のためGet可能なサービスがInvalidOperationする関数</param>
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        private IEnumerator AddTestCommon(Action addSuccess, Action addFailed, Action addInvalidOperation)
+        {
+
+            // サービスの追加をして、直後に追加に失敗するかを確認する
+            addSuccess();
+            addFailed();
+            yield return null;
+
+
+            // サービス削除直後は、まだサービスが存在していることを保証しなければならないため
+            // 追加関数を叩くと失敗することになるので、その確認をする
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+            addInvalidOperation();
+            yield return null;
+
+
+            // 次のフレームには削除は完了しているので、正常に追加が出来ることw確認する
+            addSuccess();
+            addFailed();
+
+
+            // 削除して次のフレームへすすめる
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+            yield return null;
+        }
+        #endregion
+
+
+        #region Get系テスト
         /// <summary>
         /// サービスの取得をテストします
         /// </summary>
@@ -385,6 +424,7 @@ namespace IceMilkTeaTestDynamic.Core
             yield return null;
             allServiceNotFoundTest();
         }
+        #endregion
 
 
         /// <summary>
