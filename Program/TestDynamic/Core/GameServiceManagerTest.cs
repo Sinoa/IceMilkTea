@@ -325,26 +325,8 @@ namespace IceMilkTeaTestDynamic.Core
             });
 
 
-            // この時点ではまだ全サービスの取得が出来ないことを確認する
-            allServiceNotFoundTest();
-
-
-            // 通常は追加された直後のサービスは起動していないが、取得は可能であることは保証しているべきなので
-            // サービスA2_0、サービスB1_0の取得系がちゃんと動作するか確認して、次のフレームでも同じ動作をしていることを期待する
-            manager.AddService(new ServiceA_2_0());
-            manager.AddService(new ServiceB_1_0());
-            getServiceTest();
-            yield return null;
-            getServiceTest();
-
-
-            // 通常は削除された直後のサービスはまだ停止していないので、まだ取得できる状態を保証しているべきで
-            // まだサービスが取得出来ることを確認して、次のフレームで取得ができなくなっていることを確認する
-            manager.RemoveService<ServiceA_2_0>();
-            manager.RemoveService<ServiceB_1_0>();
-            getServiceTest();
-            yield return null;
-            allServiceNotFoundTest();
+            // Get系共通テストの関数を呼ぶ
+            return GetTestCommon(allServiceNotFoundTest, getServiceTest);
         }
 
 
@@ -403,6 +385,19 @@ namespace IceMilkTeaTestDynamic.Core
             });
 
 
+            // Get系共通テストの関数を呼ぶ
+            return GetTestCommon(allServiceNotFoundTest, getServiceTest);
+        }
+
+
+        /// <summary>
+        /// GetService系の共通テスト関数です。
+        /// </summary>
+        /// <param name="allServiceNotFoundTest">すべてのサービスの取得が出来ないときの関数</param>
+        /// <param name="getServiceTest">部分的に取得に成功する関数</param>
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        private IEnumerator GetTestCommon(Action allServiceNotFoundTest, Action getServiceTest)
+        {
             // この時点ではまだ全サービスの取得が出来ないことを確認する
             allServiceNotFoundTest();
 
@@ -413,6 +408,12 @@ namespace IceMilkTeaTestDynamic.Core
             manager.AddService(new ServiceB_1_0());
             getServiceTest();
             yield return null;
+            getServiceTest();
+
+
+            // サービスのアクティブを切ってもサービスの取得ができることw確認する
+            manager.SetActiveService<ServiceA_2_0>(false);
+            manager.SetActiveService<ServiceB_1_0>(false);
             getServiceTest();
 
 
