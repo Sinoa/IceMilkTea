@@ -16,6 +16,7 @@
 using System.Collections;
 using IceMilkTea.Core;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace IceMilkTeaTestDynamic.Core
@@ -131,9 +132,9 @@ namespace IceMilkTeaTestDynamic.Core
             // マネージャの起動では例外さえ出なければ良いとする
             Assert.DoesNotThrow(() =>
             {
-                // マネージャを生成して初期化を呼ぶ
-                manager = new GameServiceManager();
-                manager.Startup();
+                // 空ゲームメインで動作を上書きしてサービスマネージャを取得する
+                GameMain.OverrideGameMain(ScriptableObject.CreateInstance<EmptyGameMain>());
+                manager = GameMain.Current.ServiceManager;
             });
         }
 
@@ -144,12 +145,7 @@ namespace IceMilkTeaTestDynamic.Core
         [OneTimeTearDown]
         public void Celanup()
         {
-            // マネージャの停止では例外さえ出なければ良いとする
-            Assert.DoesNotThrow(() =>
-            {
-                // マネージャを停止する
-                manager.Shutdown();
-            });
+            // ここでは何もしない
         }
 
 
@@ -187,7 +183,7 @@ namespace IceMilkTeaTestDynamic.Core
             yield return null;
 
 
-            // 後続テストのためにサービスを削除する
+            // 後続テストの為にサービスを削除する（削除自体のテストは別途タイミングで行う）
             manager.RemoveService<ServiceA_2_0>();
             manager.RemoveService<ServiceB_1_0>();
 
@@ -204,9 +200,40 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(20)]
         public IEnumerator TryAddServiceTest()
         {
-            // 今は失敗するように振る舞う
-            Assert.Fail();
-            yield break;
+            // TryAddServiceは、基本の振る舞いはAddServiceと同じで
+            // リザルトが例外ではなく戻り値の確認となる
+
+
+            // サービスA2_0、サービスB1_0を登録できる事を確認する
+            Assert.IsTrue(manager.TryAddService(new ServiceA_2_0()));
+            Assert.IsTrue(manager.TryAddService(new ServiceB_1_0()));
+
+
+            // サービスAのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
+            Assert.IsFalse(manager.TryAddService(new ServiceBaseA()));
+            Assert.IsFalse(manager.TryAddService(new ServiceA_1_0()));
+            Assert.IsFalse(manager.TryAddService(new ServiceA_2_1()));
+            Assert.IsFalse(manager.TryAddService(new ServiceA_2_0())); // 重複確認
+
+
+            // サービスBのあらゆるサービスが登録出来ないことを確認する（ついでに重複登録出来ないことも確認する）
+            Assert.IsFalse(manager.TryAddService(new ServiceBaseB()));
+            Assert.IsFalse(manager.TryAddService(new ServiceB_2_0()));
+            Assert.IsFalse(manager.TryAddService(new ServiceB_2_1()));
+            Assert.IsFalse(manager.TryAddService(new ServiceB_1_0())); // 重複確認
+
+
+            // フレームを進める
+            yield return null;
+
+
+            // 後続テストの為にサービスを削除する（削除自体のテストは別途タイミングで行う）
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+
+
+            // フレームを進める
+            yield return null;
         }
 
 
