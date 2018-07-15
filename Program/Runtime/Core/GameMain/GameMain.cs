@@ -117,6 +117,7 @@ namespace IceMilkTea.Core
 
             // 渡されたゲームメインを設定して初期化を実行する
             Current = gameMain;
+            Current.ServiceManager = Current.CreateGameServiceManager();
             RegisterHandler();
             Current.ServiceManager.Startup();
             Current.Startup();
