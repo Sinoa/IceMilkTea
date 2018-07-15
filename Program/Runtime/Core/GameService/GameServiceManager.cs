@@ -392,9 +392,9 @@ namespace IceMilkTea.Core
                 var existsServiceType = serviceInfo.Service.GetType();
 
 
-                // もし既にシャットダウン状態でかつ、追加しようとしたサービスの型が一致していたら
+                // もし既にシャットダウン状態でかつ、追加しようとしたサービスの型がキャスト可能な型なら
                 var shutdownState = (serviceInfo.Status == ServiceStatus.Shutdown || serviceInfo.Status == ServiceStatus.SilentShutdown);
-                if (shutdownState && existsServiceType == service.GetType())
+                if (shutdownState && service.GetType().IsAssignableFrom(existsServiceType))
                 {
                     // サービスはシャットダウン状態である例外を吐く
                     throw new InvalidOperationException($"サービス'{service.GetType().Name}'は、既にシャットダウン状態です。");
