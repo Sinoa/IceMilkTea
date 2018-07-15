@@ -13,44 +13,102 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Collections;
 using IceMilkTea.Core;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 namespace IceMilkTeaTestDynamic.Core
 {
+    #region テスト確認用クラス
+    /*
+     * テストで用いるクラスは以下の継承構造になります。
+     * 
+     * GameService（IceMilkTeaにおけるサービスの抽象クラス）
+     * ├ ServiceBaseA（ユーザー定義クラスの最基底サービスクラスでありキーとなるクラス）
+     * │  └ServiceA_1_0
+     * │   ├ ServiceA_2_0
+     * │   └ ServiceA_2_1
+     * │
+     * └ ServiceBaseB（ユーザー定義クラスの最基底サービスクラスでありキーとなるクラス）
+     *   └ ServiceB_1_0
+     *      ├ ServiceB_2_0
+     *      └ ServiceB_2_1
+     * 
+     * IceMilkTeaでは "GameServiceクラスを直接継承したクラス" がキーとなるクラスとなり
+     * そのクラスを継承したすべての派生クラスは、キーとなるクラスが重複して登録されない制約が付きます。
+     */
+
     /// <summary>
-    /// テストで用いるサービスAクラスです
+    /// サービスAの基本テストクラスです
     /// </summary>
-    public class TestServiceA : GameService
+    public class ServiceBaseA : GameService
     {
     }
 
 
 
     /// <summary>
-    /// テストで用いるサービスBクラスです
+    /// サービスAの基本クラスから派生したサービスA1クラスです
     /// </summary>
-    public class TestServiceB : GameService
+    public class ServiceA_1_0 : ServiceBaseA
     {
     }
 
 
 
     /// <summary>
-    /// テストで用いるサービスAから派生した派生サービスAクラスです
+    /// サービスAクラスから更に派生したサービスA2クラスです
     /// </summary>
-    public class DerivedServiceA : TestServiceA
+    public class ServiceA_2_0 : ServiceA_1_0
     {
     }
 
 
 
     /// <summary>
-    /// テストで用いるサービスBから派生した派生サービスBクラスです
+    /// サービスAクラスからもう一つ派生したサービスA2の二つ目のクラスです
     /// </summary>
-    public class DerivedServiceB : TestServiceB
+    public class ServiceA_2_1 : ServiceA_1_0
     {
     }
+
+
+
+    /// <summary>
+    /// サービスBの基本テストクラスです
+    /// </summary>
+    public class ServiceBaseB : GameService
+    {
+    }
+
+
+
+    /// <summary>
+    /// サービスBの基本クラスから派生したサービスB1クラスです
+    /// </summary>
+    public class ServiceB_1_0 : ServiceBaseB
+    {
+    }
+
+
+
+    /// <summary>
+    /// サービスBクラスから更に派生したサービスB2クラスです
+    /// </summary>
+    public class ServiceB_2_0 : ServiceB_1_0
+    {
+    }
+
+
+
+    /// <summary>
+    /// サービスBクラスからもう一つ派生したサービスB2の二つ目のクラスです
+    /// </summary>
+    public class ServiceB_2_1 : ServiceB_1_0
+    {
+    }
+    #endregion
 
 
 
@@ -59,247 +117,117 @@ namespace IceMilkTeaTestDynamic.Core
     /// </summary>
     public class ServiceManagerTest
     {
+        // メンバ変数定義
+        private GameServiceManager manager;
+
+
+
+        /// <summary>
+        /// テストの開始準備を行います
+        /// </summary>
+        [OneTimeSetUp]
+        public void Setup()
+        {
+            // マネージャの起動では例外さえ出なければ良いとする
+            Assert.DoesNotThrow(() =>
+            {
+                // マネージャを生成して初期化を呼ぶ
+                manager = new GameServiceManager();
+                manager.Startup();
+            });
+        }
+
+
+        /// <summary>
+        /// テストの終了処理を行います
+        /// </summary>
+        [OneTimeTearDown]
+        public void Celanup()
+        {
+            // マネージャの停止では例外さえ出なければ良いとする
+            Assert.DoesNotThrow(() =>
+            {
+                // マネージャを停止する
+                manager.Shutdown();
+            });
+        }
+
+
         /// <summary>
         /// サービスの追加をテストします
         /// </summary>
-        [Test]
-        public void AddServiceTest()
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(10)]
+        public IEnumerator AddServiceTest()
         {
-            // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
-
-
-            // 各種サービスのインスタンスを生成
-            var serviceA = new TestServiceA();
-            var serviceB = new TestServiceB();
-            var derivedA = new DerivedServiceA();
-            var derivedB = new DerivedServiceB();
-
-
-            // 全サービスの正常な追加をする（ここで例外が出るようではダメ）（Aは基本 -> 派生、Bは派生 -> 基本 の順で追加）
-            Assert.DoesNotThrow(() => manager.AddService(serviceA));
-            Assert.DoesNotThrow(() => manager.AddService(derivedA));
-            Assert.DoesNotThrow(() => manager.AddService(derivedB));
-            Assert.DoesNotThrow(() => manager.AddService(serviceB));
-
-
-            // 同じインスタンスの追加をしようとしてちゃんと例外を投げてくれるかを調べる
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceA));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedA));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedB));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceB));
-
-
-            // サービスの新しいインスタンスの生成し直し（参照が変わる）
-            serviceA = new TestServiceA();
-            serviceB = new TestServiceB();
-            derivedA = new DerivedServiceA();
-            derivedB = new DerivedServiceB();
-
-
-            // インスタンスが変わっても同じ型のサービスの追加をしようとしたら、ちゃんと例外を投げてくれるかを調べる
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceA));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedA));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(derivedB));
-            Assert.Throws<GameServiceAlreadyExistsException>(() => manager.AddService(serviceB));
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
         }
 
 
         /// <summary>
         /// サービスの追加（TryAddService）をテストします
         /// </summary>
-        [Test]
-        public void TryAddServiceTest()
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(20)]
+        public IEnumerator TryAddServiceTest()
         {
-            // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
-
-
-            // 各種サービスのインスタンスを生成
-            var serviceA = new TestServiceA();
-            var serviceB = new TestServiceB();
-            var derivedA = new DerivedServiceA();
-            var derivedB = new DerivedServiceB();
-
-
-            // 全サービスの正常な追加をする（Aは基本 -> 派生、Bは派生 -> 基本 の順で追加）
-            Assert.AreEqual(manager.TryAddService(serviceA), true);
-            Assert.AreEqual(manager.TryAddService(derivedA), true);
-            Assert.AreEqual(manager.TryAddService(derivedB), true);
-            Assert.AreEqual(manager.TryAddService(serviceB), true);
-
-
-            // 同じインスタンスのTry追加をしようとしてちゃんと失敗を返してくれるかを調べる
-            Assert.AreEqual(manager.TryAddService(serviceA), false);
-            Assert.AreEqual(manager.TryAddService(derivedA), false);
-            Assert.AreEqual(manager.TryAddService(derivedB), false);
-            Assert.AreEqual(manager.TryAddService(serviceB), false);
-
-
-            // サービスの新しいインスタンスの生成し直し（参照が変わる）
-            serviceA = new TestServiceA();
-            serviceB = new TestServiceB();
-            derivedA = new DerivedServiceA();
-            derivedB = new DerivedServiceB();
-
-
-            // インスタンスが変わっても同じ型のサービスの追加をしようとしたら、失敗を返してくれるかを調べる
-            Assert.AreEqual(manager.TryAddService(serviceA), false);
-            Assert.AreEqual(manager.TryAddService(derivedA), false);
-            Assert.AreEqual(manager.TryAddService(derivedB), false);
-            Assert.AreEqual(manager.TryAddService(serviceB), false);
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
         }
 
 
         /// <summary>
         /// サービスの取得をテストします
         /// </summary>
-        [Test]
-        public void GetServiceTest()
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(30)]
+        public IEnumerator GetServiceTest()
         {
-            // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
-
-
-            // 今の段階でサービスの取得を試みて、ちゃんと例外を吐いてくれるかを調べる
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
-
-
-            // 各種サービスのインスタンスを生成
-            var serviceA = new TestServiceA();
-            var serviceB = new TestServiceB();
-            var derivedA = new DerivedServiceA();
-            var derivedB = new DerivedServiceB();
-
-
-            // 派生サービスA、基本サービスBを追加して、それ以外はちゃんと例外を吐いてくれるかを調べる
-            manager.AddService(derivedA);
-            manager.AddService(serviceB);
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<TestServiceB>());
-            Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
-
-
-            // 残りのサービスも追加してServiceProviderの基本型のみだけ例外を吐いてくれるかを調べる
-            manager.AddService(serviceA);
-            manager.AddService(derivedB);
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
-            Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<DerivedServiceB>());
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
         }
 
 
         /// <summary>
         /// サービスの取得（TryGetService）をテストします
         /// </summary>
-        [Test]
-        public void TryGetServiceTest()
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(40)]
+        public IEnumerator TryGetServiceTest()
         {
-            // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
-
-
-            // 各種サービスの結果受け取り変数の用意
-            var baseService = default(GameService);
-            var serviceA = default(TestServiceA);
-            var serviceB = default(TestServiceB);
-            var derivedA = default(DerivedServiceA);
-            var derivedB = default(DerivedServiceB);
-
-
-            // 今の段階でサービスの取得を試みて、ちゃんと失敗してくれるか調べる（戻り値の失敗と設定される変数にnullが入るのかの2パターン）
-            Assert.AreEqual(manager.TryGetService(out baseService), false);
-            Assert.AreEqual(manager.TryGetService(out serviceA), false);
-            Assert.AreEqual(manager.TryGetService(out serviceB), false);
-            Assert.AreEqual(manager.TryGetService(out derivedA), false);
-            Assert.AreEqual(manager.TryGetService(out derivedB), false);
-            Assert.IsNull(baseService);
-            Assert.IsNull(serviceA);
-            Assert.IsNull(serviceB);
-            Assert.IsNull(derivedA);
-            Assert.IsNull(derivedB);
-
-
-            // 派生サービスA、基本サービスBを追加して、それ以外はちゃんと失敗してくれるかを調べる
-            manager.AddService(new DerivedServiceA());
-            manager.AddService(new TestServiceB());
-            Assert.AreEqual(manager.TryGetService(out baseService), false);
-            Assert.AreEqual(manager.TryGetService(out serviceA), false);
-            Assert.AreEqual(manager.TryGetService(out serviceB), true);
-            Assert.AreEqual(manager.TryGetService(out derivedA), true);
-            Assert.AreEqual(manager.TryGetService(out derivedB), false);
-            Assert.IsNull(baseService);
-            Assert.IsNull(serviceA);
-            Assert.IsNotNull(serviceB);
-            Assert.IsNotNull(derivedA);
-            Assert.IsNull(derivedB);
-
-
-            // 残りのサービスも追加してServiceProviderの基本型のみだけ失敗してくれるかを調べる
-            manager.AddService(new TestServiceA());
-            manager.AddService(new DerivedServiceB());
-            Assert.AreEqual(manager.TryGetService(out baseService), false);
-            Assert.AreEqual(manager.TryGetService(out serviceA), true);
-            Assert.AreEqual(manager.TryGetService(out serviceB), true);
-            Assert.AreEqual(manager.TryGetService(out derivedA), true);
-            Assert.AreEqual(manager.TryGetService(out derivedB), true);
-            Assert.IsNull(baseService);
-            Assert.IsNotNull(serviceA);
-            Assert.IsNotNull(serviceB);
-            Assert.IsNotNull(derivedA);
-            Assert.IsNotNull(derivedB);
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
         }
 
 
         /// <summary>
         /// サービスの削除をテストします
         /// </summary>
-        [Test]
-        public void RemoveServiceTest()
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(50)]
+        public IEnumerator RemoveServiceTest()
         {
-            // サービスマネージャのインスタンスを生成する
-            var manager = new GameServiceManager();
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
+        }
 
 
-            // 各種サービスのインスタンスを生成して追加する
-            manager.AddService(new TestServiceA());
-            manager.AddService(new TestServiceB());
-            manager.AddService(new DerivedServiceA());
-            manager.AddService(new DerivedServiceB());
-
-
-            // 最基底クラスであるServiceProviderで削除を要求してどのサービスも死んでいないことを確認する
-            manager.RemoveService<GameService>();
-            Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<TestServiceB>());
-            Assert.DoesNotThrow(() => manager.GetService<DerivedServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<DerivedServiceB>());
-
-
-            // 派生サービスA、基本サービスB、を削除して基本サービスA、派生サービスBが生きていることを確認する
-            manager.RemoveService<DerivedServiceA>();
-            manager.RemoveService<TestServiceB>();
-            Assert.DoesNotThrow(() => manager.GetService<TestServiceA>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
-            Assert.DoesNotThrow(() => manager.GetService<DerivedServiceB>());
-
-
-            // 残りのサービスも全員削除して、全て死んでいることを確認する
-            manager.RemoveService<TestServiceA>();
-            manager.RemoveService<DerivedServiceB>();
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceA>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<TestServiceB>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceA>());
-            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<DerivedServiceB>());
+        /// <summary>
+        /// サービスのアクティブ設定をのテストをします
+        /// </summary>
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(60)]
+        public IEnumerator ActiveDeactiveTest()
+        {
+            // 今は失敗するように振る舞う
+            Assert.Fail();
+            yield break;
         }
     }
 }
