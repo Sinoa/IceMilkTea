@@ -99,6 +99,31 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 指定されたゲームメインによって動作を上書きします。
+        /// この関数は、テストの為に用意された関数であり、通常のゲームロジック上で使用される想定はありません。
+        /// 動作の切り替えや、想定のゲームメイン動作を設定する場合は GameMain.RedirectGameMain 関数をオーバーライドして下さい。
+        /// </summary>
+        /// <param name="gameMain">上書きするゲームメインの参照</param>
+        internal static void OverrideGameMain(GameMain gameMain)
+        {
+            // 起動中のゲームメインがあるのなら
+            if (Current != null)
+            {
+                // 何があろうとシャットダウンして、ImtPlayerLoopSystemから既定Unityループシステムを読み込んで上書きすることですべての登録を破壊できる
+                InternalShutdown();
+                ImtPlayerLoopSystem.GetUnityDefaultPlayerLoop().BuildAndSetUnityPlayerLoop();
+            }
+
+
+            // 渡されたゲームメインを設定して初期化を実行する
+            Current = gameMain;
+            RegisterHandler();
+            Current.ServiceManager.Startup();
+            Current.Startup();
+        }
+
+
+        /// <summary>
         /// Unityのアプリケーション終了時に処理するべき後処理を行います
         /// </summary>
         private static void InternalShutdown()
