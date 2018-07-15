@@ -244,9 +244,86 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(30)]
         public IEnumerator GetServiceTest()
         {
-            // 今は失敗するように振る舞う
-            Assert.Fail();
-            yield break;
+            // サービスAクラスは末端の2系サービスを追加し、GameServiceとサービスA2_1以外でサービスの取得が出来ることを確認
+            // サービスBクラスは中間の1系サービスを追加し、GameServiceとサービスB2系以外でサービスの取得が出来ることを確認
+
+
+            // この時点ではまだ全サービスの取得が出来ないことを確認する
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_1_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_1_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>());
+
+
+            // サービスA2_0、サービスB1_0を登録する
+            manager.AddService(new ServiceA_2_0());
+            manager.AddService(new ServiceB_1_0());
+
+
+            // 通常は追加された直後のサービスは起動していないが、取得は可能であることは保証しているべきなので、サービスA2_0、サービスB1_0の取得系がちゃんと動作するか確認
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>()); // 最基底クラスでは取得は出来ない
+            Assert.DoesNotThrow(() => manager.GetService<ServiceBaseA>()); // A2_0の継承元
+            Assert.DoesNotThrow(() => manager.GetService<ServiceA_1_0>()); // A2_0の継承元
+            Assert.DoesNotThrow(() => manager.GetService<ServiceA_2_0>()); // A2_0ご本人様
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>()); // A2_0とは関係のないサービス
+            Assert.DoesNotThrow(() => manager.GetService<ServiceBaseB>()); // B1_0の継承元
+            Assert.DoesNotThrow(() => manager.GetService<ServiceB_1_0>()); // B1_0ご本人様
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+
+
+            // フレームを進める
+            yield return null;
+
+
+            // サービスが起動直後も、起動前と同じ挙動になるか、期待動作の確認
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>()); // 最基底クラスでは取得は出来ない
+            Assert.DoesNotThrow(() => manager.GetService<ServiceBaseA>()); // A2_0の継承元
+            Assert.DoesNotThrow(() => manager.GetService<ServiceA_1_0>()); // A2_0の継承元
+            Assert.DoesNotThrow(() => manager.GetService<ServiceA_2_0>()); // A2_0ご本人様
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>()); // A2_0とは関係のないサービス
+            Assert.DoesNotThrow(() => manager.GetService<ServiceBaseB>()); // B1_0の継承元
+            Assert.DoesNotThrow(() => manager.GetService<ServiceB_1_0>()); // B1_0ご本人様
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+
+
+            // サービスを削除する
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+
+
+            // 通常は削除された直後のサービスはまだ停止していないが、シャットダウン予定としてマークされ取得されない事を保証しているべきなので、すべてのサービスが取得できないか確認
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_1_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_1_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>());
+
+
+            // フレームを進める
+            yield return null;
+
+
+            // 最後にフレーム経過してもサービスの取得が出来ないことを確認する
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseA>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_1_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseB>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_1_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>());
+            Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>());
         }
 
 
