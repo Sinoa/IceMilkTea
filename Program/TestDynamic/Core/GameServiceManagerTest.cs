@@ -252,6 +252,7 @@ namespace IceMilkTeaTestDynamic.Core
             // 全サービス取得が出来ないときの関数
             var allServiceNotFoundTest = new Action(() =>
             {
+                // すべての関数にて例外が発生すれば全サービス取得出来ないということになる
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseA>());
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_1_0>());
@@ -267,13 +268,19 @@ namespace IceMilkTeaTestDynamic.Core
             // サービスの部分取得に成功する場合の関数
             var getServiceTest = new Action(() =>
             {
+                // 取得出来ないサービスは例外が発生し、取得できるサービスは例外が発生せず値が取れることでテストが通ることになる
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>()); // 最基底クラスでは取得は出来ない
                 Assert.DoesNotThrow(() => manager.GetService<ServiceBaseA>()); // A2_0の継承元
+                Assert.IsNotNull(manager.GetService<ServiceBaseA>()); // A2_0の継承元
                 Assert.DoesNotThrow(() => manager.GetService<ServiceA_1_0>()); // A2_0の継承元
+                Assert.IsNotNull(manager.GetService<ServiceA_1_0>()); // A2_0の継承元
                 Assert.DoesNotThrow(() => manager.GetService<ServiceA_2_0>()); // A2_0ご本人様
+                Assert.IsNotNull(manager.GetService<ServiceA_2_0>()); // A2_0ご本人様
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>()); // A2_0とは関係のないサービス
                 Assert.DoesNotThrow(() => manager.GetService<ServiceBaseB>()); // B1_0の継承元
+                Assert.IsNotNull(manager.GetService<ServiceBaseB>()); // B1_0の継承元
                 Assert.DoesNotThrow(() => manager.GetService<ServiceB_1_0>()); // B1_0ご本人様
+                Assert.IsNotNull(manager.GetService<ServiceB_1_0>()); // B1_0ご本人様
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
                 Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
             });
@@ -292,11 +299,11 @@ namespace IceMilkTeaTestDynamic.Core
             getServiceTest();
 
 
-            // 通常は削除された直後のサービスはまだ停止していないが、シャットダウン予定としてマークされ取得されない事を保証しているべきなので
-            // すべてのサービスが取得できないか確認して、次のフレームでも同じ動作をしていることを期待する
+            // 通常は削除された直後のサービスはまだ停止していないので、まだ取得できる状態を保証しているべきで
+            // まだサービスが取得出来ることを確認して、次のフレームで取得ができなくなっていることを確認する
             manager.RemoveService<ServiceA_2_0>();
             manager.RemoveService<ServiceB_1_0>();
-            allServiceNotFoundTest();
+            getServiceTest();
             yield return null;
             allServiceNotFoundTest();
         }
@@ -328,6 +335,7 @@ namespace IceMilkTeaTestDynamic.Core
             // 全サービス取得が出来ないときの関数
             var allServiceNotFoundTest = new Action(() =>
             {
+                // すべて false が返されて、値が null に設定されればサービスは全部取得出来ないということになる
                 Assert.IsFalse(manager.TryGetService(out gameService)); Assert.IsNull(gameService);
                 Assert.IsFalse(manager.TryGetService(out serviceBaseA)); Assert.IsNull(serviceBaseA);
                 Assert.IsFalse(manager.TryGetService(out serviceA_1_0)); Assert.IsNull(serviceA_1_0);
@@ -343,6 +351,7 @@ namespace IceMilkTeaTestDynamic.Core
             // サービスの部分取得に成功する場合の関数
             var getServiceTest = new Action(() =>
             {
+                // 取得できる場合は true が設定されて、値がセットされていればOK
                 Assert.IsFalse(manager.TryGetService(out gameService)); Assert.IsNull(gameService); // 最基底クラスでは取得は出来ない
                 Assert.IsTrue(manager.TryGetService(out serviceBaseA)); Assert.IsNotNull(serviceBaseA); // A2_0の継承元
                 Assert.IsTrue(manager.TryGetService(out serviceA_1_0)); Assert.IsNotNull(serviceA_1_0); // A2_0の継承元
@@ -368,11 +377,11 @@ namespace IceMilkTeaTestDynamic.Core
             getServiceTest();
 
 
-            // 通常は削除された直後のサービスはまだ停止していないが、シャットダウン予定としてマークされ取得されない事を保証しているべきなので
-            // すべてのサービスが取得できないか確認して、次のフレームでも同じ動作をしていることを期待する
+            // 通常は削除された直後のサービスはまだ停止していないので、まだ取得できる状態を保証しているべきで
+            // まだサービスが取得出来ることを確認して、次のフレームで取得ができなくなっていることを確認する
             manager.RemoveService<ServiceA_2_0>();
             manager.RemoveService<ServiceB_1_0>();
-            allServiceNotFoundTest();
+            getServiceTest();
             yield return null;
             allServiceNotFoundTest();
         }
