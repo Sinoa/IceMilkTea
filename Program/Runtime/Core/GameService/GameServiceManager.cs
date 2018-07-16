@@ -532,6 +532,28 @@ namespace IceMilkTea.Core
             // 通常は普通に死ぬようにマークする
             serviceInfo.Status = ServiceStatus.Shutdown;
         }
+
+
+        /// <summary>
+        /// 指定された型のサービスが、単純に存在するか確認します。
+        /// この関数は、シャットダウンされうかどうかの状態を考慮しないことに気をつけて下さい。
+        /// </summary>
+        /// <typeparam name="T">存在を確認するサービスの型</typeparam>
+        /// <returns>サービスが存在している場合は true を、存在しない場合は false を返します</returns>
+        public virtual bool Exists<T>() where T : GameService
+        {
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null || !(serviceInfo.Service is T))
+            {
+                // サービスが無いことを返す
+                return false;
+            }
+
+
+            // 見つけたサービスを見つけられたことを返す
+            return true;
+        }
         #endregion
 
 
