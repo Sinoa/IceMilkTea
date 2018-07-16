@@ -261,6 +261,10 @@ namespace IceMilkTeaTestDynamic.Core
             // サービス追加に成功する関数
             var addSuccess = new Action(() =>
             {
+                // そもそもnull渡しは死ぬ
+                Assert.Throws<ArgumentNullException>(() => manager.AddService(null));
+
+
                 // サービスA2_0、サービスB1_0を登録できる事を確認する
                 Assert.DoesNotThrow(() => manager.AddService(new ServiceA_2_0()));
                 Assert.DoesNotThrow(() => manager.AddService(new ServiceB_1_0()));
@@ -313,6 +317,10 @@ namespace IceMilkTeaTestDynamic.Core
             // サービス追加に成功する関数
             var addSuccess = new Action(() =>
             {
+                // そもそもnull渡しは死ぬ
+                Assert.Throws<ArgumentNullException>(() => manager.TryAddService(null));
+
+
                 // サービスA2_0、サービスB1_0を登録できる事を確認する
                 Assert.IsTrue(manager.TryAddService(new ServiceA_2_0()));
                 Assert.IsTrue(manager.TryAddService(new ServiceB_1_0()));
