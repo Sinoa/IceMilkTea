@@ -142,6 +142,41 @@ namespace IceMilkTeaTestDynamic.Core
     /// </summary>
     public class ServiceBaseB : GameService
     {
+    }
+
+
+
+    /// <summary>
+    /// サービスBの基本クラスから派生したサービスB1クラスです
+    /// </summary>
+    public class ServiceB_1_0 : ServiceBaseB
+    {
+    }
+
+
+
+    /// <summary>
+    /// サービスBクラスから更に派生したサービスB2クラスです
+    /// </summary>
+    public class ServiceB_2_0 : ServiceB_1_0
+    {
+    }
+
+
+
+    /// <summary>
+    /// サービスBクラスからもう一つ派生したサービスB2の二つ目のクラスです
+    /// </summary>
+    public class ServiceB_2_1 : ServiceB_1_0
+    {
+    }
+
+
+    /// <summary>
+    /// ServiceBaseAサービスを削除するサービスです
+    /// </summary>
+    public class ServiceBaseARemoveService : GameService
+    {
         /// <summary>
         /// サービスの起動処理を実行します
         /// </summary>
@@ -173,33 +208,6 @@ namespace IceMilkTeaTestDynamic.Core
             manager.SetActiveService<ServiceBaseA>(true);
             manager.RemoveService<ServiceBaseA>();
         }
-    }
-
-
-
-    /// <summary>
-    /// サービスBの基本クラスから派生したサービスB1クラスです
-    /// </summary>
-    public class ServiceB_1_0 : ServiceBaseB
-    {
-    }
-
-
-
-    /// <summary>
-    /// サービスBクラスから更に派生したサービスB2クラスです
-    /// </summary>
-    public class ServiceB_2_0 : ServiceB_1_0
-    {
-    }
-
-
-
-    /// <summary>
-    /// サービスBクラスからもう一つ派生したサービスB2の二つ目のクラスです
-    /// </summary>
-    public class ServiceB_2_1 : ServiceB_1_0
-    {
     }
     #endregion
 
@@ -506,7 +514,7 @@ namespace IceMilkTeaTestDynamic.Core
             getServiceTest();
 
 
-            // サービスのアクティブを切ってもサービスの取得ができることw確認する
+            // サービスのアクティブを切ってもサービスの取得ができることを確認する
             manager.SetActiveService<ServiceA_2_0>(false);
             manager.SetActiveService<ServiceB_1_0>(false);
             getServiceTest();
@@ -633,10 +641,10 @@ namespace IceMilkTeaTestDynamic.Core
             manager.AddService(service);
             manager.SetActiveService<ServiceBaseA>(false);
             yield return null;
-            manager.AddService(new ServiceBaseB());
+            manager.AddService(new ServiceBaseARemoveService());
             yield return null;
             Assert.IsFalse(service.Stopped);
-            manager.RemoveService<ServiceBaseB>();
+            manager.RemoveService<ServiceBaseARemoveService>();
             yield return null;
 
         }
