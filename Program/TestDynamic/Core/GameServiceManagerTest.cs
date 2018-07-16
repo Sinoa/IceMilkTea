@@ -152,7 +152,8 @@ namespace IceMilkTeaTestDynamic.Core
 
         #region Add系テスト
         /// <summary>
-        /// サービスの追加をテストします
+        /// サービスの追加をテストします。
+        /// ついでに削除系のテストも行います。
         /// </summary>
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
         [UnityTest, Order(10)]
@@ -204,6 +205,7 @@ namespace IceMilkTeaTestDynamic.Core
 
         /// <summary>
         /// サービスの追加（TryAddService）をテストします
+        /// ついでに削除系のテストも行います。
         /// </summary>
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
         [UnityTest, Order(20)]
@@ -263,7 +265,7 @@ namespace IceMilkTeaTestDynamic.Core
             yield return null;
 
 
-            // 次のフレームには削除は完了しているので、正常に追加が出来ることw確認する
+            // 次のフレームには削除は完了しているので、正常に追加が出来ることを確認する
             addSuccess();
             addFailed();
 
@@ -278,7 +280,8 @@ namespace IceMilkTeaTestDynamic.Core
 
         #region Get系テスト
         /// <summary>
-        /// サービスの取得をテストします
+        /// サービスの取得をテストします。
+        /// ついでに削除系のテストも行います。
         /// </summary>
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
         [UnityTest, Order(30)]
@@ -331,7 +334,8 @@ namespace IceMilkTeaTestDynamic.Core
 
 
         /// <summary>
-        /// サービスの取得（TryGetService）をテストします
+        /// サービスの取得（TryGetService）をテストします。
+        /// ついでに削除系のテストも行います。
         /// </summary>
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
         [UnityTest, Order(40)]
@@ -428,19 +432,7 @@ namespace IceMilkTeaTestDynamic.Core
         #endregion
 
 
-        /// <summary>
-        /// サービスの削除をテストします
-        /// </summary>
-        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
-        [UnityTest, Order(50)]
-        public IEnumerator RemoveServiceTest()
-        {
-            // 今は失敗するように振る舞う
-            Assert.Fail();
-            yield break;
-        }
-
-
+        #region サービスのコントロール系テスト
         /// <summary>
         /// サービスのアクティブ設定をのテストをします
         /// </summary>
@@ -464,5 +456,6 @@ namespace IceMilkTeaTestDynamic.Core
             Assert.Fail();
             yield break;
         }
+        #endregion
     }
 }
