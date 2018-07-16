@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using IceMilkTea.Core;
 using NUnit.Framework;
 using UnityEngine;
@@ -46,6 +47,49 @@ namespace IceMilkTeaTestDynamic.Core
     /// </summary>
     public class ServiceBaseA : GameService
     {
+        /// <summary>
+        /// サービスが起動済みかどうか
+        /// </summary>
+        public bool Startuped { get; set; }
+
+
+        /// <summary>
+        /// PreUpdate毎にカウントし続けるカウンタ
+        /// </summary>
+        public int StepCount { get; set; }
+
+
+
+        /// <summary>
+        /// サービスの起動処理を行います
+        /// </summary>
+        /// <param name="info"></param>
+        protected internal override void Startup(out GameServiceStartupInfo info)
+        {
+            // サービス起動情報の初期化
+            info = new GameServiceStartupInfo()
+            {
+                // 更新関数テーブルの初期化
+                UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
+                {
+                    {GameServiceUpdateTiming.PreUpdate, PreUpdate}
+                }
+            };
+
+
+            // サービスは起動済みである
+            Startuped = true;
+        }
+
+
+        /// <summary>
+        /// Update前の処理を実行します
+        /// </summary>
+        private void PreUpdate()
+        {
+            // カウントし続ける
+            StepCount += 1;
+        }
     }
 
 
@@ -440,9 +484,56 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(50)]
         public IEnumerator ActiveDeactiveTest()
         {
-            // 今は失敗するように振る舞う
-            Assert.Fail();
-            yield break;
+            // Active操作はフレーム進行関係なくアクティブ状態は直ちに反映されるかを確認する
+
+
+            // 確認用サービスを生成して登録
+            var service = new ServiceBaseA();
+            manager.AddService(service);
+
+
+            // この時点ではカウンタは0であることと、まだ起動していないこと、アクティブ状態であることを確認してフレームを進める
+            Assert.AreEqual(0, service.StepCount);
+            Assert.IsFalse(service.Startuped);
+            Assert.IsTrue(manager.IsActiveService<ServiceBaseA>());
+            yield return null;
+
+
+            // フレームが進んだのでカウンタが進んだことを確認して、もう起動済みで、アクティブの切り替わりの確認をして、フレームを進める
+            Assert.AreEqual(1, service.StepCount);
+            Assert.IsTrue(service.Startuped);
+            Assert.IsTrue(manager.IsActiveService<ServiceBaseA>());
+            manager.SetActiveService<ServiceBaseA>(false);
+            Assert.IsFalse(manager.IsActiveService<ServiceBaseA>());
+            yield return null;
+
+
+            // 非アクティブ状態なのでカウンタが進んでいないことを確認して、アクティブ状態にして、アクティブ変化を確認後
+            // 削除後に非アクティブになることを確認してフレームを進める
+            Assert.AreEqual(1, service.StepCount);
+            manager.SetActiveService<ServiceBaseA>(true);
+            Assert.IsTrue(manager.IsActiveService<ServiceBaseA>());
+            manager.RemoveService<ServiceBaseA>();
+            Assert.IsFalse(manager.IsActiveService<ServiceBaseA>());
+            yield return null;
+
+
+            // サービスは生成直後にアクティブを切ると起動処理すら呼ばれないことを確認する
+            service = new ServiceBaseA();
+            manager.AddService(service);
+            Assert.AreEqual(0, service.StepCount);
+            Assert.IsFalse(service.Startuped);
+            Assert.IsTrue(manager.IsActiveService<ServiceBaseA>());
+            manager.SetActiveService<ServiceBaseA>(false);
+            yield return null;
+            Assert.AreEqual(0, service.StepCount);
+            Assert.IsFalse(service.Startuped);
+            Assert.IsFalse(manager.IsActiveService<ServiceBaseA>());
+
+
+            // サービスを削除してフレームを進める
+            manager.RemoveService<ServiceBaseA>();
+            yield return null;
         }
 
 
