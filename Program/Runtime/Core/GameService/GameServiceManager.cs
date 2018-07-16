@@ -510,11 +510,11 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">削除するサービスの型</typeparam>
         public virtual void RemoveService<T>() where T : GameService
         {
-            // 管理リストから情報を取得して失敗したら
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
             var serviceInfo = GetServiceInfo(typeof(T));
-            if (serviceInfo == null)
+            if (serviceInfo == null || !(serviceInfo.Service is T))
             {
-                // 何事ものなかったかのように終了する
+                // 何事もなかったかのように終了する
                 return;
             }
 
