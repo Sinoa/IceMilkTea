@@ -54,6 +54,12 @@ namespace IceMilkTeaTestDynamic.Core
 
 
         /// <summary>
+        /// サービスが停止済みかどうか
+        /// </summary>
+        public bool Stopped { get; set; }
+
+
+        /// <summary>
         /// PreUpdate毎にカウントし続けるカウンタ
         /// </summary>
         public int StepCount { get; set; }
@@ -63,7 +69,7 @@ namespace IceMilkTeaTestDynamic.Core
         /// <summary>
         /// サービスの起動処理を行います
         /// </summary>
-        /// <param name="info"></param>
+        /// <param name="info">サービスの起動情報を設定します</param>
         protected internal override void Startup(out GameServiceStartupInfo info)
         {
             // サービス起動情報の初期化
@@ -79,6 +85,16 @@ namespace IceMilkTeaTestDynamic.Core
 
             // サービスは起動済みである
             Startuped = true;
+        }
+
+
+        /// <summary>
+        /// サービスの停止処理を行います
+        /// </summary>
+        protected internal override void Shutdown()
+        {
+            // サービスは停止済みである
+            Stopped = true;
         }
 
 
@@ -126,6 +142,37 @@ namespace IceMilkTeaTestDynamic.Core
     /// </summary>
     public class ServiceBaseB : GameService
     {
+        /// <summary>
+        /// サービスの起動処理を実行します
+        /// </summary>
+        /// <param name="info">サービスの起動情報を設定します</param>
+        protected internal override void Startup(out GameServiceStartupInfo info)
+        {
+            // サービス起動情報の初期化
+            info = new GameServiceStartupInfo()
+            {
+                // 更新関数テーブルの初期化
+                UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
+                {
+                    {GameServiceUpdateTiming.PreUpdate, PreUpdate}
+                }
+            };
+        }
+
+
+        /// <summary>
+        /// Update前の処理を行います
+        /// </summary>
+        private void PreUpdate()
+        {
+            // マネージャを取得
+            var manager = GameMain.Current.ServiceManager;
+
+
+            // アクティブを戻して削除する
+            manager.SetActiveService<ServiceBaseA>(true);
+            manager.RemoveService<ServiceBaseA>();
+        }
     }
 
 
@@ -544,9 +591,54 @@ namespace IceMilkTeaTestDynamic.Core
         [UnityTest, Order(60)]
         public IEnumerator StartupAndShutdownTest()
         {
-            // 今は失敗するように振る舞う
-            Assert.Fail();
-            yield break;
+            // サービスの起動と停止はフレームの開始や終了のタイミングのため
+            // 生成直後や削除要求直後はまだステータス変化が起きていないことを確認する
+
+
+            // サービスを生成、登録後にまだ起動処理が呼び出されていないことを確認して、フレームを進める
+            var service = new ServiceBaseA();
+            manager.AddService(service);
+            Assert.IsFalse(service.Startuped);
+            yield return null;
+
+
+            // サービスが起動したことを確認して、削除要求後にまだシャットダウンされていない事を確認して、フレームを進める
+            Assert.IsTrue(service.Startuped);
+            manager.RemoveService<ServiceBaseA>();
+            Assert.IsFalse(service.Stopped);
+            yield return null;
+
+
+            // サービスが停止したことを確認する
+            Assert.IsTrue(service.Stopped);
+
+
+            // 新たにサービスを生成して追加後にアクティブを切ったら、フレームが進んでも起動しないことを確認する
+            service = new ServiceBaseA();
+            manager.AddService(service);
+            manager.SetActiveService<ServiceBaseA>(false);
+            Assert.IsFalse(service.Startuped);
+            yield return null;
+            Assert.IsFalse(service.Startuped);
+
+
+            // 寝たままの状態で削除されてもシャットダウンされないことを確認する
+            manager.RemoveService<ServiceBaseA>();
+            yield return null;
+            Assert.IsFalse(service.Stopped);
+
+
+            // 新たにサービスを生成してアクティブを切った後、フレーム更新中にアクティブを戻して削除してもシャットダウンが呼ばれないことを確認する
+            service = new ServiceBaseA();
+            manager.AddService(service);
+            manager.SetActiveService<ServiceBaseA>(false);
+            yield return null;
+            manager.AddService(new ServiceBaseB());
+            yield return null;
+            Assert.IsFalse(service.Stopped);
+            manager.RemoveService<ServiceBaseB>();
+            yield return null;
+
         }
         #endregion
     }
