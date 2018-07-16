@@ -437,7 +437,7 @@ namespace IceMilkTeaTestDynamic.Core
         /// サービスのアクティブ設定をのテストをします
         /// </summary>
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
-        [UnityTest, Order(60)]
+        [UnityTest, Order(50)]
         public IEnumerator ActiveDeactiveTest()
         {
             // 今は失敗するように振る舞う
@@ -450,6 +450,7 @@ namespace IceMilkTeaTestDynamic.Core
         /// サービスの起動停止の処理が想定タイミングで行われるかをテストします
         /// </summary>
         /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(60)]
         public IEnumerator StartupAndShutdownTest()
         {
             // 今は失敗するように振る舞う
