@@ -204,9 +204,13 @@ namespace IceMilkTeaTestDynamic.Core
             var manager = GameMain.Current.ServiceManager;
 
 
-            // アクティブを戻して削除する
-            manager.SetActiveService<ServiceBaseA>(true);
-            manager.RemoveService<ServiceBaseA>();
+            // サービスが有るなら
+            if (manager.Exists<ServiceBaseA>())
+            {
+                // アクティブを戻して削除する
+                manager.SetActiveService<ServiceBaseA>(true);
+                manager.RemoveService<ServiceBaseA>();
+            }
         }
     }
     #endregion
@@ -654,7 +658,75 @@ namespace IceMilkTeaTestDynamic.Core
             Assert.IsFalse(service.Stopped);
             manager.RemoveService<ServiceBaseARemoveService>();
             yield return null;
+        }
 
+
+        /// <summary>
+        /// サービスの存在チェックが正しく行われるかをテストします。
+        /// </summary>
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(70)]
+        public IEnumerator ExistsTest()
+        {
+            // サービス全確認ができない関数
+            var allNotExists = new Action(() =>
+            {
+                // すべてのサービスの存在を確認できない場合の処理
+                Assert.IsFalse(manager.Exists<GameService>()); // 最基底クラスはそもそも検索や存在確認で利用できない
+                Assert.IsFalse(manager.Exists<ServiceBaseA>());
+                Assert.IsFalse(manager.Exists<ServiceA_1_0>());
+                Assert.IsFalse(manager.Exists<ServiceA_2_0>());
+                Assert.IsFalse(manager.Exists<ServiceA_2_1>());
+                Assert.IsFalse(manager.Exists<ServiceBaseB>());
+                Assert.IsFalse(manager.Exists<ServiceB_1_0>());
+                Assert.IsFalse(manager.Exists<ServiceB_2_0>());
+                Assert.IsFalse(manager.Exists<ServiceB_2_1>());
+
+            });
+
+
+            // サービスの部分確認が出来る関数
+            var existsPass = new Action(() =>
+            {
+                // 部分的なサービス存在が可能な場合の処理
+                Assert.IsFalse(manager.Exists<GameService>()); // 最基底クラスはそもそも検索や存在確認で利用できない
+                Assert.IsTrue(manager.Exists<ServiceBaseA>()); // A2_0の継承元
+                Assert.IsTrue(manager.Exists<ServiceA_1_0>()); // A2_0の継承元
+                Assert.IsTrue(manager.Exists<ServiceA_2_0>()); // A2_0ご本人様
+                Assert.IsFalse(manager.Exists<ServiceA_2_1>()); // A2_0とは関係のないサービス
+                Assert.IsTrue(manager.Exists<ServiceBaseB>()); // B1_0の継承元
+                Assert.IsTrue(manager.Exists<ServiceB_1_0>()); // B1_0ご本人様
+                Assert.IsFalse(manager.Exists<ServiceB_2_0>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+                Assert.IsFalse(manager.Exists<ServiceB_2_1>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+            });
+
+
+            // 現時点では全サービスは存在していないはず
+            allNotExists();
+
+
+            // サービスを追加すると直ちに存在確認が出来る事を確認して、フレームを進める
+            manager.AddService(new ServiceA_2_0());
+            manager.AddService(new ServiceB_1_0());
+            existsPass();
+            yield return null;
+
+
+            // アクティブを切っても存在チェックは通る事を確認する
+            manager.SetActiveService<ServiceA_2_0>(false);
+            manager.SetActiveService<ServiceB_1_0>(false);
+            existsPass();
+
+
+            // 削除対象になってもそのフレームの間は存在チェックが通ることを確認して、フレームを進める
+            manager.RemoveService<ServiceB_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+            existsPass();
+            yield return null;
+
+
+            // すべて削除されたはずなら、全サービスは存在していないはず
+            allNotExists();
         }
         #endregion
     }
