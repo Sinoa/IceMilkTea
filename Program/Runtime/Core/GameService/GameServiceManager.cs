@@ -392,9 +392,9 @@ namespace IceMilkTea.Core
                 var existsServiceType = serviceInfo.Service.GetType();
 
 
-                // もし既にシャットダウン状態でかつ、追加しようとしたサービスの型が一致していたら
+                // もし既にシャットダウン状態でかつ、追加しようとしたサービスの型がキャスト可能な型なら
                 var shutdownState = (serviceInfo.Status == ServiceStatus.Shutdown || serviceInfo.Status == ServiceStatus.SilentShutdown);
-                if (shutdownState && existsServiceType == service.GetType())
+                if (shutdownState && service.GetType().IsAssignableFrom(existsServiceType))
                 {
                     // サービスはシャットダウン状態である例外を吐く
                     throw new InvalidOperationException($"サービス'{service.GetType().Name}'は、既にシャットダウン状態です。");
@@ -510,11 +510,11 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">削除するサービスの型</typeparam>
         public virtual void RemoveService<T>() where T : GameService
         {
-            // 管理リストから情報を取得して失敗したら
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
             var serviceInfo = GetServiceInfo(typeof(T));
-            if (serviceInfo == null)
+            if (serviceInfo == null || !(serviceInfo.Service is T))
             {
-                // 何事ものなかったかのように終了する
+                // 何事もなかったかのように終了する
                 return;
             }
 
@@ -531,6 +531,28 @@ namespace IceMilkTea.Core
 
             // 通常は普通に死ぬようにマークする
             serviceInfo.Status = ServiceStatus.Shutdown;
+        }
+
+
+        /// <summary>
+        /// 指定された型のサービスが、単純に存在するか確認します。
+        /// この関数は、シャットダウンされうかどうかの状態を考慮しないことに気をつけて下さい。
+        /// </summary>
+        /// <typeparam name="T">存在を確認するサービスの型</typeparam>
+        /// <returns>サービスが存在している場合は true を、存在しない場合は false を返します</returns>
+        public virtual bool Exists<T>() where T : GameService
+        {
+            // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
+            var serviceInfo = GetServiceInfo(typeof(T));
+            if (serviceInfo == null || !(serviceInfo.Service is T))
+            {
+                // サービスが無いことを返す
+                return false;
+            }
+
+
+            // 見つけたサービスを見つけられたことを返す
+            return true;
         }
         #endregion
 
