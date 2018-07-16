@@ -543,6 +543,116 @@ namespace IceMilkTeaTestDynamic.Core
         #endregion
 
 
+        #region Remove系テスト
+        /// <summary>
+        /// サービスの削除テストをします
+        /// </summary>
+        /// <returns>Unityのフレーム待機をするための列挙子を返します</returns>
+        [UnityTest, Order(80)]
+        public IEnumerator RevemoServiceTest()
+        {
+            // 削除する時に指定が可能なサービス型は、キーとなる既定クラスが一致して
+            // 実際に登録されているサービスの型がキャスト可能な型（ただしGameServiceは除く）になる事を確認する
+
+
+            // 全サービス取得が出来ないときの関数
+            var allServiceNotFoundTest = new Action(() =>
+            {
+                // すべての関数にて例外が発生すれば全サービス取得出来ないということになる
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseA>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_1_0>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_0>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceBaseB>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_1_0>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>());
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>());
+            });
+
+
+            // サービスの部分取得に成功する場合の関数
+            var getServiceTest = new Action(() =>
+            {
+                // 取得出来ないサービスは例外が発生し、取得できるサービスは例外が発生せず値が取れることでテストが通ることになる
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<GameService>()); // 最基底クラスでは取得は出来ない
+                Assert.DoesNotThrow(() => manager.GetService<ServiceBaseA>()); // A2_0の継承元
+                Assert.IsNotNull(manager.GetService<ServiceBaseA>()); // A2_0の継承元
+                Assert.DoesNotThrow(() => manager.GetService<ServiceA_1_0>()); // A2_0の継承元
+                Assert.IsNotNull(manager.GetService<ServiceA_1_0>()); // A2_0の継承元
+                Assert.DoesNotThrow(() => manager.GetService<ServiceA_2_0>()); // A2_0ご本人様
+                Assert.IsNotNull(manager.GetService<ServiceA_2_0>()); // A2_0ご本人様
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceA_2_1>()); // A2_0とは関係のないサービス
+                Assert.DoesNotThrow(() => manager.GetService<ServiceBaseB>()); // B1_0の継承元
+                Assert.IsNotNull(manager.GetService<ServiceBaseB>()); // B1_0の継承元
+                Assert.DoesNotThrow(() => manager.GetService<ServiceB_1_0>()); // B1_0ご本人様
+                Assert.IsNotNull(manager.GetService<ServiceB_1_0>()); // B1_0ご本人様
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_0>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+                Assert.Throws<GameServiceNotFoundException>(() => manager.GetService<ServiceB_2_1>()); // B1_0を継承しているがB1_0から見たら関係ないサービス
+            });
+
+
+            // 現時点ではすべてのサービスは取得出来ないはず
+            allServiceNotFoundTest();
+
+
+            // サービスを追加して存在が確認出来ることを確認
+            manager.AddService(new ServiceA_2_0());
+            manager.AddService(new ServiceB_1_0());
+            getServiceTest();
+
+
+            // まずは直接同じ型を指定して削除が通るか確認
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+            yield return null;
+            allServiceNotFoundTest();
+
+
+            // 一つ前の継承クラスの型からでも削除が通るか確認
+            manager.AddService(new ServiceA_2_0());
+            manager.AddService(new ServiceB_1_0());
+            getServiceTest();
+            manager.RemoveService<ServiceA_1_0>();
+            manager.RemoveService<ServiceBaseB>();
+            yield return null;
+            allServiceNotFoundTest();
+
+
+            // どちらのサービスも最基底クラスを指定したら削除が通るか確認
+            manager.AddService(new ServiceA_2_0());
+            manager.AddService(new ServiceB_1_0());
+            getServiceTest();
+            manager.RemoveService<ServiceBaseA>();
+            manager.RemoveService<ServiceBaseB>();
+            yield return null;
+            allServiceNotFoundTest();
+
+
+            // GameServiceを指定しても何も消えないことを確認
+            manager.AddService(new ServiceA_2_0());
+            manager.AddService(new ServiceB_1_0());
+            getServiceTest();
+            manager.RemoveService<GameService>();
+            yield return null;
+            getServiceTest();
+
+
+            // 関係ないサービスを指定しても消えないことを確認
+            manager.RemoveService<ServiceA_2_1>();
+            manager.RemoveService<ServiceB_2_0>();
+            yield return null;
+            getServiceTest();
+
+
+            // サービスを消してフレームを進める
+            manager.RemoveService<ServiceA_2_0>();
+            manager.RemoveService<ServiceB_1_0>();
+            yield return null;
+        }
+        #endregion
+
+
         #region サービスのコントロール系テスト
         /// <summary>
         /// サービスのアクティブ設定をのテストをします
