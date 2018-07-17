@@ -13,6 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using System.Collections.Generic;
 
 namespace IceMilkTea.Core
@@ -43,7 +44,7 @@ namespace IceMilkTea.Core
             /// <summary>
             /// このステートが所属するステートマシンが持っているコンテキスト
             /// </summary>
-            protected ContextT OwnerContext => stateMachine.context;
+            protected ContextT Context => stateMachine.context;
 
 
 
@@ -75,7 +76,7 @@ namespace IceMilkTea.Core
             /// ステートマシンが遷移をするとき、このステートがその遷移をガードします。
             /// </summary>
             /// <param name="eventId">遷移する理由になったイベントID</param>
-            /// <param name="eventArg">イベントIDに付随する引数オブジェクト</param>
+            /// <param name="eventArg">イベントの引数オブジェクト</param>
             /// <returns>遷移をガードする場合は true を、ガードせず遷移を許す場合は false を返します</returns>
             protected internal virtual bool GuardTransition(int eventId, object eventArg)
             {
@@ -104,17 +105,58 @@ namespace IceMilkTea.Core
 
 
 
-
+        /// <summary>
+        /// ImtStateMachine のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">このステートマシンが持つコンテキスト</param>
+        /// <exception cref="ArgumentNullException">context が null です</exception>
         public ImtStateMachine(ContextT context)
         {
+            // 渡されたコンテキストがnullなら
+            if (context == null)
+            {
+                // nullは許されない
+                throw new ArgumentNullException(nameof(context));
+            }
+
+
+            // コンテキストを覚えてステートリストのインスタンスを生成する
             this.context = context;
+            stateList = new List<State>();
         }
 
 
+        #region ステートテーブル操作系
+        /// <summary>
+        /// ステートの遷移構造を追加します。
+        /// </summary>
+        /// <typeparam name="T">遷移する元になるステートの型</typeparam>
+        /// <typeparam name="U">遷移する先になるステートの型</typeparam>
+        /// <param name="eventId">遷移する条件となるイベントID</param>
+        public void AddTransition<T, U>(int eventId) where T : State, new() where U : State, new()
+        {
+        }
+
+
+        /// <summary>
+        /// ステートの任意遷移構造を追加します。
+        /// </summary>
+        /// <typeparam name="T">任意状態から遷移する先になるステートの型</typeparam>
+        /// <param name="eventId">遷移する条件となるイベントID</param>
+        public void AddAnyTransition<T>(int eventId) where T : State, new()
+        {
+        }
+        #endregion
+
+
+        #region ステートマシン制御系
+        /// <summary>
+        /// ステートマシンの内部更新を行います。
+        /// ステートそのものが実行されたり、ステートの遷移などもこのタイミングで行われます。
+        /// </summary>
         public void Update()
         {
-            var state = new AnyState();
-            state.stateMachine = this;
         }
+        #endregion
     }
 }
