@@ -73,25 +73,11 @@ namespace IceMilkTea.Core
 
 
             /// <summary>
-            /// ステートマシンがイベントを受ける時に、このステートがそのイベントをガードします。
+            /// ステートマシンがイベントを受ける時に、このステートがそのイベントをガードします
             /// </summary>
-            /// <param name="eventId">受けるイベントID</param>
-            /// <param name="eventArg">受けるイベントの引数オブジェクト</param>
+            /// <param name="eventId">渡されたイベントID</param>
             /// <returns>イベントの受付をガードする場合は true を、ガードせずイベントを受け付ける場合は false を返します</returns>
-            protected internal virtual bool GuardEvent(int eventId, object eventArg)
-            {
-                // 通常はガードしない
-                return false;
-            }
-
-
-            /// <summary>
-            /// ステートマシンが遷移をするとき、このステートがその遷移をガードします。
-            /// </summary>
-            /// <param name="eventId">遷移する理由になったイベントID</param>
-            /// <param name="eventArg">イベントの引数オブジェクト</param>
-            /// <returns>遷移をガードする場合は true を、ガードせず遷移を許す場合は false を返します</returns>
-            protected internal virtual bool GuardTransition(int eventId, object eventArg)
+            protected internal virtual bool GuardEvent(int eventId)
             {
                 // 通常はガードしない
                 return false;
@@ -143,7 +129,6 @@ namespace IceMilkTea.Core
 
 
 
-        #region プロパティ定義
         /// <summary>
         /// ステートマシンが保持しているコンテキスト
         /// </summary>
@@ -154,7 +139,6 @@ namespace IceMilkTea.Core
         /// ステートマシンが起動しているかどうか
         /// </summary>
         public bool Running => currentState != null;
-        #endregion
 
 
 
@@ -184,7 +168,7 @@ namespace IceMilkTea.Core
         }
 
 
-        #region ステート遷移テーブル操作系
+        #region ステート遷移テーブル構築系
         /// <summary>
         /// ステートの任意遷移構造を追加します。
         /// この関数は、遷移元が任意の状態からの遷移を希望する場合に利用してください。
@@ -194,7 +178,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="TNextState">任意状態から遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
-        /// <exception cref="InvalidOperationException">ステートマシンが既に起動中です</exception>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
         public void AddAnyTransition<TNextState>(int eventId) where TNextState : State, new()
         {
             // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
@@ -210,14 +194,14 @@ namespace IceMilkTea.Core
         /// <typeparam name="TNextState">遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
-        /// <exception cref="InvalidOperationException">ステートマシンが既に起動中です</exception>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
         public void AddTransition<TPrevState, TNextState>(int eventId) where TPrevState : State, new() where TNextState : State, new()
         {
             // ステートマシンが起動してしまっている場合は
             if (Running)
             {
                 // もう設定できないので例外を吐く
-                throw new InvalidOperationException("ステートマシンが既に起動中です");
+                throw new InvalidOperationException("ステートマシンは、既に起動中です");
             }
 
 
@@ -236,6 +220,26 @@ namespace IceMilkTea.Core
 
             // 遷移テーブルに遷移を設定する
             prevState.transitionTable[eventId] = nextState;
+        }
+
+
+        /// <summary>
+        /// ステートマシンが起動する時に、最初に開始するステートを設定します。
+        /// </summary>
+        /// <typeparam name="TStartState">ステートマシンが起動時に開始するステートの型</typeparam>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        public void SetStartState<TStartState>() where TStartState : State, new()
+        {
+            // 既にステートマシンが起動してしまっている場合は
+            if (Running)
+            {
+                // 起動してしまったらこの関数の操作は許されない
+                throw new InvalidOperationException("ステートマシンは、既に起動中です");
+            }
+
+
+            // 次に処理するステートの設定をする
+            nextState = GetOrCreateState<TStartState>();
         }
         #endregion
 
@@ -263,32 +267,65 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ステートマシンが起動する時に、最初に開始するステートを設定します。
+        /// ステートマシンにイベントを送信して、ステート遷移の準備を行います。
+        /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
+        /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで
+        /// 後続のイベントはすべて失敗します。
+        /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
+        /// 何度も遷移をすることが可能ですが Exit 中で遷移中になるため例外が送出されます。
         /// </summary>
-        /// <typeparam name="TStartState">ステートマシンが起動時に開始するステートの型</typeparam>
-        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動済みです</exception>
-        public void SetStartState<TStartState>() where TStartState : State, new()
+        /// <param name="eventId">ステートマシンに送信するイベントID</param>
+        /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
+        public bool SendEvent(int eventId)
         {
-            // 既にステートマシンが起動してしまっている場合は
-            if (Running)
+            // そもそもまだ現在実行中のステートが存在していないなら
+            if (!Running)
             {
-                // 起動してしまったらこの関数の操作は許されない
-                throw new InvalidOperationException("ステートマシンは、既に起動済みです");
+                // まだ起動すらしていないので例外を吐く
+                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
             }
 
 
-            // 次に処理するステートの設定をする
-            nextState = GetOrCreateState<TStartState>();
-        }
+            // もし Exit 処理中なら
+            if (updateState == UpdateState.Exit)
+            {
+                // Exit 中の SendEvent は許されない
+                throw new InvalidOperationException("ステートが Exit 処理中のためイベントを受け付けることが出来ません");
+            }
 
 
-        public void SendEvent(int eventId)
-        {
-        }
+            // 既に遷移準備をしているなら
+            if (nextState != null)
+            {
+                // イベントの受付が出来なかったことを返す
+                return false;
+            }
 
 
-        public void SendEvent(int eventId, object eventArg)
-        {
+            // 現在のステートにイベントガードを呼び出して、ガードされたら
+            if (currentState.GuardEvent(eventId))
+            {
+                // ガードされて失敗したことを返す
+                return false;
+            }
+
+
+            // 次に遷移するステートを現在のステートから取り出すが見つけられなかったら
+            if (!currentState.transitionTable.TryGetValue(eventId, out nextState))
+            {
+                // 任意ステートからすらも遷移が出来なかったのなら
+                if (!GetOrCreateState<AnyState>().transitionTable.TryGetValue(eventId, out nextState))
+                {
+                    // イベントの受付が出来なかった
+                    return false;
+                }
+            }
+
+
+            // イベントの受付をした事を返す
+            return true;
         }
 
 
