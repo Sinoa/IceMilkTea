@@ -142,6 +142,8 @@ namespace IceMilkTea.Core
         #region ステート遷移テーブル操作系
         /// <summary>
         /// ステートの任意遷移構造を追加します。
+        /// この関数は、遷移元が任意の状態からの遷移を希望する場合に利用してください。
+        /// 任意の遷移は、通常の遷移（Any以外の遷移元）より優先度が低いことにも、注意をしてください。
         /// </summary>
         /// <typeparam name="TNextState">任意状態から遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
