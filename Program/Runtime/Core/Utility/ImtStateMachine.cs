@@ -123,10 +123,24 @@ namespace IceMilkTea.Core
             // コンテキストを覚えてステートリストのインスタンスを生成する
             this.context = context;
             stateList = new List<State>();
+
+
+            // この時点で任意ステートのインスタンスを作ってしまう
+            GetOrCreateState<AnyState>();
         }
 
 
         #region ステートテーブル操作系
+        /// <summary>
+        /// ステートの任意遷移構造を追加します。
+        /// </summary>
+        /// <typeparam name="T">任意状態から遷移する先になるステートの型</typeparam>
+        /// <param name="eventId">遷移する条件となるイベントID</param>
+        public void AddAnyTransition<T>(int eventId) where T : State, new()
+        {
+        }
+
+
         /// <summary>
         /// ステートの遷移構造を追加します。
         /// </summary>
@@ -136,20 +150,26 @@ namespace IceMilkTea.Core
         public void AddTransition<T, U>(int eventId) where T : State, new() where U : State, new()
         {
         }
-
-
-        /// <summary>
-        /// ステートの任意遷移構造を追加します。
-        /// </summary>
-        /// <typeparam name="T">任意状態から遷移する先になるステートの型</typeparam>
-        /// <param name="eventId">遷移する条件となるイベントID</param>
-        public void AddAnyTransition<T>(int eventId) where T : State, new()
-        {
-        }
         #endregion
 
 
         #region ステートマシン制御系
+        /// <summary>
+        /// ステートマシンが起動する時に、最初に開始するステートを設定します。
+        /// ステートマシンが起動する前であれば何度でも再設定が可能ですが、一度起動してしまった場合は二度と再設定が出来ません。
+        /// </summary>
+        /// <typeparam name="T">ステートマシンが起動時に開始するステートの型</typeparam>
+        public void SetStartState<T>() where T : State, new()
+        {
+            // 現在処理中のステートが無いのなら
+            if (currentState == null)
+            {
+                // 次に処理するステートの設定をする
+                nextState = GetOrCreateState<T>();
+            }
+        }
+
+
         /// <summary>
         /// ステートマシンの内部更新を行います。
         /// ステートそのものが実行されたり、ステートの遷移などもこのタイミングで行われます。
