@@ -130,29 +130,6 @@ namespace IceMilkTea.Core
         }
 
 
-        #region 汎用関数系
-        /// <summary>
-        /// 現在実行中のステートが、指定されたステートかどうかを調べます。
-        /// </summary>
-        /// <typeparam name="T">確認するステートの型</typeparam>
-        /// <returns>指定されたステートの状態であれば true を、異なる場合は false を返します</returns>
-        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
-        public bool IsCurrentState<T>() where T : State
-        {
-            // そもそもまだ現在実行中のステートが存在していないなら
-            if (currentState == null)
-            {
-                // まだ起動すらしていないので例外を吐く
-                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
-            }
-
-
-            // 現在のステートと型が一致するかの条件式の結果をそのまま返す
-            return currentState.GetType() == typeof(T);
-        }
-        #endregion
-
-
         #region ステート遷移テーブル操作系
         /// <summary>
         /// ステートの任意遷移構造を追加します。
@@ -197,8 +174,28 @@ namespace IceMilkTea.Core
 
         #region ステートマシン制御系
         /// <summary>
+        /// 現在実行中のステートが、指定されたステートかどうかを調べます。
+        /// </summary>
+        /// <typeparam name="T">確認するステートの型</typeparam>
+        /// <returns>指定されたステートの状態であれば true を、異なる場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public bool IsCurrentState<T>() where T : State
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら
+            if (currentState == null)
+            {
+                // まだ起動すらしていないので例外を吐く
+                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
+            }
+
+
+            // 現在のステートと型が一致するかの条件式の結果をそのまま返す
+            return currentState.GetType() == typeof(T);
+        }
+
+
+        /// <summary>
         /// ステートマシンが起動する時に、最初に開始するステートを設定します。
-        /// ステートマシンが起動する前であれば何度でも再設定が可能ですが、一度起動してしまった場合は二度と再設定が出来ません。
         /// </summary>
         /// <typeparam name="T">ステートマシンが起動時に開始するステートの型</typeparam>
         public void SetStartState<T>() where T : State, new()
