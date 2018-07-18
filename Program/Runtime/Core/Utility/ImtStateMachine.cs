@@ -30,7 +30,7 @@ namespace IceMilkTea.Core
         public abstract class State
         {
             // メンバ変数定義
-            internal Dictionary<int, State> stateTable;
+            internal Dictionary<int, State> transitionTable;
             internal ImtStateMachine<ContextT> stateMachine;
 
 
@@ -130,14 +130,17 @@ namespace IceMilkTea.Core
         }
 
 
-        #region ステートテーブル操作系
+        #region ステート遷移テーブル操作系
         /// <summary>
         /// ステートの任意遷移構造を追加します。
         /// </summary>
         /// <typeparam name="T">任意状態から遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
+        /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         public void AddAnyTransition<T>(int eventId) where T : State, new()
         {
+            // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
+            AddTransition<AnyState, T>(eventId);
         }
 
 
@@ -147,8 +150,24 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">遷移する元になるステートの型</typeparam>
         /// <typeparam name="U">遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
+        /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         public void AddTransition<T, U>(int eventId) where T : State, new() where U : State, new()
         {
+            // 遷移元と遷移先のステートインスタンスを取得
+            var prevState = GetOrCreateState<T>();
+            var nextState = GetOrCreateState<U>();
+
+
+            // 遷移元ステートの遷移テーブルに既に同じイベントIDが存在していたら
+            if (prevState.transitionTable.ContainsKey(eventId))
+            {
+                // 上書き登録を許さないので例外を吐く
+                throw new ArgumentException($"ステート'{prevState.GetType().Name}'には、既にイベントID'{eventId}'の遷移が設定済みです");
+            }
+
+
+            // 遷移テーブルに遷移を設定する
+            prevState.transitionTable[eventId] = nextState;
         }
         #endregion
 
@@ -180,7 +199,7 @@ namespace IceMilkTea.Core
         #endregion
 
 
-        #region 共通ロジック系
+        #region 内部ロジック系
         /// <summary>
         /// 指定されたステートの型のインスタンスを取得しますが、存在しない場合は生成してから取得します。
         /// 生成されたインスタンスは、次回から取得されるようになります。
@@ -210,9 +229,9 @@ namespace IceMilkTea.Core
             stateList.Add(newState);
 
 
-            // 新しいステートに、自身の参照とステートテーブルのインスタンスの初期化も行って返す
+            // 新しいステートに、自身の参照と遷移テーブルのインスタンスの初期化も行って返す
             newState.stateMachine = this;
-            newState.stateTable = new Dictionary<int, State>();
+            newState.transitionTable = new Dictionary<int, State>();
             return newState;
         }
         #endregion
