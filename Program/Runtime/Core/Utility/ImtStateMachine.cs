@@ -143,28 +143,28 @@ namespace IceMilkTea.Core
         /// <summary>
         /// ステートの任意遷移構造を追加します。
         /// </summary>
-        /// <typeparam name="T">任意状態から遷移する先になるステートの型</typeparam>
+        /// <typeparam name="TNextState">任意状態から遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
-        public void AddAnyTransition<T>(int eventId) where T : State, new()
+        public void AddAnyTransition<TNextState>(int eventId) where TNextState : State, new()
         {
             // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
-            AddTransition<AnyState, T>(eventId);
+            AddTransition<AnyState, TNextState>(eventId);
         }
 
 
         /// <summary>
         /// ステートの遷移構造を追加します。
         /// </summary>
-        /// <typeparam name="T">遷移する元になるステートの型</typeparam>
-        /// <typeparam name="U">遷移する先になるステートの型</typeparam>
+        /// <typeparam name="TPrevState">遷移する元になるステートの型</typeparam>
+        /// <typeparam name="TNextState">遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
-        public void AddTransition<T, U>(int eventId) where T : State, new() where U : State, new()
+        public void AddTransition<TPrevState, TNextState>(int eventId) where TPrevState : State, new() where TNextState : State, new()
         {
             // 遷移元と遷移先のステートインスタンスを取得
-            var prevState = GetOrCreateState<T>();
-            var nextState = GetOrCreateState<U>();
+            var prevState = GetOrCreateState<TPrevState>();
+            var nextState = GetOrCreateState<TNextState>();
 
 
             // 遷移元ステートの遷移テーブルに既に同じイベントIDが存在していたら
@@ -185,10 +185,10 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 現在実行中のステートが、指定されたステートかどうかを調べます。
         /// </summary>
-        /// <typeparam name="T">確認するステートの型</typeparam>
+        /// <typeparam name="TState">確認するステートの型</typeparam>
         /// <returns>指定されたステートの状態であれば true を、異なる場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
-        public bool IsCurrentState<T>() where T : State
+        public bool IsCurrentState<TState>() where TState : State
         {
             // そもそもまだ現在実行中のステートが存在していないなら
             if (!Running)
@@ -199,16 +199,16 @@ namespace IceMilkTea.Core
 
 
             // 現在のステートと型が一致するかの条件式の結果をそのまま返す
-            return currentState.GetType() == typeof(T);
+            return currentState.GetType() == typeof(TState);
         }
 
 
         /// <summary>
         /// ステートマシンが起動する時に、最初に開始するステートを設定します。
         /// </summary>
-        /// <typeparam name="T">ステートマシンが起動時に開始するステートの型</typeparam>
+        /// <typeparam name="TStartState">ステートマシンが起動時に開始するステートの型</typeparam>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動済みです</exception>
-        public void SetStartState<T>() where T : State, new()
+        public void SetStartState<TStartState>() where TStartState : State, new()
         {
             // 既にステートマシンが起動してしまっている場合は
             if (Running)
@@ -219,7 +219,7 @@ namespace IceMilkTea.Core
 
 
             // 次に処理するステートの設定をする
-            nextState = GetOrCreateState<T>();
+            nextState = GetOrCreateState<TStartState>();
         }
 
 
@@ -238,12 +238,12 @@ namespace IceMilkTea.Core
         /// 指定されたステートの型のインスタンスを取得しますが、存在しない場合は生成してから取得します。
         /// 生成されたインスタンスは、次回から取得されるようになります。
         /// </summary>
-        /// <typeparam name="T">取得、または生成するステートの型</typeparam>
+        /// <typeparam name="TState">取得、または生成するステートの型</typeparam>
         /// <returns>取得、または生成されたステートのインスタンスを返します</returns>
-        private T GetOrCreateState<T>() where T : State, new()
+        private TState GetOrCreateState<TState>() where TState : State, new()
         {
             // 要求ステートの型を取得
-            var requestStateType = typeof(T);
+            var requestStateType = typeof(TState);
 
 
             // ステートの数分回る
@@ -253,13 +253,13 @@ namespace IceMilkTea.Core
                 if (state.GetType() == requestStateType)
                 {
                     // そのインスタンスを返す
-                    return (T)state;
+                    return (TState)state;
                 }
             }
 
 
             // ループから抜けたのなら、型一致するインスタンスが無いという事なのでインスタンスを生成してキャッシュする
-            var newState = new T();
+            var newState = new TState();
             stateList.Add(newState);
 
 
