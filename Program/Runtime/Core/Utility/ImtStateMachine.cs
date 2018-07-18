@@ -105,6 +105,15 @@ namespace IceMilkTea.Core
 
 
 
+        #region プロパティ定義
+        /// <summary>
+        /// ステートマシンが起動しているかどうか
+        /// </summary>
+        public bool Running => currentState != null;
+        #endregion
+
+
+
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
         /// </summary>
@@ -182,7 +191,7 @@ namespace IceMilkTea.Core
         public bool IsCurrentState<T>() where T : State
         {
             // そもそもまだ現在実行中のステートが存在していないなら
-            if (currentState == null)
+            if (!Running)
             {
                 // まだ起動すらしていないので例外を吐く
                 throw new InvalidOperationException("ステートマシンは、まだ起動していません");
@@ -198,14 +207,19 @@ namespace IceMilkTea.Core
         /// ステートマシンが起動する時に、最初に開始するステートを設定します。
         /// </summary>
         /// <typeparam name="T">ステートマシンが起動時に開始するステートの型</typeparam>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動済みです</exception>
         public void SetStartState<T>() where T : State, new()
         {
-            // 現在処理中のステートが無いのなら
-            if (currentState == null)
+            // 既にステートマシンが起動してしまっている場合は
+            if (Running)
             {
-                // 次に処理するステートの設定をする
-                nextState = GetOrCreateState<T>();
+                // 起動してしまったらこの関数の操作は許されない
+                throw new InvalidOperationException("ステートマシンは、既に起動済みです");
             }
+
+
+            // 次に処理するステートの設定をする
+            nextState = GetOrCreateState<T>();
         }
 
 
