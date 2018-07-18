@@ -21,8 +21,8 @@ namespace IceMilkTea.Core
     /// <summary>
     /// コンテキストを持つことのできるステートマシンクラスです
     /// </summary>
-    /// <typeparam name="ContextT">このステートマシンが持つコンテキストのクラス型</typeparam>
-    public class ImtStateMachine<ContextT> where ContextT : class
+    /// <typeparam name="TContext">このステートマシンが持つコンテキストのクラス型</typeparam>
+    public class ImtStateMachine<TContext> where TContext : class
     {
         /// <summary>
         /// ステートマシンが処理する状態を表現するステートクラスです。
@@ -31,20 +31,20 @@ namespace IceMilkTea.Core
         {
             // メンバ変数定義
             internal Dictionary<int, State> transitionTable;
-            internal ImtStateMachine<ContextT> stateMachine;
+            internal ImtStateMachine<TContext> stateMachine;
 
 
 
             /// <summary>
             /// このステートが所属するステートマシン
             /// </summary>
-            protected ImtStateMachine<ContextT> StateMachine => stateMachine;
+            protected ImtStateMachine<TContext> StateMachine => stateMachine;
 
 
             /// <summary>
             /// このステートが所属するステートマシンが持っているコンテキスト
             /// </summary>
-            protected ContextT Context => stateMachine.context;
+            protected TContext Context => stateMachine.context;
 
 
 
@@ -95,7 +95,7 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
-        private ContextT context;
+        private TContext context;
         private List<State> stateList;
         private State currentState;
         private State nextState;
@@ -119,7 +119,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="context">このステートマシンが持つコンテキスト</param>
         /// <exception cref="ArgumentNullException">context が null です</exception>
-        public ImtStateMachine(ContextT context)
+        public ImtStateMachine(TContext context)
         {
             // 渡されたコンテキストがnullなら
             if (context == null)
