@@ -158,5 +158,43 @@ namespace IceMilkTea.Core
         {
         }
         #endregion
+
+
+        #region 共通ロジック系
+        /// <summary>
+        /// 指定されたステートの型のインスタンスを取得しますが、存在しない場合は生成してから取得します。
+        /// 生成されたインスタンスは、次回から取得されるようになります。
+        /// </summary>
+        /// <typeparam name="T">取得、または生成するステートの型</typeparam>
+        /// <returns>取得、または生成されたステートのインスタンスを返します</returns>
+        private T GetOrCreateState<T>() where T : State, new()
+        {
+            // 要求ステートの型を取得
+            var requestStateType = typeof(T);
+
+
+            // ステートの数分回る
+            foreach (var state in stateList)
+            {
+                // もし該当のステートの型と一致するインスタンスなら
+                if (state.GetType() == requestStateType)
+                {
+                    // そのインスタンスを返す
+                    return (T)state;
+                }
+            }
+
+
+            // ループから抜けたのなら、型一致するインスタンスが無いという事なのでインスタンスを生成してキャッシュする
+            var newState = new T();
+            stateList.Add(newState);
+
+
+            // 新しいステートに、自身の参照とステートテーブルのインスタンスの初期化も行って返す
+            newState.stateMachine = this;
+            newState.stateTable = new Dictionary<int, State>();
+            return newState;
+        }
+        #endregion
     }
 }
