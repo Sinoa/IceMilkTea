@@ -44,7 +44,7 @@ namespace IceMilkTea.Core
             /// <summary>
             /// このステートが所属するステートマシンが持っているコンテキスト
             /// </summary>
-            protected TContext Context => stateMachine.context;
+            protected TContext Context => stateMachine.Context;
 
 
 
@@ -73,6 +73,19 @@ namespace IceMilkTea.Core
 
 
             /// <summary>
+            /// ステートマシンがイベントを受ける時に、このステートがそのイベントをガードします。
+            /// </summary>
+            /// <param name="eventId">受けるイベントID</param>
+            /// <param name="eventArg">受けるイベントの引数オブジェクト</param>
+            /// <returns>イベントの受付をガードする場合は true を、ガードせずイベントを受け付ける場合は false を返します</returns>
+            protected internal virtual bool GuardEvent(int eventId, object eventArg)
+            {
+                // 通常はガードしない
+                return false;
+            }
+
+
+            /// <summary>
             /// ステートマシンが遷移をするとき、このステートがその遷移をガードします。
             /// </summary>
             /// <param name="eventId">遷移する理由になったイベントID</param>
@@ -88,6 +101,34 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ステートマシンのUpdate状態を表現します
+        /// </summary>
+        private enum UpdateState
+        {
+            /// <summary>
+            /// アイドリング中です。つまり何もしていません
+            /// </summary>
+            Idle,
+
+            /// <summary>
+            /// ステートの突入処理中です
+            /// </summary>
+            Enter,
+
+            /// <summary>
+            /// ステートの更新処理中です
+            /// </summary>
+            Update,
+
+            /// <summary>
+            /// ステートの脱出処理中です
+            /// </summary>
+            Exit,
+        }
+
+
+
+        /// <summary>
         /// ステートマシンで "任意" を表現する特別なステートクラスです
         /// </summary>
         private sealed class AnyState : State { }
@@ -95,15 +136,20 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
-        private TContext context;
+        private UpdateState updateState;
         private List<State> stateList;
         private State currentState;
         private State nextState;
-        private State prevState;
 
 
 
         #region プロパティ定義
+        /// <summary>
+        /// ステートマシンが保持しているコンテキスト
+        /// </summary>
+        public TContext Context { get; private set; }
+
+
         /// <summary>
         /// ステートマシンが起動しているかどうか
         /// </summary>
@@ -127,9 +173,10 @@ namespace IceMilkTea.Core
             }
 
 
-            // コンテキストを覚えてステートリストのインスタンスを生成する
-            this.context = context;
+            // メンバの初期化をする
+            Context = context;
             stateList = new List<State>();
+            updateState = UpdateState.Idle;
 
 
             // この時点で任意ステートのインスタンスを作ってしまう
@@ -142,10 +189,12 @@ namespace IceMilkTea.Core
         /// ステートの任意遷移構造を追加します。
         /// この関数は、遷移元が任意の状態からの遷移を希望する場合に利用してください。
         /// 任意の遷移は、通常の遷移（Any以外の遷移元）より優先度が低いことにも、注意をしてください。
+        /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
         /// </summary>
         /// <typeparam name="TNextState">任意状態から遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
+        /// <exception cref="InvalidOperationException">ステートマシンが既に起動中です</exception>
         public void AddAnyTransition<TNextState>(int eventId) where TNextState : State, new()
         {
             // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
@@ -155,13 +204,23 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// ステートの遷移構造を追加します。
+        /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
         /// </summary>
         /// <typeparam name="TPrevState">遷移する元になるステートの型</typeparam>
         /// <typeparam name="TNextState">遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
+        /// <exception cref="InvalidOperationException">ステートマシンが既に起動中です</exception>
         public void AddTransition<TPrevState, TNextState>(int eventId) where TPrevState : State, new() where TNextState : State, new()
         {
+            // ステートマシンが起動してしまっている場合は
+            if (Running)
+            {
+                // もう設定できないので例外を吐く
+                throw new InvalidOperationException("ステートマシンが既に起動中です");
+            }
+
+
             // 遷移元と遷移先のステートインスタンスを取得
             var prevState = GetOrCreateState<TPrevState>();
             var nextState = GetOrCreateState<TNextState>();
@@ -223,12 +282,94 @@ namespace IceMilkTea.Core
         }
 
 
+        public void SendEvent(int eventId)
+        {
+        }
+
+
+        public void SendEvent(int eventId, object eventArg)
+        {
+        }
+
+
         /// <summary>
-        /// ステートマシンの内部更新を行います。
-        /// ステートそのものが実行されたり、ステートの遷移などもこのタイミングで行われます。
+        /// ステートマシンの状態を更新します。
+        /// ステートマシンの現在処理しているステートの更新を行いますが、まだ未起動の場合は SetStartState 関数によって設定されたステートが起動します。
+        /// また、ステートマシンが初回起動時の場合、ステートのUpdateは呼び出されず、次の更新処理が実行される時になります。
         /// </summary>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
         public void Update()
         {
+            // もしステートマシンの更新状態がアイドリング以外だったら
+            if (updateState != UpdateState.Idle)
+            {
+                // 多重でUpdateが呼び出せない例外を吐く
+                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+            }
+
+
+            // まだ未起動なら
+            if (!Running)
+            {
+                // 次に処理するべきステート（つまり起動開始ステート）が未設定なら
+                if (nextState == null)
+                {
+                    // 起動が出来ない例外を吐く
+                    throw new InvalidOperationException("開始ステートが設定されていないため、ステートマシンの起動が出来ません");
+                }
+
+
+                // 現在処理中ステートとして設定する
+                currentState = nextState;
+                nextState = null;
+
+
+                // Enter処理中であることを設定してEnterを呼ぶ
+                updateState = UpdateState.Enter;
+                currentState.Enter();
+
+
+                // 次に遷移するステートが無いなら
+                if (nextState == null)
+                {
+                    // 起動処理は終わったので一旦終わる
+                    updateState = UpdateState.Idle;
+                    return;
+                }
+            }
+
+
+            // 次に遷移するステートが存在していないなら
+            if (nextState == null)
+            {
+                // Update処理中であることを設定してUpdateを呼ぶ
+                updateState = UpdateState.Update;
+                currentState.Update();
+            }
+
+
+            // 次に遷移するステートが存在している間ループ
+            while (nextState != null)
+            {
+                // Exit処理中であることを設定してExit処理を呼ぶ
+                updateState = UpdateState.Exit;
+                currentState.Exit();
+
+
+                // 次のステートに切り替える
+                currentState = nextState;
+                nextState = null;
+
+
+                // Enter処理中であることを設定してEnterを呼ぶ
+                updateState = UpdateState.Enter;
+                currentState.Enter();
+            }
+
+
+            // 更新処理が終わったらアイドリングに戻る
+            updateState = UpdateState.Idle;
         }
         #endregion
 
