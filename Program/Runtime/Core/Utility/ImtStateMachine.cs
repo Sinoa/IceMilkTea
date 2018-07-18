@@ -100,8 +100,6 @@ namespace IceMilkTea.Core
         private State currentState;
         private State nextState;
         private State prevState;
-        private int lastEventId;
-        private object lastEventArg;
 
 
 
