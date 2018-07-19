@@ -24,6 +24,7 @@ namespace IceMilkTea.Core
     /// <typeparam name="TContext">このステートマシンが持つコンテキストのクラス型</typeparam>
     public class ImtStateMachine<TContext> where TContext : class
     {
+        #region ステートクラス本体と特別ステートクラスの定義
         /// <summary>
         /// ステートマシンが処理する状態を表現するステートクラスです。
         /// </summary>
@@ -87,6 +88,15 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ステートマシンで "任意" を表現する特別なステートクラスです
+        /// </summary>
+        private sealed class AnyState : State { }
+        #endregion
+
+
+
+        #region 列挙型定義
+        /// <summary>
         /// ステートマシンのUpdate状態を表現します
         /// </summary>
         private enum UpdateState
@@ -111,24 +121,21 @@ namespace IceMilkTea.Core
             /// </summary>
             Exit,
         }
+        #endregion
 
 
 
-        /// <summary>
-        /// ステートマシンで "任意" を表現する特別なステートクラスです
-        /// </summary>
-        private sealed class AnyState : State { }
-
-
-
+        #region メンバ変数定義
         // メンバ変数定義
         private UpdateState updateState;
         private List<State> stateList;
         private State currentState;
         private State nextState;
+        #endregion
 
 
 
+        #region プロパティ定義
         /// <summary>
         /// ステートマシンが保持しているコンテキスト
         /// </summary>
@@ -147,9 +154,11 @@ namespace IceMilkTea.Core
         /// Update 中に例外などで不正な終了の仕方をしている場合が考えられます。
         /// </summary>
         public bool Updating => (Running && updateState != UpdateState.Idle);
+        #endregion
 
 
 
+        #region コンストラクタ
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
         /// </summary>
@@ -174,6 +183,7 @@ namespace IceMilkTea.Core
             // この時点で任意ステートのインスタンスを作ってしまう
             GetOrCreateState<AnyState>();
         }
+        #endregion
 
 
         #region ステート遷移テーブル構築系
