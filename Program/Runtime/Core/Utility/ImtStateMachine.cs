@@ -149,11 +149,23 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ステートマシンが、更新処理中かどうか。
-        /// Update 関数から抜けたと思っても、このプロパティが true を示す場合、
-        /// Update 中に例外などで不正な終了の仕方をしている場合が考えられます。
+        /// ステートマシンが更新処理中かどうか。
         /// </summary>
         public bool Updating => (Running && updateState != UpdateState.Idle);
+
+
+        /// <summary>
+        /// ステートマシンの更新処理中に例外が発生した時に、自身に発行するイベントID。
+        /// 例外遷移をせず、そのまま再スローを希望する場合は null を指定。
+        /// </summary>
+        public int? ExceptionEventId { get; set; }
+
+
+        /// <summary>
+        /// ステートマシン更新中に発生した例外の内容。
+        /// もう一度 Update を呼び出すとリセットされます。
+        /// </summary>
+        public Exception Error { get; private set; }
         #endregion
 
 
@@ -330,20 +342,9 @@ namespace IceMilkTea.Core
             }
 
 
-            // 次に遷移するステートを現在のステートから取り出すが見つけられなかったら
-            if (!currentState.transitionTable.TryGetValue(eventId, out nextState))
-            {
-                // 任意ステートからすらも遷移が出来なかったのなら
-                if (!GetOrCreateState<AnyState>().transitionTable.TryGetValue(eventId, out nextState))
-                {
-                    // イベントの受付が出来なかった
-                    return false;
-                }
-            }
-
-
-            // イベントの受付をした事を返す
-            return true;
+            // 次に遷移するステートを取得して null 出ないかどうかの判断式の結果をそのまま返す
+            nextState = GetNextState(eventId);
+            return nextState != null;
         }
 
 
@@ -354,6 +355,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
         /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
+        /// <exception cref="InvalidOperationException">更新処理中に例外が発生し、例外がハンドルされませんでした</exception>
         public void Update()
         {
             // もしステートマシンの更新状態がアイドリング以外だったら
@@ -364,18 +366,43 @@ namespace IceMilkTea.Core
             }
 
 
+            // 未起動かつ、次に処理するべきステート（つまり起動開始ステート）が未設定なら
+            if (!Running && nextState == null)
+            {
+                // 起動が出来ない例外を吐く
+                throw new InvalidOperationException("開始ステートが設定されていないため、ステートマシンの起動が出来ません");
+            }
+
+
+            try
+            {
+                // エラーのリセットをする
+                Error = null;
+
+
+                // 本来の更新処理を行う
+                DoUpdate();
+            }
+            catch (Exception error)
+            {
+                // エラーハンドリングをする
+                DoErrorHandling(error);
+                return;
+            }
+        }
+        #endregion
+
+
+        #region 内部ロジック系
+        /// <summary>
+        /// ステートマシン本来の通常Update動作を行います
+        /// </summary>
+        private void DoUpdate()
+        {
             // まだ未起動なら
             if (!Running)
             {
-                // 次に処理するべきステート（つまり起動開始ステート）が未設定なら
-                if (nextState == null)
-                {
-                    // 起動が出来ない例外を吐く
-                    throw new InvalidOperationException("開始ステートが設定されていないため、ステートマシンの起動が出来ません");
-                }
-
-
-                // 現在処理中ステートとして設定する
+                // 次に処理するべきステートを、現在処理中ステートとして設定する
                 currentState = nextState;
                 nextState = null;
 
@@ -404,6 +431,20 @@ namespace IceMilkTea.Core
             }
 
 
+            // 遷移処理を実行する
+            DoTransition();
+
+
+            // 更新処理が終わったらアイドリングに戻る
+            updateState = UpdateState.Idle;
+        }
+
+
+        /// <summary>
+        /// 次に遷移するステートが存在する間、永遠に遷移し続ける処理を行います
+        /// </summary>
+        private void DoTransition()
+        {
             // 次に遷移するステートが存在している間ループ
             while (nextState != null)
             {
@@ -421,15 +462,80 @@ namespace IceMilkTea.Core
                 updateState = UpdateState.Enter;
                 currentState.Enter();
             }
-
-
-            // 更新処理が終わったらアイドリングに戻る
-            updateState = UpdateState.Idle;
         }
-        #endregion
 
 
-        #region 内部ロジック系
+        /// <summary>
+        /// 発生したエラーのハンドリングを行います
+        /// </summary>
+        /// <param name="error">発生した例外そのもの</param>
+        /// <exception cref="InvalidOperationException">ステートマシンの更新処理中に、ハンドルされない例外が発生しました</exception>
+        private void DoErrorHandling(Exception error)
+        {
+            // まずはエラー内容を格納する
+            Error = error;
+
+
+            // 更新状態はアイドリングに設定して、次に遷移するはずだった状態もリセット
+            updateState = UpdateState.Idle;
+            nextState = null;
+
+
+            // 例外発生時の発行イベントIDが未設定なら
+            if (!ExceptionEventId.HasValue)
+            {
+                // そのまま無効な操作例外として包んで例外を投げ直す
+                throw new InvalidOperationException("ステートマシンの更新処理中に、ハンドルされない例外が発生しました", error);
+            }
+
+
+            // 例外イベントIDを用いて、次に遷移するステートを取り出すが、取り出せなかったのなら
+            nextState = GetNextState(ExceptionEventId.Value);
+            if (nextState == null)
+            {
+                // 何事もなかったかのように終わる
+                return;
+            }
+
+
+            // 例外遷移した次のステートに直ちに切り替える
+            currentState = nextState;
+            nextState = null;
+        }
+
+
+        /// <summary>
+        /// イベントIDから次に遷移するステートを取得します
+        /// </summary>
+        /// <param name="eventId">遷移するすためのイベンtID</param>
+        /// <returns>遷移先のステートを取得できた場合はその遷移先のステートを返しますが、見つけられなかった場合は null を返します</returns>
+        private State GetNextState(int eventId)
+        {
+            // 次に遷移するステートを受け取る変数を宣言
+            State state;
+
+
+            // 現在のステートから、次に遷移するステートを取り出せたのなら
+            if (currentState.transitionTable.TryGetValue(eventId, out state))
+            {
+                // 次に遷移すべきステートを返す
+                return state;
+            }
+
+
+            // 任意ステートから、次に遷移するステートを取り出せたのなら
+            if (GetOrCreateState<AnyState>().transitionTable.TryGetValue(eventId, out state))
+            {
+                // 次に遷移すべきステートを返す
+                return state;
+            }
+
+
+            // ココまで来てしまったのなら、遷移先が無いので null を返す
+            return null;
+        }
+
+
         /// <summary>
         /// 指定されたステートの型のインスタンスを取得しますが、存在しない場合は生成してから取得します。
         /// 生成されたインスタンスは、次回から取得されるようになります。
@@ -443,13 +549,13 @@ namespace IceMilkTea.Core
 
 
             // ステートの数分回る
-            foreach (var state in stateList)
+            for (int i = 0; i < stateList.Count; ++i)
             {
                 // もし該当のステートの型と一致するインスタンスなら
-                if (state.GetType() == requestStateType)
+                if (stateList[i].GetType() == requestStateType)
                 {
                     // そのインスタンスを返す
-                    return (TState)state;
+                    return (TState)stateList[i];
                 }
             }
 
