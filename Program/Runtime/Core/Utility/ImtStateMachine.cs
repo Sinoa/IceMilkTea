@@ -141,6 +141,14 @@ namespace IceMilkTea.Core
         public bool Running => currentState != null;
 
 
+        /// <summary>
+        /// ステートマシンが、更新処理中かどうか。
+        /// Update 関数から抜けたと思っても、このプロパティが true を示す場合、
+        /// Update 中に例外などで不正な終了の仕方をしている場合が考えられます。
+        /// </summary>
+        public bool Updating => (Running && updateState != UpdateState.Idle);
+
+
 
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
