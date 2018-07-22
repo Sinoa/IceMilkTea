@@ -24,13 +24,22 @@ namespace IceMilkTeaTestStatic.Core
     /// </summary>
     public class ImtStateMachineTest
     {
+        #region テスト用クラスの定義
         /// <summary>
-        /// テスト確認用ステートAクラスです
+        /// 各種テスト確認用ステートの基本ステートクラスです
         /// </summary>
-        private class SampleAState : ImtStateMachine<ImtStateMachineTest>.State
+        private abstract class SampleBaseState : ImtStateMachine<ImtStateMachineTest>.State
         {
-            // 定数定義
-            public const int SampleValue = 100;
+            /// <summary>
+            /// ステート開始時のSampleValue値
+            /// </summary>
+            public abstract int SampleValueEnter { get; }
+
+
+            /// <summary>
+            /// 差うてーと更新時のSampleValue値
+            /// </summary>
+            public abstract int SampleValueUpdate { get; }
 
 
 
@@ -40,7 +49,41 @@ namespace IceMilkTeaTestStatic.Core
             protected internal override void Enter()
             {
                 // コンテキストの値を設定する
-                Context.sampleValue = SampleValue;
+                Context.sampleValue = SampleValueEnter;
+            }
+
+
+            /// <summary>
+            /// ステートの更新処理を行います
+            /// </summary>
+            protected internal override void Update()
+            {
+                // コンテキストの値を設定する
+                Context.sampleValue = SampleValueUpdate;
+            }
+        }
+
+
+
+        /// <summary>
+        /// テスト確認用ステートAクラスです
+        /// </summary>
+        private class SampleAState : SampleBaseState
+        {
+            // 定数定義とプロパティ実装
+            public const int EnterValue = 100;
+            public const int UpdateValue = 110;
+            public override int SampleValueEnter => EnterValue;
+            public override int SampleValueUpdate => UpdateValue;
+
+
+            /// <summary>
+            /// ステートの終了処理を行います
+            /// </summary>
+            protected internal override void Exit()
+            {
+                // ステートAが終了した証明
+                Context.stateAExited = true;
             }
         }
 
@@ -49,20 +92,46 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// テスト確認用ステートBクラスです
         /// </summary>
-        private class SampleBState : ImtStateMachine<ImtStateMachineTest>.State
+        private class SampleBState : SampleBaseState
         {
-            // 定数定義
-            public const int SampleValue = 200;
-
+            // 定数定義とプロパティ実装
+            public const int EnterValue = 200;
+            public const int UpdateValue = 210;
+            public override int SampleValueEnter => EnterValue;
+            public override int SampleValueUpdate => UpdateValue;
 
 
             /// <summary>
-            /// ステートの開始処理を行います
+            /// ステートの終了処理を行います
             /// </summary>
-            protected internal override void Enter()
+            protected internal override void Exit()
             {
-                // コンテキストの値を設定する
-                Context.sampleValue = SampleValue;
+                // ステートBが終了した証明
+                Context.stateBExited = true;
+            }
+        }
+
+
+
+        /// <summary>
+        /// テスト確認用ステートCクラスです
+        /// </summary>
+        private class SampleCState : SampleBaseState
+        {
+            // 定数定義とプロパティ実装
+            public const int EnterValue = 300;
+            public const int UpdateValue = 310;
+            public override int SampleValueEnter => EnterValue;
+            public override int SampleValueUpdate => UpdateValue;
+
+
+            /// <summary>
+            /// ステートの終了処理を行います
+            /// </summary>
+            protected internal override void Exit()
+            {
+                // ステートCが終了した証明
+                Context.stateCExited = true;
             }
         }
 
@@ -85,8 +154,132 @@ namespace IceMilkTeaTestStatic.Core
 
 
 
+        /// <summary>
+        /// このステートに遷移したら直ちに SendEvent を行うステートクラスです
+        /// </summary>
+        private class ImmediateTransitionState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            // 定数定義
+            public const int EventId = 12345;
+
+
+
+            /// <summary>
+            /// ステートの開始処理を行います
+            /// </summary>
+            protected internal override void Enter()
+            {
+                // 直ちにSendEventして遷移準備に入る（遷移テーブルが構築されていれば）
+                StateMachine.SendEvent(EventId);
+            }
+
+
+            /// <summary>
+            /// ステートの更新処理を行います
+            /// </summary>
+            protected internal override void Update()
+            {
+                // 触れてないフラグに思いっきり触れているように見えるが Enter でSendEventしているため
+                // 遷移に成功していれば、まず触れることはないので安心
+                Context.dontTouch = true;
+            }
+
+
+            /// <summary>
+            /// ステートの終了処理を行います
+            /// </summary>
+            protected internal override void Exit()
+            {
+                // 直ちに遷移した証明
+                Context.immediateExited = true;
+            }
+        }
+
+
+        /// <summary>
+        /// このステートに遷移して更新処理された時に SendEvent を行うステートクラスです
+        /// </summary>
+        private class UpdateTransitionState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            // 定数定義
+            public const int EvnetId = 123456;
+            public const int EnterValue = 300;
+
+
+
+            /// <summary>
+            /// ステートの開始処理を行います
+            /// </summary>
+            protected internal override void Enter()
+            {
+                // サンプル値を設定する
+                Context.sampleValue = EnterValue;
+            }
+
+
+            /// <summary>
+            /// ステートの更新処理を行います
+            /// </summary>
+            protected internal override void Update()
+            {
+                // SendEventして遷移準備に入る（遷移テーブルが構築されていれば）
+                StateMachine.SendEvent(EvnetId);
+            }
+
+
+            /// <summary>
+            /// ステートの終了処理を行います
+            /// </summary>
+            protected internal override void Exit()
+            {
+                // 遷移した証明
+                Context.updateExited = true;
+            }
+        }
+
+
+        /// <summary>
+        /// コンテキストのガード有効値に基づいて、ガード制御を行うステートクラスです
+        /// </summary>
+        private class ProGuardState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// ステートマシンのイベントをガードします
+            /// </summary>
+            /// <param name="eventId">送られたイベントID</param>
+            /// <returns>ガードする場合は true を、ガードしない場合は false を返します</returns>
+            protected internal override bool GuardEvent(int eventId)
+            {
+                // 送られてきたイベントIDをサンプル値に設定して、コンテキストのガード有効値をそのまま返す
+                Context.sampleValue = eventId;
+                return Context.enableGuardEvent;
+            }
+
+
+            /// <summary>
+            /// ステートマシンのステートスタックポップをガードします
+            /// </summary>
+            /// <returns>ガードする場合は true を、ガードしない場合は false を返します</returns>
+            protected internal override bool GuardPop()
+            {
+                // コンテキストのガード有効値をそのまま返す
+                return Context.enableGuardPop;
+            }
+        }
+        #endregion
+
+
+
         // メンバ変数定義
         private int sampleValue;
+        private bool stateAExited;
+        private bool stateBExited;
+        private bool stateCExited;
+        private bool dontTouch;
+        private bool immediateExited;
+        private bool updateExited;
+        private bool enableGuardEvent;
+        private bool enableGuardPop;
 
 
 
@@ -181,10 +374,15 @@ namespace IceMilkTeaTestStatic.Core
             stateMachine.Update(); // A -> B
             Assert.IsTrue(stateMachine.SendEvent(2)); // 初遷移なので true が返ってくるはず
             stateMachine.Update(); // B -> ExitSendEvent
-            Assert.DoesNotThrow(() => stateMachine.SendEvent(1));
 
 
-            // このタイミングの Update にて ExitSendEvent -> A になる予定だが
+            // SendEventする前にスタックに積んで下ろした時SendEventが失敗することを確認する（PopStateが遷移状態にさせるため）
+            stateMachine.PushState();
+            stateMachine.PopState();
+            Assert.IsFalse(stateMachine.SendEvent(1));
+
+
+            // このタイミングの Update にて ExitSendEvent -> ExitSendEvent になる予定だが
             // ExitSendEvent.Exit で 許されざる SendEvent をしているため例外が吐かれる
             Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
         }
@@ -196,24 +394,147 @@ namespace IceMilkTeaTestStatic.Core
         [Test]
         public void StateTransitionTest()
         {
+            // 念の為検査用メンバ変数の初期化を行う
+            sampleValue = 0;
+            stateAExited = false;
+            stateBExited = false;
+            stateCExited = false;
+            immediateExited = false;
+            updateExited = false;
+            dontTouch = false;
+
+
+            // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
+            var stateMachine = new ImtStateMachine<ImtStateMachineTest>(this);
+            stateMachine.AddTransition<SampleAState, SampleBState>(1);
+            stateMachine.AddTransition<SampleBState, SampleAState>(1);
+            stateMachine.AddTransition<SampleCState, ImmediateTransitionState>(1);
+            stateMachine.AddTransition<SampleCState, UpdateTransitionState>(2);
+            stateMachine.AddTransition<ImmediateTransitionState, SampleAState>(ImmediateTransitionState.EventId);
+            stateMachine.AddTransition<UpdateTransitionState, SampleBState>(UpdateTransitionState.EvnetId);
+            stateMachine.AddAnyTransition<SampleCState>(10);
+            stateMachine.SetStartState<SampleAState>();
+
+
+            // ステートマシンを起動する
+            stateMachine.Update();
+
+
+            // サンプル値が、起動値と更新値の想定値になっていることを確認する（念の為IsCurrentStateも見る）
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+            Assert.AreEqual(SampleAState.EnterValue, sampleValue);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+            Assert.AreEqual(SampleAState.UpdateValue, sampleValue);
+
+
+            // ステート遷移を行って一つ前のステートが終了し、サンプル値が、起動地と更新値の想定地になっていることを確認する
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateAExited);
+            Assert.AreEqual(SampleBState.EnterValue, sampleValue);
+            stateMachine.Update();
+            Assert.AreEqual(SampleBState.UpdateValue, sampleValue);
+
+
+            // 任意ステートからの遷移（イベントID10で、StateBステートからなく、任意遷移にはあるので）を行い同上の想定判断を確認する
+            stateMachine.SendEvent(10);
+            stateMachine.Update();
+            Assert.IsTrue(stateBExited);
+            Assert.AreEqual(SampleCState.EnterValue, sampleValue);
+            stateMachine.Update();
+            Assert.AreEqual(SampleCState.UpdateValue, sampleValue);
+
+
+            // 直ちに遷移するステートに遷移を行い、直ちに遷移が行われたかの形跡を確認をする
+            Assert.IsFalse(dontTouch);
+            Assert.IsFalse(immediateExited);
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateCExited);
+            Assert.AreEqual(SampleAState.EnterValue, sampleValue);
+            Assert.IsFalse(dontTouch);
+            Assert.IsTrue(immediateExited);
+
+
+            // ひとまずステートCへ遷移する
+            stateMachine.SendEvent(10);
+            stateMachine.Update();
+
+
+            // 更新時に遷移するステートに遷移を行い、想定されたサンプル値になるか確認後、更新時に遷移されたかも確認する
+            stateMachine.SendEvent(2);
+            stateMachine.Update();
+            Assert.AreEqual(UpdateTransitionState.EnterValue, sampleValue);
+            Assert.IsFalse(updateExited);
+            stateMachine.Update();
+            Assert.AreEqual(SampleBState.EnterValue, sampleValue);
+            Assert.IsTrue(updateExited);
         }
 
 
         /// <summary>
-        /// ステートによるイベントガードのテストをします
+        /// ステートによる遷移ガードのテストをします
         /// </summary>
         [Test]
-        public void StateGuardEventTest()
+        public void StateTransitionGuardTest()
         {
-        }
+            // 念の為検査用メンバ変数の初期化を行う
+            sampleValue = 0;
 
 
-        /// <summary>
-        /// ステートの更新テストをします
-        /// </summary>
-        [Test]
-        public void StateUpdateTest()
-        {
+            // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
+            var stateMachine = new ImtStateMachine<ImtStateMachineTest>(this);
+            stateMachine.AddTransition<SampleAState, ProGuardState>(1);
+            stateMachine.AddTransition<SampleBState, ProGuardState>(1);
+            stateMachine.AddTransition<ProGuardState, SampleAState>(1);
+            stateMachine.AddTransition<ProGuardState, SampleBState>(2);
+            stateMachine.SetStartState<SampleAState>();
+
+
+            // 起動して早速遷移する
+            stateMachine.Update();
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<ProGuardState>());
+
+
+            // イベント、ポップともに遷移をガードする状態にする
+            enableGuardEvent = true;
+            enableGuardPop = true;
+
+
+            // StateAへ遷移したいがイベントがガードされて、StateBにも行こうとしてもガードされることを確認する
+            Assert.IsFalse(stateMachine.SendEvent(1));
+            Assert.AreEqual(1, sampleValue);
+            Assert.IsFalse(stateMachine.SendEvent(2));
+            Assert.AreEqual(2, sampleValue);
+
+
+            // ガードステートをプッシュしてポップすらもガードされることを確認する
+            stateMachine.PushState();
+            Assert.IsFalse(stateMachine.PopState());
+
+
+            // イベントのみガードを無効化してStateAへ遷移する準備をして成功したことを確認する
+            enableGuardEvent = false;
+            Assert.IsTrue(stateMachine.SendEvent(1));
+            Assert.AreEqual(1, sampleValue);
+
+
+            // 遷移をして希望のステートになっていることを確認
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+
+
+            // 本来はSendEventしてProGuardへ遷移するが、ステートスタックにはProGuardが積まれているので戻れる
+            enableGuardPop = false;
+            Assert.IsTrue(stateMachine.PopState());
+            stateMachine.Update();
+
+
+            // 戻ってこれた事を確認
+            Assert.IsTrue(stateMachine.IsCurrentState<ProGuardState>());
         }
 
 
@@ -231,6 +552,15 @@ namespace IceMilkTeaTestStatic.Core
         /// </summary>
         [Test]
         public void StateStackTest()
+        {
+        }
+
+
+        /// <summary>
+        /// ステートマシンの提供するプロパティのテストをします
+        /// </summary>
+        [Test]
+        public void StateMachinePropertyTest()
         {
         }
     }
