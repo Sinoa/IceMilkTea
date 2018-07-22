@@ -576,6 +576,119 @@ namespace IceMilkTeaTestStatic.Core
         [Test]
         public void StateStackTest()
         {
+            // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
+            var stateMachine = new ImtStateMachine<ImtStateMachineTest>(this);
+            stateMachine.AddTransition<SampleAState, SampleBState>(1);
+            stateMachine.AddTransition<SampleBState, SampleCState>(1);
+            stateMachine.SetStartState<SampleAState>();
+
+
+            // ステートマシンが起動していない状態で、プッシュやポップをしようとすると例外が吐かれることを確認する
+            Assert.Throws<InvalidOperationException>(() => stateMachine.PushState());
+            Assert.Throws<InvalidOperationException>(() => stateMachine.PopState());
+
+
+            // ステートマシンを起動すれば例外が吐かれない事を確認する
+            stateMachine.Update();
+            Assert.DoesNotThrow(() => stateMachine.PushState());
+            Assert.DoesNotThrow(() => stateMachine.PopState());
+
+
+            // ポップしたことで遷移準備状態になっているのでひとまず更新
+            stateMachine.Update();
+
+
+            // ステートA、B、Cで順にプッシュしながら遷移する
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+            stateMachine.PushState(); // [A]
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
+            stateMachine.PushState(); // [A,B]
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleCState>());
+            stateMachine.PushState(); // [A,B,C]
+
+
+            // この段階でスタックには3段階のステートが積まれている状態のはず
+            Assert.AreEqual(3, stateMachine.StackCount);
+
+
+            // 本来 C->B->A の遷移テーブルは構築されていないので
+            // このような遷移は不可能だが、今回はプッシュしながら遷移したので
+            // ポップしながら状態を更新すれば、実現されることを確認する
+            Assert.IsTrue(stateMachine.PopState()); // [A,B] -> C
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleCState>());
+            Assert.IsTrue(stateMachine.PopState()); // [A] -> B
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
+            Assert.IsTrue(stateMachine.PopState()); // [] -> A
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // もう一度プッシュして遷移をする
+            stateMachine.PushState();
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+
+
+            // 遷移を準備してから、ポップをしたいが、遷移準備が完了した状態ではポップできないことを確認する
+            Assert.IsTrue(stateMachine.SendEvent(1));
+            Assert.IsFalse(stateMachine.PopState());
+
+
+            // ステートマシンを更新するとAではなくCへ遷移していることを確認し、ポップ出来て戻ってこれることを確認
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleCState>());
+            Assert.IsTrue(stateMachine.PopState());
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+
+
+            // ステートA、B、Cで順にプッシュしながら遷移する
+            stateMachine.PushState(); // [A]
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
+            stateMachine.PushState(); // [A,B]
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleCState>());
+            stateMachine.PushState(); // [A,B,C]
+
+
+            // ステートスタックのトップをただただ捨てるだけして数が減っていることを確認する
+            Assert.AreEqual(3, stateMachine.StackCount);
+            stateMachine.PopAndDropState(); // [A,B] -> C
+            Assert.AreEqual(2, stateMachine.StackCount);
+
+
+            // この段階でポップ遷移をするとCは捨てられたのでBに戻ることを期待する
+            // （直前のポップは、ただ捨てるだけで遷移はしないので、今回のポップは成功するはず）
+            Assert.IsTrue(stateMachine.PopState()); // [A] -> B
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
+
+
+            // ここでもう一度プッシュして、スタック段数が2段になることを確認
+            stateMachine.PushState();
+            Assert.AreEqual(2, stateMachine.StackCount);
+
+
+            // 今度はスタックを空にして、空になったことを確認しポップも出来ないことを確認
+            stateMachine.ClearStack();
+            Assert.AreEqual(0, stateMachine.StackCount);
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
+            Assert.IsFalse(stateMachine.PopState());
+
+
+            // ステート更新をしてもスタックから復帰できるわけでも無いので、ステータスが現状維持になっていることを確認
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
         }
 
 
