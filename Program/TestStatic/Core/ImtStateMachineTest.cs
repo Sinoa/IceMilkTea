@@ -174,11 +174,12 @@ namespace IceMilkTeaTestStatic.Core
             Assert.Throws<InvalidOperationException>(() => stateMachine.SendEvent(1));
 
 
-            // ステートマシンを起動して ExitSendEventState へ遷移するイベントを送って正しく終了することを確認する
+            // ステートマシンを起動して ExitSendEventState へ遷移するイベントを送って正しく終了することを確認する（ついでに遷移準備済みの確認もする）
             stateMachine.Update(); // Wakeup
             Assert.DoesNotThrow(() => stateMachine.SendEvent(1));
+            Assert.IsFalse(stateMachine.SendEvent(1)); // 遷移準備済みなので false が返ってくるはず
             stateMachine.Update(); // A -> B
-            Assert.DoesNotThrow(() => stateMachine.SendEvent(2));
+            Assert.IsTrue(stateMachine.SendEvent(2)); // 初遷移なので true が返ってくるはず
             stateMachine.Update(); // B -> ExitSendEvent
             Assert.DoesNotThrow(() => stateMachine.SendEvent(1));
 
@@ -221,6 +222,15 @@ namespace IceMilkTeaTestStatic.Core
         /// </summary>
         [Test]
         public void CurrentStateCheckTest()
+        {
+        }
+
+
+        /// <summary>
+        /// ステートマシンのステートスタック操作のテストをします
+        /// </summary>
+        [Test]
+        public void StateStackTest()
         {
         }
     }
