@@ -266,6 +266,57 @@ namespace IceMilkTeaTestStatic.Core
                 return Context.enableGuardPop;
             }
         }
+
+
+
+        /// <summary>
+        /// ステート開始時にアップデートプロパティをキャプチャするステートクラスです
+        /// </summary>
+        private class EnterUpdateCaptureState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// ステートの開始処理を行います
+            /// </summary>
+            protected internal override void Enter()
+            {
+                // Updateプロパティを設定する
+                Context.updateCapture = StateMachine.Updating;
+            }
+        }
+
+
+
+        /// <summary>
+        /// ステート更新時にアップデートプロパティをキャプチャするステートクラスです
+        /// </summary>
+        private class UpdateUpdateCaptureState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// ステートの更新処理を行います
+            /// </summary>
+            protected internal override void Update()
+            {
+                // Updateプロパティを設定する
+                Context.updateCapture = StateMachine.Updating;
+            }
+        }
+
+
+
+        /// <summary>
+        /// ステート終了時にアップデートプロパティをキャプチャするステートクラスです
+        /// </summary>
+        private class ExitUpdateCaptureState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// ステートの終了処理を行います
+            /// </summary>
+            protected internal override void Exit()
+            {
+                // Updateプロパティを設定する
+                Context.updateCapture = StateMachine.Updating;
+            }
+        }
         #endregion
 
 
@@ -280,6 +331,7 @@ namespace IceMilkTeaTestStatic.Core
         private bool updateExited;
         private bool enableGuardEvent;
         private bool enableGuardPop;
+        private bool updateCapture;
 
 
 
@@ -698,6 +750,136 @@ namespace IceMilkTeaTestStatic.Core
         [Test]
         public void StateMachinePropertyTest()
         {
+            // 念の為検査用メンバ変数の初期化を行う
+            updateCapture = false;
+
+
+            // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
+            var stateMachine = new ImtStateMachine<ImtStateMachineTest>(this);
+            stateMachine.AddTransition<EnterUpdateCaptureState, UpdateUpdateCaptureState>(1);
+            stateMachine.AddTransition<UpdateUpdateCaptureState, ExitUpdateCaptureState>(1);
+            stateMachine.AddTransition<ExitUpdateCaptureState, UpdateUpdateCaptureState>(1);
+            stateMachine.AddAnyTransition<ExitSendEventState>(10); // 自爆ステート
+            stateMachine.SetStartState<EnterUpdateCaptureState>();
+
+
+            // 未起動状態時のプロパティ値を検証する
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsFalse(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsFalse(updateCapture);
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // 起動してプロパティ値を検証する（Runningはステートマシンが起動しているかどうか、Updatingはステートマシンが Update 処理中かどうか）
+            stateMachine.Update();
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsTrue(updateCapture); // Updatingの代わりにステートで拾ってもらった
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // 更新キャプチャをクリアして遷移
+            updateCapture = false;
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+
+
+            // プロパティ値を検証
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsFalse(updateCapture); // Updateのタイミングで拾うのでまだfalse
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // 遷移せず更新してプロパティ値を検証する
+            stateMachine.Update();
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsTrue(updateCapture); // Updatingの代わりにステートで拾ってもらった
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // 更新キャプチャをクリアして遷移
+            updateCapture = false;
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+
+
+            // プロパティ値を検証
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsFalse(updateCapture); // Exitのタイミングで拾うのでまだfalse
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // 自爆ステートへ遷移
+            stateMachine.SendEvent(10);
+            stateMachine.Update();
+
+
+            // プロパティ値を検証
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsTrue(updateCapture); // Updatingの代わりにステートで拾ってもらった
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // スタック操作をしまくってスタックカウント値が想定値になるか確認
+            stateMachine.PushState();
+            Assert.AreEqual(1, stateMachine.StackCount);
+            stateMachine.PushState();
+            stateMachine.PushState();
+            stateMachine.PushState();
+            Assert.AreEqual(4, stateMachine.StackCount);
+            stateMachine.PopAndDropState();
+            stateMachine.PopAndDropState();
+            Assert.AreEqual(2, stateMachine.StackCount);
+            stateMachine.ClearStack();
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // キャプチャをクリアしてステートマシンを更新してまだ死なない事を確認
+            updateCapture = false;
+            Assert.DoesNotThrow(() => stateMachine.Update());
+
+
+            // ステートのスタック操作を行って、想定スタック値になっていることを確認
+            stateMachine.PushState();
+            Assert.AreEqual(1, stateMachine.StackCount);
+            stateMachine.PopState();
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsFalse(stateMachine.Updating);
+            Assert.IsFalse(updateCapture);
+            Assert.AreEqual(0, stateMachine.StackCount);
+
+
+            // このステート更新は自爆ステートによって例外が吐かれるので例外チェックを行う
+            // また Update 中に例外により死んだステートマシンは、もうどうにもならないのでインスタンスの生成し直しが必要
+            Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
+
+
+            // ステートマシンが死んだ状態プロパティ検証
+            // もちろんステートマシンが死んでいるのでこのタイミングでも Updating は true を示す
+            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            Assert.AreEqual(this, stateMachine.Context);
+            Assert.IsTrue(stateMachine.Running);
+            Assert.IsTrue(stateMachine.Updating);
+            Assert.IsFalse(updateCapture);
+            Assert.AreEqual(0, stateMachine.StackCount);
         }
     }
 }
