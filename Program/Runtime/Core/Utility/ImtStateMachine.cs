@@ -24,6 +24,7 @@ namespace IceMilkTea.Core
     /// <typeparam name="TContext">このステートマシンが持つコンテキストのクラス型</typeparam>
     public class ImtStateMachine<TContext> where TContext : class
     {
+        #region ステートクラス本体と特別ステートクラスの定義
         /// <summary>
         /// ステートマシンが処理する状態を表現するステートクラスです。
         /// </summary>
@@ -82,10 +83,30 @@ namespace IceMilkTea.Core
                 // 通常はガードしない
                 return false;
             }
+
+
+            /// <summary>
+            /// ステートマシンがスタックしたステートをポップする前に、このステートがそのポップをガードします
+            /// </summary>
+            /// <returns>ポップの動作をガードする場合は true を、ガードせずにポップ動作を続ける場合は false を返します</returns>
+            protected internal virtual bool GuardPop()
+            {
+                // 通常はガードしない
+                return false;
+            }
         }
 
 
 
+        /// <summary>
+        /// ステートマシンで "任意" を表現する特別なステートクラスです
+        /// </summary>
+        private sealed class AnyState : State { }
+        #endregion
+
+
+
+        #region 列挙型定義
         /// <summary>
         /// ステートマシンのUpdate状態を表現します
         /// </summary>
@@ -111,24 +132,22 @@ namespace IceMilkTea.Core
             /// </summary>
             Exit,
         }
+        #endregion
 
 
 
-        /// <summary>
-        /// ステートマシンで "任意" を表現する特別なステートクラスです
-        /// </summary>
-        private sealed class AnyState : State { }
-
-
-
+        #region メンバ変数定義
         // メンバ変数定義
         private UpdateState updateState;
         private List<State> stateList;
         private State currentState;
         private State nextState;
+        private Stack<State> stateStack;
+        #endregion
 
 
 
+        #region プロパティ定義
         /// <summary>
         /// ステートマシンが保持しているコンテキスト
         /// </summary>
@@ -149,7 +168,15 @@ namespace IceMilkTea.Core
         public bool Updating => (Running && updateState != UpdateState.Idle);
 
 
+        /// <summary>
+        /// 現在のスタックしているステートの数
+        /// </summary>
+        public int StackCount => stateStack.Count;
+        #endregion
 
+
+
+        #region コンストラクタ
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
         /// </summary>
@@ -168,21 +195,25 @@ namespace IceMilkTea.Core
             // メンバの初期化をする
             Context = context;
             stateList = new List<State>();
+            stateStack = new Stack<State>();
             updateState = UpdateState.Idle;
 
 
             // この時点で任意ステートのインスタンスを作ってしまう
             GetOrCreateState<AnyState>();
         }
+        #endregion
 
 
         #region ステート遷移テーブル構築系
         /// <summary>
         /// ステートの任意遷移構造を追加します。
+        /// </summary>
+        /// <remarks>
         /// この関数は、遷移元が任意の状態からの遷移を希望する場合に利用してください。
         /// 任意の遷移は、通常の遷移（Any以外の遷移元）より優先度が低いことにも、注意をしてください。
         /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
-        /// </summary>
+        /// </remarks>
         /// <typeparam name="TNextState">任意状態から遷移する先になるステートの型</typeparam>
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
@@ -252,6 +283,83 @@ namespace IceMilkTea.Core
         #endregion
 
 
+        #region ステートスタック操作系
+        /// <summary>
+        /// 現在実行中のステートを、ステートスタックにプッシュします
+        /// </summary>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public void PushState()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            IfNotRunningThrowException();
+
+
+            // 現在のステートをスタックに積む
+            stateStack.Push(currentState);
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているステートを取り出し、遷移の準備を行います。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は、イベントIDを送ることのない点を除けば SendEvent 関数と非常に似ています。
+        /// 既に SendEvent によって次の遷移の準備ができている場合は、スタックからステートはポップされることはありません。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ次の遷移の準備が完了した場合は true を、ポップするステートがなかったり、ステートによりポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public bool PopState()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            IfNotRunningThrowException();
+
+
+            // そもそもスタックが空であるか、次に遷移するステートが存在するか、ポップする前に現在のステートにガードされたのなら
+            if (stateStack.Count == 0 || nextState != null || currentState.GuardPop())
+            {
+                // ポップ自体出来ないのでfalseを返す
+                return false;
+            }
+
+
+            // ステートをスタックから取り出して次のステートへ遷移するようにして成功を返す
+            nextState = stateStack.Pop();
+            return true;
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているステートを一つ取り出し、そのまま捨てます。
+        /// </summary>
+        /// <remarks>
+        /// ステートスタックの一番上に積まれているステートをそのまま捨てたい時に利用します。
+        /// </remarks>
+        public void PopAndDropState()
+        {
+            // スタックが空なら
+            if (stateStack.Count == 0)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // スタックからステートを取り出して何もせずそのまま捨てる
+            stateStack.Pop();
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているすべてのステートを捨てます。
+        /// </summary>
+        public void ClearStack()
+        {
+            // スタックを空にする
+            stateStack.Clear();
+        }
+        #endregion
+
+
         #region ステートマシン制御系
         /// <summary>
         /// 現在実行中のステートが、指定されたステートかどうかを調べます。
@@ -261,12 +369,8 @@ namespace IceMilkTea.Core
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         public bool IsCurrentState<TState>() where TState : State
         {
-            // そもそもまだ現在実行中のステートが存在していないなら
-            if (!Running)
-            {
-                // まだ起動すらしていないので例外を吐く
-                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
-            }
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            IfNotRunningThrowException();
 
 
             // 現在のステートと型が一致するかの条件式の結果をそのまま返す
@@ -276,24 +380,21 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// ステートマシンにイベントを送信して、ステート遷移の準備を行います。
+        /// </summary>
+        /// <remarks>
         /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
-        /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで
-        /// 後続のイベントはすべて失敗します。
+        /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
         /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
         /// 何度も遷移をすることが可能ですが Exit 中で遷移中になるため例外が送出されます。
-        /// </summary>
+        /// </remarks>
         /// <param name="eventId">ステートマシンに送信するイベントID</param>
         /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
         public bool SendEvent(int eventId)
         {
-            // そもそもまだ現在実行中のステートが存在していないなら
-            if (!Running)
-            {
-                // まだ起動すらしていないので例外を吐く
-                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
-            }
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            IfNotRunningThrowException();
 
 
             // もし Exit 処理中なら
@@ -339,9 +440,11 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// ステートマシンの状態を更新します。
+        /// </summary>
+        /// <remarks>
         /// ステートマシンの現在処理しているステートの更新を行いますが、まだ未起動の場合は SetStartState 関数によって設定されたステートが起動します。
         /// また、ステートマシンが初回起動時の場合、ステートのUpdateは呼び出されず、次の更新処理が実行される時になります。
-        /// </summary>
+        /// </remarks>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
         /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
         public void Update()
@@ -420,6 +523,21 @@ namespace IceMilkTea.Core
 
 
         #region 内部ロジック系
+        /// <summary>
+        /// ステートマシンが未起動の場合に例外を送出します
+        /// </summary>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        private void IfNotRunningThrowException()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら
+            if (!Running)
+            {
+                // まだ起動すらしていないので例外を吐く
+                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
+            }
+        }
+
+
         /// <summary>
         /// 指定されたステートの型のインスタンスを取得しますが、存在しない場合は生成してから取得します。
         /// 生成されたインスタンスは、次回から取得されるようになります。
