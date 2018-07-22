@@ -544,6 +544,29 @@ namespace IceMilkTeaTestStatic.Core
         [Test]
         public void CurrentStateCheckTest()
         {
+            // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
+            var stateMachine = new ImtStateMachine<ImtStateMachineTest>(this);
+            stateMachine.AddTransition<SampleAState, SampleBState>(1);
+            stateMachine.AddTransition<SampleBState, SampleAState>(1);
+            stateMachine.SetStartState<SampleAState>();
+
+
+            // まだ、ステートマシンが起動していないので、現在のステート確認を叩くと例外が吐かれることを確認する
+            Assert.Throws<InvalidOperationException>(() => stateMachine.IsCurrentState<SampleAState>());
+
+
+            // ステートマシンを起動して、遷移をしながら想定の現在ステート確認結果が返ってくることを確認する
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+            Assert.IsFalse(stateMachine.IsCurrentState<SampleBState>());
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsFalse(stateMachine.IsCurrentState<SampleAState>());
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleBState>());
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<SampleAState>());
+            Assert.IsFalse(stateMachine.IsCurrentState<SampleBState>());
         }
 
 
