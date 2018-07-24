@@ -22,7 +22,7 @@ namespace IceMilkTea.Core
     /// コンテキストを持つことのできるステートマシンクラスです
     /// </summary>
     /// <typeparam name="TContext">このステートマシンが持つコンテキストのクラス型</typeparam>
-    public class ImtStateMachine<TContext> where TContext : class
+    public class ImtStateMachine<TContext>
     {
         #region ステートクラス本体と特別ステートクラスの定義
         /// <summary>
