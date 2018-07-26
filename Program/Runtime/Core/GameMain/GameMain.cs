@@ -267,4 +267,24 @@ namespace IceMilkTea.Core
         }
         #endregion
     }
+
+
+
+    /// <summary>
+    /// 起動するべきGameMainが見つからなかった場合や、起動できない場合において
+    /// 代わりに起動するための GameMain クラスです。
+    /// </summary>
+    [HideCreateGameMainAssetMenu]
+    internal class SafeGameMain : GameMain
+    {
+        /// <summary>
+        /// セーフ起動時のIceMilkTeaは、起動を継続しないようにします。
+        /// </summary>
+        /// <returns>この関数は常にfalseを返します</returns>
+        protected override bool Continue()
+        {
+            // 起動を止めるようにする
+            return false;
+        }
+    }
 }
