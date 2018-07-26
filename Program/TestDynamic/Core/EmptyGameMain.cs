@@ -21,6 +21,7 @@ namespace IceMilkTeaTestDynamic.Core
     /// テストを実行するために用意された何もしないゲームメインクラスです。
     /// このゲームメインは、極力素のGameMainを動作させ、テストの基本動作を提供出来るようにします。
     /// </summary>
+    [HideCreateGameMainAssetMenu]
     public class EmptyGameMain : GameMain
     {
     }

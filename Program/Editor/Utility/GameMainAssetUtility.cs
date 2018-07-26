@@ -27,28 +27,31 @@ namespace IceMilkTeaEditor.Utility
     public static class GameMainAssetUtility
     {
         /// <summary>
-        /// アセットとして生成可能なGameMainの型を取得します
+        /// アセットとして生成可能な GameMain の型を取得します
         /// </summary>
-        /// <returns>アセットとして生成可能なGameMainの型の配列を返します</returns>
+        /// <remarks>
+        /// HideCreateGameMainAssetMenuAttribute 属性クラスがマークされた GameMain は取得されないことに注意して下さい
+        /// </remarks>
+        /// <returns>アセットとして生成可能な GameMain の型の配列を返します</returns>
         public static Type[] GetCreatableGameMainTypes()
         {
-            // GameMain, SafeGameMain の型
+            // 利用するクラスの型を取り出す
             var gameMainType = typeof(GameMain);
-            var safeGameMainType = typeof(SafeGameMain);
+            var hideAttributeType = typeof(HideCreateGameMainAssetMenuAttribute);
 
 
-            // GameMain, SafeGameMain 以外のGameMain継承クラスを返す
+            // HideCreateGameMainAssetMenuAttribute属性が付いていない、GameMain継承クラスを返す
             return MonoImporter.GetAllRuntimeMonoScripts()
                 .Select(x => x.GetClass())
-                .Where(x => x != null && x.IsSubclassOf(gameMainType) && x != gameMainType && x != safeGameMainType)
+                .Where(x => x != null && x.IsSubclassOf(gameMainType) && Attribute.GetCustomAttribute(x, hideAttributeType) == null)
                 .ToArray();
         }
 
 
         /// <summary>
-        /// 指定されたGameMainの型のアセットを生成します
+        /// 指定された GameMain の型のアセットを生成します
         /// </summary>
-        /// <param name="gameMainType">生成するアセットのGameMain型</param>
+        /// <param name="gameMainType">生成するアセットの GameMain 型</param>
         /// <param name="savePath">生成するアセットのパス</param>
         public static void CreateGameMainAsset(Type gameMainType, string savePath)
         {

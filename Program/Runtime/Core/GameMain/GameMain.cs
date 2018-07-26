@@ -23,6 +23,7 @@ namespace IceMilkTea.Core
     /// ゲームメインクラスの実装をするための抽象クラスです。
     /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
     /// </summary>
+    [HideCreateGameMainAssetMenu]
     public abstract class GameMain : ScriptableObject
     {
         #region PlayerLoopSystem用型定義

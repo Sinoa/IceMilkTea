@@ -13,23 +13,15 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// 起動するべきGameMainが見つからなかった場合や、起動できない場合において
-    /// 代わりに起動するための GameMain クラスです。
+    /// GameMain クラスのアセット生成ツールメニューの非表示を示す属性クラスです
     /// </summary>
-    [HideCreateGameMainAssetMenu]
-    internal class SafeGameMain : GameMain
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public class HideCreateGameMainAssetMenuAttribute : Attribute
     {
-        /// <summary>
-        /// セーフ起動時のIceMilkTeaは、起動を継続しないようにします。
-        /// </summary>
-        /// <returns>この関数は常にfalseを返します</returns>
-        protected override bool Continue()
-        {
-            // 起動を止めるようにする
-            return false;
-        }
     }
 }
