@@ -20,6 +20,15 @@ using IceMilkTea.Core;
 namespace IceMilkTea.Service
 {
     /// <summary>
+    /// ゲームシーンを破棄する理由を表します
+    /// </summary>
+    public enum GameSceneDestroyReason
+    {
+    }
+
+
+
+    /// <summary>
     /// ゲームのシーンとして制御する基本クラスです
     /// </summary>
     public abstract class GameScene
@@ -165,6 +174,7 @@ namespace IceMilkTea.Service
         #endregion
 
 
+        #region サービスの更新
         /// <summary>
         /// サービスの更新を行います
         /// </summary>
@@ -185,5 +195,53 @@ namespace IceMilkTea.Service
                 sceneManagementContext.Scene.Update();
             }
         }
+        #endregion
+
+
+        #region シーンリスト操作系
+        public bool ClearSceneStack()
+        {
+            return false;
+        }
+
+
+        public void ChangeScene(GameScene newScene)
+        {
+        }
+
+
+        public void PushScene(GameScene newScene, bool currentSceneIsSleep)
+        {
+        }
+
+
+        public void PopScene()
+        {
+        }
+
+
+        public GameScene FindTopMostScene<TScene>() where TScene : GameScene
+        {
+            return null;
+        }
+
+
+        public GameScene FindBottomMostScene<TScene>() where TScene : GameScene
+        {
+            return null;
+        }
+
+
+        public GameScene[] FindAllScene<TScene>() where TScene : GameScene
+        {
+            return null;
+        }
+
+
+        public int FindAllSceneNonAlloc<TScene>(GameScene[] result) where TScene : GameScene
+        {
+            return 0;
+        }
+        #endregion
     }
 }
