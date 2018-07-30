@@ -242,6 +242,12 @@ namespace IceMilkTea.Service
         {
             return 0;
         }
+
+
+        public GameScene GetPreviousScene(GameScene pivot)
+        {
+            return null;
+        }
         #endregion
     }
 }
