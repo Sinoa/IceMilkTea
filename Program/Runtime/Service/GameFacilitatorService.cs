@@ -388,22 +388,48 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// 最も新しく実行要求のあった、指定のシーン型のインスタンスを検索します
+        /// 最も新しい実行状態または実行準備状態のある、指定のシーン型のインスタンスを検索します
         /// </summary>
         /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <returns>シーンスタックの最上位に最も近い、シーンインスタンスが見つかった場合は、そのインスタンスを返します。しかし、見つけられなかった場合は null を返します。</returns>
+        /// <returns>最も新しい実行状態または実行準備状態の指定シーンが見つかった場合は、そのインスタンスを返します。見つからなかった場合は null を返します</returns>
         public GameScene FindNewestScene<TScene>() where TScene : GameScene
         {
-            // 未実装
-            throw new NotImplementedException();
+            // 検索する型の取得
+            var sceneType = typeof(TScene);
+
+
+            // 管理情報の数分末尾から回る
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // シーンの型が一致しないのなら
+                var scene = sceneManagementContextList[i].Scene;
+                if (scene.GetType() != sceneType)
+                {
+                    // どんどん次へチェックする
+                    continue;
+                }
+
+
+                // シーンの状態が Ready か Running なら
+                var state = sceneManagementContextList[i].State;
+                if (IsReady(state) || IsRunning(state))
+                {
+                    // このシーンを返す
+                    return scene;
+                }
+            }
+
+
+            // ループから抜けてきたということは見つからなかったとして null を返す
+            return null;
         }
 
 
         /// <summary>
-        /// シーンスタックの最下位に最も近い、指定されたシーン型のインスタンスを検索します
+        /// 最も古い実行状態または実行準備状態のある、指定のシーン型のインスタンスを検索します
         /// </summary>
         /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <returns>シーンスタックの最下位に最も近い、シーンインスタンスが見つかった場合は、そのインスタンスを返します。しかし、見つけられなかった場合は null を返します。</returns>
+        /// <returns>最も古い実行状態または実行準備状態の指定シーンが見つかった場合は、そのインスタンスを返します。見つからなかった場合は null を返します</returns>
         public GameScene FindOldestScene<TScene>() where TScene : GameScene
         {
             // 未実装
