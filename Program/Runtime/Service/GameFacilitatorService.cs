@@ -63,27 +63,122 @@ namespace IceMilkTea.Service
         protected internal virtual void OnApplicationResume()
         {
         }
+
+
+        /// <summary>
+        /// アプリケーションの要因でフォーカスを失った処理を行います
+        /// </summary>
+        protected internal virtual void OnApplicationFocusOut()
+        {
+        }
+
+
+        /// <summary>
+        /// アプリケーションの要因でフォーカスを取得した処理を行います
+        /// </summary>
+        protected internal virtual void OnApplicationFocusIn()
+        {
+        }
         #endregion
     }
 
 
 
     /// <summary>
-    /// ゲーム進行を行うサービスクラスです
+    /// ゲーム進行を行うサービスクラスです。
+    /// ゲーム進行サービスは、シーンという単位でゲーム進行を管理し、シーンはまるでスタックのように管理します。
     /// </summary>
     public class GameFacilitatorService : GameService
     {
-        // メンバ変数定義
-        private Stack<GameScene> sceneStack;
-        private Queue<GameScene> initializeQueue;
-        private Queue<GameScene> destroyQueue;
+        #region シーン管理情報の型定義
+        /// <summary>
+        /// リストに存在するシーンのステータスを表します
+        /// </summary>
+        private enum SceneState
+        {
+            /// <summary>
+            /// シーンの開始準備が完了しました
+            /// </summary>
+            Ready,
+
+            /// <summary>
+            /// シーンは稼働中です。
+            /// ただし Update が呼び出されるかどうかについては、保証していません。
+            /// </summary>
+            Running,
+
+            /// <summary>
+            /// シーンは解放される事のマークをされています
+            /// </summary>
+            Destroy,
+
+            /// <summary>
+            /// シーンは動作開始準備完了状態だったが、解放される対象としてマークされました
+            /// </summary>
+            ReadyedButDestroy,
+        }
 
 
 
         /// <summary>
-        /// 現在積まれているシーンの数
+        /// SceneState 列挙型の内容で、破棄対象かどうかを判定する関数です
         /// </summary>
-        public int SceneStackCount => sceneStack.Count;
+        /// <param name="state">判定する SceneState の値</param>
+        /// <returns>渡された SceneState の値が Destroy系（破棄対象マーク値）なら true を、異なる場合は false を返します</returns>
+        private bool IsDestroy(SceneState state)
+        {
+            // Destroy系ステータスの時は true を返す
+            return state == SceneState.Destroy || state == SceneState.ReadyedButDestroy;
+        }
+
+
+        /// <summary>
+        /// SceneState 列挙型の内容で、準備完了かどうかを判定する関数です
+        /// </summary>
+        /// <param name="state">判定する SceneState の値</param>
+        /// <returns>渡された SceneState の値が Ready系（動作開始準備完了状態値）なら true を、異なる場合は false を返します</returns>
+        private bool IsReady(SceneState state)
+        {
+            // Ready系ステータスの時は true を返す
+            return state == SceneState.Ready;
+        }
+
+
+        /// <summary>
+        /// SceneState 列挙型の内容で、動作中かどうかを判定する関数です
+        /// </summary>
+        /// <param name="state">判定する SceneState の値</param>
+        /// <returns>渡された SceneState の値が Running系（動作状態値）なら true を、異なる場合は false を返します</returns>
+        private bool IsRunning(SceneState state)
+        {
+            // Running系ステータスの時は true を返す
+            return state == SceneState.Running;
+        }
+
+
+
+        /// <summary>
+        /// シーンの管理状態を保持するコンテキストクラスです
+        /// </summary>
+        private class SceneManagementContext
+        {
+            /// <summary>
+            /// 管理対象になっているシーン本体
+            /// </summary>
+            public GameScene Scene { get; set; }
+
+
+            /// <summary>
+            /// シーンの管理状態
+            /// </summary>
+            public SceneState State { get; set; }
+        }
+        #endregion
+
+
+
+        // メンバ変数定義
+        private List<SceneManagementContext> sceneManagementContextList;
 
 
 
@@ -93,10 +188,8 @@ namespace IceMilkTea.Service
         /// </summary>
         public GameFacilitatorService()
         {
-            // シーンスタックと初期化待ちキュー、解放待ちキューの生成
-            sceneStack = new Stack<GameScene>();
-            initializeQueue = new Queue<GameScene>();
-            destroyQueue = new Queue<GameScene>();
+            // シーン管理リストの初期化
+            sceneManagementContextList = new List<SceneManagementContext>();
         }
 
 
@@ -114,10 +207,10 @@ namespace IceMilkTea.Service
                 {
                     { GameServiceUpdateTiming.MainLoopHead, UpdateService },
                     { GameServiceUpdateTiming.MainLoopTail, FinalFrameUpdate },
-                    { GameServiceUpdateTiming.OnApplicationSuspend, OnApplicationSuspendAndFocusOut },
-                    { GameServiceUpdateTiming.OnApplicationFocusOut, OnApplicationSuspendAndFocusOut },
-                    { GameServiceUpdateTiming.OnApplicationResume, OnApplicationResumeAndFocusIn },
-                    { GameServiceUpdateTiming.OnApplicationFocusIn, OnApplicationResumeAndFocusIn },
+                    { GameServiceUpdateTiming.OnApplicationSuspend, OnApplicationSuspend },
+                    { GameServiceUpdateTiming.OnApplicationResume, OnApplicationResume },
+                    { GameServiceUpdateTiming.OnApplicationFocusOut, OnApplicationFocusOut },
+                    { GameServiceUpdateTiming.OnApplicationFocusIn, OnApplicationFocusIn },
                 }
             };
         }
@@ -150,17 +243,33 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// アプリケーションが一時停止またはフォーカスを失った時の処理を行います
+        /// アプリケーションが一時停止した時の処理を行います
         /// </summary>
-        private void OnApplicationSuspendAndFocusOut()
+        private void OnApplicationSuspend()
         {
         }
 
 
         /// <summary>
-        /// アプリケーションが再開またはフォーカスを取得した時の処理を行います
+        /// アプリケーションが再開した時の処理を行います
         /// </summary>
-        private void OnApplicationResumeAndFocusIn()
+        private void OnApplicationResume()
+        {
+        }
+
+
+        /// <summary>
+        /// アプリケーションのフォーカスを失った時の処理を行います
+        /// </summary>
+        private void OnApplicationFocusOut()
+        {
+        }
+
+
+        /// <summary>
+        /// アプリケーションのフォーカスを得られた時の処理を行います
+        /// </summary>
+        private void OnApplicationFocusIn()
         {
         }
         #endregion
@@ -168,63 +277,125 @@ namespace IceMilkTea.Service
 
         #region シーンリスト操作系
         /// <summary>
-        /// 指定された新しいシーンを、シーンスタックに積んで次のフレームから動作するようにします。
+        /// 指定されたシーンを次に実行するシーンとしてリクエストします。
         /// </summary>
         /// <remarks>
-        /// 同一フレーム内で複数のシーンをスタックに積むことは可能ですが、その場合は次のフレームで
-        /// スタックに積んだ順から初期化処理が呼び出され Update が呼び出されるのは最後に積んだシーンとなります。
+        /// 同一フレーム内で複数のリクエストをすることは可能ですが、
+        /// 初期化処理は要求した順に行われ Update が呼び出されるのは、最後に要求したシーンとなります。
+        /// また、初期化処理から実際に更新処理が実行されるタイミングは、次のフレームの開始タイミングとなります。
         /// </remarks>
-        /// <param name="newScene">スタックに積む新しいシーン</param>
-        /// <exception cref="ArgumentNullException">newScene が null です</exception>
-        public void PushScene(GameScene newScene)
+        /// <param name="scene">次に実行するシーン</param>
+        /// <exception cref="ArgumentNullException">scene が null です</exception>
+        public void RequestNextScene(GameScene scene)
         {
+            // scene が null なら
+            if (scene == null)
+            {
+                // そんな追加は許されない
+                throw new ArgumentNullException(nameof(scene));
+            }
+
+
+            // 初期化準備完了ステータスとしてシーンを管理リストに追加する
+            sceneManagementContextList.Add(new SceneManagementContext()
+            {
+                // 管理情報の設定
+                Scene = scene,
+                State = SceneState.Ready,
+            });
         }
 
 
         /// <summary>
-        /// シーンスタックから処理中のシーンを下ろします。
+        /// 最後に NextScene 要求のあったシーンまたは、次に破棄可能なシーンの破棄要求をします。
         /// </summary>
         /// <remarks>
-        /// シーンスタックから下ろされた後、下ろされたシーンの Terminate が呼び出されるタイミングは
-        /// 同一フレームの最後のタイミングになります。
+        /// 破棄要求のあったシーンが、実際に破棄されるタイミングはフレームの最後のタイミングとなります
         /// </remarks>
-        /// <exception cref="InvalidOperationException">シーンスタックは空です</exception>
-        public void PopScene()
+        public void RequestDropScene()
         {
+            // 管理リストの末尾からループする
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // ステータスが Destroy系 なら
+                var status = sceneManagementContextList[i].State;
+                if (IsDestroy(status))
+                {
+                    // 次のシーン管理情報へ
+                    continue;
+                }
+
+
+                // もし動作中状態なら
+                if (IsRunning(status))
+                {
+                    // 通常の破棄ステータスを設定して終了
+                    sceneManagementContextList[i].State = SceneState.Destroy;
+                    return;
+                }
+
+
+                // もし準備完了状態なら
+                if (IsReady(status))
+                {
+                    // 準備完了だが破棄されるというステータスを設定して終了
+                    sceneManagementContextList[i].State = SceneState.ReadyedButDestroy;
+                    return;
+                }
+            }
         }
 
 
         /// <summary>
-        /// 最後に積まれたシーンを下ろして、直ちに指定された新しいシーンを積みます。
-        /// まるで Pop してから Push したかのような動作をします。
+        /// RequestDropScene() 関数の呼び出し後 RequestNextScene() 関数を呼び出します
         /// </summary>
-        /// <remarks>
-        /// この関数は、実際に Pop してから Push を行いますが、通常の Pop - Push と異なる点は
-        /// シーンスタックが空の状態でも、例外は送出されないという点になります。
-        /// </remarks>
-        /// <param name="newScene">新しく切り替えるシーン</param>
-        /// <exception cref="ArgumentNullException">newScene が null です</exception>
-        public void ChangeScene(GameScene newScene)
+        /// <param name="scene">新しく切り替えるシーン</param>
+        /// <exception cref="ArgumentNullException">scene が null です</exception>
+        public void ChangeScene(GameScene scene)
         {
+            // 破棄要求関数呼び出し後、シーン実行要求関数を呼ぶだけ
+            RequestDropScene();
+            RequestNextScene(scene);
         }
 
 
         /// <summary>
-        /// シーンスタックを空にします。
+        /// 全てのシーンを破棄するように要求します
         /// </summary>
-        public void ClearSceneStack()
+        public void RequestDropAllScene()
         {
+            // 管理情報の数分回る
+            foreach (var sceneManagementContext in sceneManagementContextList)
+            {
+                // もし動作中状態なら
+                if (IsRunning(sceneManagementContext.State))
+                {
+                    // 通常の破棄ステータスを設定して次へ
+                    sceneManagementContext.State = SceneState.Destroy;
+                    continue;
+                }
+
+
+                // もし準備完了状態なら
+                if (IsReady(sceneManagementContext.State))
+                {
+                    // 準備完了だが破棄されるというステータスを設定して次へ
+                    sceneManagementContext.State = SceneState.ReadyedButDestroy;
+                    continue;
+                }
+            }
         }
 
 
         /// <summary>
-        /// シーンスタックの最上位に最も近い、指定されたシーン型のインスタンスを検索します
+        /// 最も新しく実行要求のあった、指定のシーン型のインスタンスを検索します
         /// </summary>
         /// <typeparam name="TScene">検索するシーン型</typeparam>
         /// <returns>シーンスタックの最上位に最も近い、シーンインスタンスが見つかった場合は、そのインスタンスを返します。しかし、見つけられなかった場合は null を返します。</returns>
-        public GameScene FindTopMostScene<TScene>() where TScene : GameScene
+        public GameScene FindNewestScene<TScene>() where TScene : GameScene
         {
-            return null;
+            // 未実装
+            throw new NotImplementedException();
         }
 
 
@@ -233,9 +404,10 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <typeparam name="TScene">検索するシーン型</typeparam>
         /// <returns>シーンスタックの最下位に最も近い、シーンインスタンスが見つかった場合は、そのインスタンスを返します。しかし、見つけられなかった場合は null を返します。</returns>
-        public GameScene FindBottomMostScene<TScene>() where TScene : GameScene
+        public GameScene FindOldestScene<TScene>() where TScene : GameScene
         {
-            return null;
+            // 未実装
+            throw new NotImplementedException();
         }
 
 
@@ -246,7 +418,8 @@ namespace IceMilkTea.Service
         /// <returns>シーンインスタンスを見つけた場合は、見つけたインスタンスの配列を返します。しかし、見つけられなかった場合は、長さ 0 の配列を返します。</returns>
         public GameScene[] FindAllScene<TScene>() where TScene : GameScene
         {
-            return new GameScene[0];
+            // 未実装
+            throw new NotImplementedException();
         }
 
 
@@ -265,7 +438,8 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">result が null です</exception>
         public int FindAllSceneNonAlloc<TScene>(GameScene[] result) where TScene : GameScene
         {
-            return 0;
+            // 未実装
+            throw new NotImplementedException();
         }
 
 
@@ -276,7 +450,8 @@ namespace IceMilkTea.Service
         /// <returns>該当のシーンが、シーンスタックに含まれている場合は true を、含まれていない場合は false を返します</returns>
         public bool ContainsScene(GameScene scene)
         {
-            return false;
+            // 未実装
+            throw new NotImplementedException();
         }
 
 
@@ -290,7 +465,8 @@ namespace IceMilkTea.Service
         /// <exception cref="InvalidOperationException">指定された scene は、シーンスタックの最下位に存在しています</exception>
         public GameScene GetPreviousScene(GameScene scene)
         {
-            return null;
+            // 未実装
+            throw new NotImplementedException();
         }
         #endregion
     }
