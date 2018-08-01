@@ -88,7 +88,7 @@ namespace IceMilkTea.Service
     /// ゲーム進行を行うサービスクラスです。
     /// ゲーム進行サービスは、シーンという単位でゲーム進行を管理し、シーンはまるでスタックのように管理します。
     /// </summary>
-    public class GameFacilitatorService : GameService
+    public class GameFacilitatorService<TSceneBase> : GameService where TSceneBase : GameScene
     {
         #region シーン管理情報の型定義
         /// <summary>
@@ -165,7 +165,7 @@ namespace IceMilkTea.Service
             /// <summary>
             /// 管理対象になっているシーン本体
             /// </summary>
-            public GameScene Scene { get; set; }
+            public TSceneBase Scene { get; set; }
 
 
             /// <summary>
@@ -286,7 +286,7 @@ namespace IceMilkTea.Service
         /// </remarks>
         /// <param name="scene">次に実行するシーン</param>
         /// <exception cref="ArgumentNullException">scene が null です</exception>
-        public void RequestNextScene(GameScene scene)
+        public void RequestNextScene(TSceneBase scene)
         {
             // scene が null なら
             if (scene == null)
@@ -351,7 +351,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="scene">新しく切り替えるシーン</param>
         /// <exception cref="ArgumentNullException">scene が null です</exception>
-        public void ChangeScene(GameScene scene)
+        public void ChangeScene(TSceneBase scene)
         {
             // 破棄要求関数呼び出し後、シーン実行要求関数を呼ぶだけ
             RequestDropScene();
@@ -392,7 +392,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <typeparam name="TScene">検索するシーン型</typeparam>
         /// <returns>最も新しい実行状態または実行準備状態の指定シーンが見つかった場合は、そのインスタンスを返します。見つからなかった場合は null を返します</returns>
-        public GameScene FindNewestScene<TScene>() where TScene : GameScene
+        public TScene FindNewestScene<TScene>() where TScene : TSceneBase
         {
             // 検索する型の取得
             var sceneType = typeof(TScene);
@@ -401,21 +401,21 @@ namespace IceMilkTea.Service
             // 管理情報の数分末尾から回る
             for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
             {
-                // シーンの型が一致しないのなら
-                var scene = sceneManagementContextList[i].Scene;
-                if (scene.GetType() != sceneType)
+                // シーンの状態が Ready か Running 以外なら
+                var state = sceneManagementContextList[i].State;
+                if (!(IsReady(state) || IsRunning(state)))
                 {
-                    // どんどん次へチェックする
+                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
                     continue;
                 }
 
 
-                // シーンの状態が Ready か Running なら
-                var state = sceneManagementContextList[i].State;
-                if (IsReady(state) || IsRunning(state))
+                // シーンの型が一致したのなら
+                var scene = sceneManagementContextList[i].Scene;
+                if (scene.GetType() == sceneType)
                 {
                     // このシーンを返す
-                    return scene;
+                    return scene as TScene;
                 }
             }
 
@@ -430,30 +430,86 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <typeparam name="TScene">検索するシーン型</typeparam>
         /// <returns>最も古い実行状態または実行準備状態の指定シーンが見つかった場合は、そのインスタンスを返します。見つからなかった場合は null を返します</returns>
-        public GameScene FindOldestScene<TScene>() where TScene : GameScene
+        public TScene FindOldestScene<TScene>() where TScene : TSceneBase
         {
-            // 未実装
-            throw new NotImplementedException();
+            // 検索する型の取得
+            var sceneType = typeof(TScene);
+
+
+            // 管理情報の数分先頭から回る
+            foreach (var sceneManagementContext in sceneManagementContextList)
+            {
+                // シーンの状態が Ready か Running 以外なら
+                var state = sceneManagementContext.State;
+                if (!(IsReady(state) || IsRunning(state)))
+                {
+                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
+                    continue;
+                }
+
+
+                // シーンの型が一致したのなら
+                var scene = sceneManagementContext.Scene;
+                if (scene.GetType() == sceneType)
+                {
+                    // このシーンを返す
+                    return scene as TScene;
+                }
+            }
+
+
+            // ループから抜けてきたということは見つからなかったとして null を返す
+            return null;
         }
 
 
         /// <summary>
-        /// シーンスタックに積まれた内の、指定されたシーン型のインスタンスをすべて検索します
-        /// </summary>
-        /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <returns>シーンインスタンスを見つけた場合は、見つけたインスタンスの配列を返します。しかし、見つけられなかった場合は、長さ 0 の配列を返します。</returns>
-        public GameScene[] FindAllScene<TScene>() where TScene : GameScene
-        {
-            // 未実装
-            throw new NotImplementedException();
-        }
-
-
-        /// <summary>
-        /// シーンスタックに積まれた内の、指定されたシーン型のインスタンスをすべて検索します
+        /// このサービスが保持している実行状態または実行準備のある、指定されたシーン型のインスタンスをすべて検索します
         /// </summary>
         /// <remarks>
-        /// FindAllScene() と この関数の違いは、検索結果を格納するバッファを呼び出し元から受け取る点にあります。
+        /// この関数が返す配列の順序は、新しく実行要求のあった順に整列しています。
+        /// </remarks>
+        /// <typeparam name="TScene">検索するシーン型</typeparam>
+        /// <returns>シーンインスタンスを見つけた場合は、見つけたインスタンスの配列を返します。しかし、見つけられなかった場合は長さ 0 の配列を返します。</returns>
+        public TScene[] FindAllScene<TScene>() where TScene : TSceneBase
+        {
+            // 検索する型の取得と検索結果を一時的に蓄えるリスト
+            var sceneType = typeof(TScene);
+            var resultList = new List<TScene>(sceneManagementContextList.Count);
+
+
+            // 管理情報の数分末尾から回る
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // もしシーンの状態が Ready か Running 以外なら
+                var state = sceneManagementContextList[i].State;
+                if (!(IsReady(state) || IsRunning(state)))
+                {
+                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
+                    continue;
+                }
+
+
+                // シーンの型が一致したのなら
+                var scene = sceneManagementContextList[i].Scene;
+                if (scene.GetType() == sceneType)
+                {
+                    // このシーンを返す候補に詰める
+                    resultList.Add(scene as TScene);
+                }
+            }
+
+
+            // 配列として返す
+            return resultList.ToArray();
+        }
+
+
+        /// <summary>
+        /// このサービスが保持している実行状態または実行準備のある、指定されたシーン型のインスタンスをすべて検索します
+        /// </summary>
+        /// <remarks>
+        /// この関数は、殆ど FindAllScene() と、同じ挙動ですが、違いとしては検索結果を格納するバッファを呼び出し元から受け取る点にあります。
         /// 非常に、高い頻度でシーン全体検索を行う場合において FindAllScene() 関数は内部で結果バッファを生成することにより
         /// ヒープを沢山消費してしまいパフォーマンスに悪影響を与えてしまうため、事前にバッファを用意することで、この問題を回避します。
         /// また、バッファサイズが実際に検索結果の数を下回ったとしても、バッファを超える検索は行わずバッファが満たされた状態で関数は終了します。
@@ -462,37 +518,163 @@ namespace IceMilkTea.Service
         /// <param name="result">検索結果を格納する GameScene バッファ</param>
         /// <returns>result 引数に与えられたバッファに格納した総数を返します。</returns>
         /// <exception cref="ArgumentNullException">result が null です</exception>
-        public int FindAllSceneNonAlloc<TScene>(GameScene[] result) where TScene : GameScene
+        public int FindAllSceneNonAlloc<TScene>(TScene[] result) where TScene : TSceneBase
         {
-            // 未実装
-            throw new NotImplementedException();
+            // nullを渡されてしまったら
+            if (result == null)
+            {
+                // そんな要求は受け付けられない！
+                throw new ArgumentNullException(nameof(result));
+            }
+
+
+            // バッファサイズが0なら
+            if (result.Length == 0)
+            {
+                // 直ちに終了
+                return 0;
+            }
+
+
+            // 検索する型の取得
+            var sceneType = typeof(TScene);
+
+
+            // 管理情報の数分末尾から回る
+            var insertIndex = 0;
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // もし渡されたバッファを満たしている状態なら
+                if (result.Length == insertIndex)
+                {
+                    // ループから脱出して検索を終了する
+                    break;
+                }
+
+
+                // もしシーンの状態が Ready か Running 以外なら
+                var state = sceneManagementContextList[i].State;
+                if (!(IsReady(state) || IsRunning(state)))
+                {
+                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
+                    continue;
+                }
+
+
+                // シーンの型が一致したのなら
+                var scene = sceneManagementContextList[i].Scene;
+                if (scene.GetType() == sceneType)
+                {
+                    // バッファに情報を入れて挿入インデックス位置をずらす
+                    result[insertIndex] = scene as TScene;
+                    ++insertIndex;
+                }
+            }
+
+
+            // 取得した件数を返す（挿入インデックスの位置がちょうど検索件数と一致する）
+            return insertIndex;
         }
 
 
         /// <summary>
-        /// 指定されたシーンがシーンスタックに含まれているか確認をします
+        /// 指定されたシーンが、このサービスによって管理され含まれているか確認をします。
+        /// また、含まれているかどうかについては、シーンの状態が 実行状態 か 実行準備完了状態 の場合に限ります。
         /// </summary>
         /// <param name="scene">確認をするシーン</param>
-        /// <returns>該当のシーンが、シーンスタックに含まれている場合は true を、含まれていない場合は false を返します</returns>
-        public bool ContainsScene(GameScene scene)
+        /// <returns>該当のシーンが、サービスに含まれている場合は true を、含まれていない場合は false を返します</returns>
+        /// <exception cref="ArgumentNullException">scene が null です</exception>
+        public bool ContainsScene(TSceneBase scene)
         {
-            // 未実装
-            throw new NotImplementedException();
+            // nullを渡されてしまったら
+            if (scene == null)
+            {
+                // そのような確認は許されない！
+                throw new ArgumentNullException(nameof(scene));
+            }
+
+
+            // 管理情報の数分回る
+            foreach (var sceneManagementContext in sceneManagementContextList)
+            {
+                // もし参照が一致するシーンの管理情報が見つかったのなら
+                if (sceneManagementContext.Scene == scene)
+                {
+                    // 直ちに見つかったことを返したいが、破棄対象になっているのなら
+                    if (IsDestroy(sceneManagementContext.State))
+                    {
+                        // 見つかったとしてもこれは破棄される予定なので次を探す
+                        continue;
+                    }
+
+
+                    // 破棄対象でも無いのなら存在していることを返す
+                    return true;
+                }
+            }
+
+
+            // ループから抜けてきてしまったのなら存在していないことになる
+            return false;
         }
 
 
         /// <summary>
-        /// 指定されたシーンのひとつ下に存在するシーンを取得します
+        /// 指定されたシーンのひとつ前に存在する、動作可能な状態のシーンを取得します
         /// </summary>
-        /// <param name="scene">取り出すシーンの一つ上に存在するシーン</param>
-        /// <returns>指定されたシーンのひとつ下のシーンを返します</returns>
+        /// <remarks>
+        /// この関数は、一つ前のシーンが動作可能状態で有ることを保証したシーンを取得します
+        /// </remarks>
+        /// <param name="scene">取り出すシーンの一つ次に存在するシーン。このシーンは破棄対象になったシーンでも構いません</param>
+        /// <returns>指定されたシーンのひとつ前の、動作可能な状態のシーンを返します</returns>
         /// <exception cref="ArgumentNullException">scene が null です</exception>
-        /// <exception cref="InvalidOperationException">指定された scene は、シーンスタックに含まれていません</exception>
-        /// <exception cref="InvalidOperationException">指定された scene は、シーンスタックの最下位に存在しています</exception>
-        public GameScene GetPreviousScene(GameScene scene)
+        /// <exception cref="InvalidOperationException">指定された scene は、管理対象になっていません</exception>
+        /// <exception cref="InvalidOperationException">指定された scene より前に動作可能なシーンが存在しません</exception>
+        public TSceneBase GetPreviousScene(TSceneBase scene)
         {
-            // 未実装
-            throw new NotImplementedException();
+            // nullを渡されてしまったら
+            if (scene == null)
+            {
+                // そのような確認は許されない！
+                throw new ArgumentNullException(nameof(scene));
+            }
+
+
+            // 管理情報の数分末尾から回る
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // もしシーンが一致するインデックスを見つけたのなら
+                if (sceneManagementContextList[i].Scene == scene)
+                {
+                    // ただしインデックス0なら
+                    if (i == 0)
+                    {
+                        // 一つ前にシーンが存在していない事を吐く
+                        throw new InvalidOperationException($"'{scene.GetType().Name}'より前に動作可能なシーンが存在しません");
+                    }
+
+
+                    // さらにここから動作可能なシーンを割り出す
+                    for (i = i - 1; i >= 0; --i)
+                    {
+                        // もしシーンの状態が Ready か Running なら
+                        var state = sceneManagementContextList[i].State;
+                        if (IsReady(state) || IsRunning(state))
+                        {
+                            // このシーンを返す
+                            return sceneManagementContextList[i].Scene;
+                        }
+                    }
+
+
+                    // ループから抜けてきてしまったのなら、一つ前にシーンが存在していない事を吐く
+                    throw new InvalidOperationException($"'{scene.GetType().Name}'より前に動作可能なシーンが存在しません");
+                }
+            }
+
+
+            // そもそも外枠のループから抜けてきたということは、管理対象ですらない事を吐く
+            throw new InvalidOperationException($"'{scene.GetType().Name}'は、管理対象のシーンではありません");
         }
         #endregion
     }
