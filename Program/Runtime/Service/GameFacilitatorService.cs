@@ -231,6 +231,43 @@ namespace IceMilkTea.Service
         /// </summary>
         private void UpdateService()
         {
+            // Updateを呼ぶべきシーンを覚える変数宣言
+            var needUpdateScene = default(TSceneBase);
+
+
+            // 管理情報の数分回る（全体を巡回しながら初期化を呼ぶべき子も一緒に探す）
+            foreach (var sceneManagementContext in sceneManagementContextList)
+            {
+                // もし動作開始準備なシーンなら
+                if (IsReady(sceneManagementContext.State))
+                {
+                    // 初期化処理を呼び出して実行状態にする
+                    sceneManagementContext.Scene.Initialize();
+                    sceneManagementContext.State = SceneState.Running;
+
+
+                    // そしてUpdateを呼ぶべきシーンとして覚えて次へ
+                    needUpdateScene = sceneManagementContext.Scene;
+                    continue;
+                }
+
+
+                // もし実行状態なシーンなら
+                if (IsRunning(sceneManagementContext.State))
+                {
+                    // Updateを呼ぶべきシーンとして覚えて次へ
+                    needUpdateScene = sceneManagementContext.Scene;
+                    continue;
+                }
+            }
+
+
+            // Updateを呼ぶべきシーンが存在するなら
+            if (needUpdateScene != null)
+            {
+                // Updateを呼ぶ
+                needUpdateScene.Update();
+            }
         }
 
 
@@ -239,6 +276,17 @@ namespace IceMilkTea.Service
         /// </summary>
         private void FinalFrameUpdate()
         {
+            // 管理情報の数分末尾から回る
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // 破棄対象なら
+                if (IsDestroy(sceneManagementContextList[i].State))
+                {
+                    // 破棄処理を呼んで削除する
+                    sceneManagementContextList[i].Scene.Terminate();
+                    sceneManagementContextList.RemoveAt(i);
+                }
+            }
         }
 
 
@@ -247,6 +295,10 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationSuspend()
         {
+            // 管理情報の数分末尾から回る
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+            }
         }
 
 
