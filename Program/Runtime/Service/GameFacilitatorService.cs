@@ -182,6 +182,13 @@ namespace IceMilkTea.Service
 
 
 
+        /// <summary>
+        /// 現在実行中のシーンを取得します
+        /// </summary>
+        public TSceneBase CurrentScene { get; private set; }
+
+
+
         #region コンストラクタと起動停止処理部
         /// <summary>
         /// GameFacilitatorService のインスタンスを初期化します
@@ -221,6 +228,24 @@ namespace IceMilkTea.Service
         /// </summary>
         protected internal override void Shutdown()
         {
+            // 管理情報の数分末尾から回る
+            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            {
+                // もし準備完了または準備完了破棄対象のステータスなら
+                if (IsReady(sceneManagementContextList[i].State) || sceneManagementContextList[i].State == SceneState.ReadyedButDestroy)
+                {
+                    // 解放処理は実行しないで次へ
+                    continue;
+                }
+
+
+                // 準備完了以外なら無条件で解放処理を呼ぶ
+                sceneManagementContextList[i].Scene.Terminate();
+            }
+
+
+            // 管理リストを空にする
+            sceneManagementContextList.Clear();
         }
         #endregion
 
@@ -231,7 +256,7 @@ namespace IceMilkTea.Service
         /// </summary>
         private void UpdateService()
         {
-            // Updateを呼ぶべきシーンを覚える変数宣言
+            // Updateを呼ぶべきシーンを初期化する
             var needUpdateScene = default(TSceneBase);
 
 
@@ -262,11 +287,15 @@ namespace IceMilkTea.Service
             }
 
 
+            // 巡回更新が終わったら現在処理するべきシーンの更新をする
+            CurrentScene = needUpdateScene;
+
+
             // Updateを呼ぶべきシーンが存在するなら
-            if (needUpdateScene != null)
+            if (CurrentScene != null)
             {
                 // Updateを呼ぶ
-                needUpdateScene.Update();
+                CurrentScene.Update();
             }
         }
 
@@ -282,8 +311,15 @@ namespace IceMilkTea.Service
                 // 破棄対象なら
                 if (IsDestroy(sceneManagementContextList[i].State))
                 {
-                    // 破棄処理を呼んで削除する
-                    sceneManagementContextList[i].Scene.Terminate();
+                    // 本当の破棄処理なら
+                    if (sceneManagementContextList[i].State == SceneState.Destroy)
+                    {
+                        // 破棄処理を呼ぶ
+                        sceneManagementContextList[i].Scene.Terminate();
+                    }
+
+
+                    // 要素を削除する
                     sceneManagementContextList.RemoveAt(i);
                 }
             }
@@ -295,9 +331,11 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationSuspend()
         {
-            // 管理情報の数分末尾から回る
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            // 現在のシーンが存在するなら
+            if (CurrentScene != null)
             {
+                // アプリケーションが一時停止したイベントを呼ぶ
+                CurrentScene.OnApplicationSleep();
             }
         }
 
@@ -307,6 +345,12 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationResume()
         {
+            // 現在のシーンが存在するなら
+            if (CurrentScene != null)
+            {
+                // アプリケーションが再開したイベントを呼ぶ
+                CurrentScene.OnApplicationResume();
+            }
         }
 
 
@@ -315,6 +359,12 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationFocusOut()
         {
+            // 現在のシーンが存在するなら
+            if (CurrentScene != null)
+            {
+                // アプリケーションがフォーカスを失ったイベントを呼ぶ
+                CurrentScene.OnApplicationFocusOut();
+            }
         }
 
 
@@ -323,6 +373,12 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationFocusIn()
         {
+            // 現在のシーンが存在するなら
+            if (CurrentScene != null)
+            {
+                // アプリケーションがフォーカスを得られたイベントを呼ぶ
+                CurrentScene.OnApplicationFocusIn();
+            }
         }
         #endregion
 
