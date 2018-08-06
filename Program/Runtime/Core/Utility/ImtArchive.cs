@@ -16,87 +16,88 @@
 namespace IceMilkTea.Core
 {
     #region CRC実装
+    #region 最基底CRCクラス定義
     /// <summary>
-    /// 巡回冗長検査アルゴリズムの中心となる実装を提供するクラスです。
+    /// 巡回冗長検査アルゴリズムの基本となる実装を提供するクラスです。
     /// </summary>
     /// <remarks>
     /// CRCの実装については "https://en.wikipedia.org/wiki/Cyclic_redundancy_check" を参照して下さい
     /// </remarks>
-    public static class CrcCore
+    /// <typeparam name="T">CRCビットサイズに該当する符号なし整数型を指定します</typeparam>
+    public abstract class CrcBase<T>
     {
         /// <summary>
-        /// ポピュラーな、右回りCRC32多項式の定数値です
+        /// CRCテーブルを生成します
         /// </summary>
-        public const uint PolynomialCrc32 = 0xEDB88320U;
-
-        /// <summary>
-        /// ISOで定義された、右回りCRC64多項式の定数値です
-        /// </summary>
-        public const ulong PolynomialCrc64Iso = 0xD800000000000000UL;
-
-        /// <summary>
-        /// ECMAで定義された、右回りCRC64多項式の定数値です
-        /// </summary>
-        public const ulong PolynomialCrc64Ecma = 0xC96C5795D7870F42UL;
-
-        /// <summary>
-        /// CRC32計算をする際に渡す最初のハッシュ値
-        /// </summary>
-        public const uint InitialCrc32HashValue = 0xFFFFFFFFU;
-
-        /// <summary>
-        /// CRC64計算をする際に渡す最初のハッシュ値
-        /// </summary>
-        public const ulong InitialCrc64HashValue = 0x0UL;
-
-
-
-        // クラス変数宣言
-        private static uint[] crc32Table;
-        private static ulong[] crc64Table;
-
+        /// <param name="polynomial">CRCで使用する多項式の値</param>
+        /// <returns>生成したCRCテーブルを返します</returns>
+        public abstract T[] CreateTable(T polynomial);
 
 
         /// <summary>
-        /// CrcCore クラスの初期化を行います。
-        /// 内部のCRCテーブルの既定初期化は、CRC32、CRC64Isoです。
+        /// 指定されたバッファ全体を、CRCの計算をします
         /// </summary>
-        static CrcCore()
-        {
-            // CRCテーブルを構築する
-            RebuildTable(PolynomialCrc32);
-            RebuildTable(PolynomialCrc64Iso);
-        }
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <returns>計算された結果を返します</returns>
+        public abstract T Calculate(byte[] buffer);
 
 
         /// <summary>
-        /// CRC32用のテーブルを再構築します
+        /// 指定されたバッファの範囲を、CRCの計算を行います
         /// </summary>
-        /// <param name="polynomial">CRC32で利用する多項式の値</param>
-        public static void RebuildTable(uint polynomial)
-        {
-            // テーブルを作る
-            crc32Table = CreateTable(polynomial);
-        }
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <param name="index">バッファの開始位置</param>
+        /// <param name="count">バッファから取り出す量</param>
+        /// <returns>計算された結果を返します</returns>
+        public abstract T Calculate(byte[] buffer, int index, int count);
 
 
         /// <summary>
-        /// CRC64用のテーブルを再構築します
+        /// 指定されたバッファ全体を、CRCの計算をします
         /// </summary>
-        /// <param name="polynomial">CRC64で利用する多項式の値</param>
-        public static void RebuildTable(ulong polynomial)
-        {
-            // テーブルを作る
-            crc64Table = CreateTable(polynomial);
-        }
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <returns>計算された結果を返します</returns>
+        public abstract T Calculate(T continusHash, byte[] buffer);
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <param name="index">バッファの開始位置</param>
+        /// <param name="count">バッファから取り出す量</param>
+        /// <returns>計算された結果を返します</returns>
+        public abstract T Calculate(T continusHash, byte[] buffer, int index, int count);
+    }
+    #endregion
+
+
+    #region CRC32基本クラス定義
+    /// <summary>
+    /// CRC32向けの基本クラスです。
+    /// CRCの32bit長のクラスを実装する場合はこのクラスを継承して下さい。
+    /// </summary>
+    public abstract class Crc32Base : CrcBase<uint>
+    {
+        // 以下メンバ変数定義
+        protected uint[] table;
+
 
 
         /// <summary>
         /// CRC32向けのテーブルを生成します
         /// </summary>
         /// <param name="polynomial">CRC32で利用する多項式の値</param>
-        /// <returns>生成されたCRCテーブルを返します</returns>
-        public static uint[] CreateTable(uint polynomial)
+        /// <returns>生成したCRCテーブルを返します</returns>
+        public override uint[] CreateTable(uint polynomial)
         {
             // テーブル用配列を生成
             var table = new uint[256];
@@ -127,11 +128,70 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 指定されたバッファ全体を、CRC32の計算を行います
+        /// </summary>
+        /// <remarks>
+        /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
+        /// また、初回の計算をする前に continusHash へ uint.MaxValue をセットし、すべてのバッファ処理が終了後 uint.MaxValue の XOR 反転を行って下さい。
+        /// </remarks>
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <returns>CRC32計算された結果を返します</returns>
+        public override uint Calculate(uint continusHash, byte[] buffer)
+        {
+            // 渡されたバッファ全体を計算する
+            return Calculate(continusHash, buffer, 0, buffer.Length);
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRC32の計算を行います
+        /// </summary>
+        /// <remarks>
+        /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
+        /// また、初回の計算をする前に continusHash へ uint.MaxValue をセットし、すべてのバッファ処理が終了後 uint.MaxValue の XOR 反転を行って下さい。
+        /// </remarks>
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <param name="index">バッファの開始位置</param>
+        /// <param name="count">バッファから取り出す量</param>
+        /// <returns>CRC32計算された結果を返します</returns>
+        public override uint Calculate(uint continusHash, byte[] buffer, int index, int count)
+        {
+            // 指定バッファ範囲分ループする
+            var limit = index + count;
+            for (int i = index; i < limit; ++i)
+            {
+                // 右回りCRC計算をする
+                continusHash = table[(buffer[i] ^ continusHash) & 0xFF] ^ (continusHash >> 8);
+            }
+
+
+            // 計算結果を返す
+            return continusHash;
+        }
+    }
+    #endregion
+
+
+    #region CRC64基本クラス定義
+    /// <summary>
+    /// CRC64向けの基本クラスです。
+    /// CRCの64bit長のクラスを実装する場合はこのクラスを継承して下さい。
+    /// </summary>
+    public abstract class Crc64Base : CrcBase<ulong>
+    {
+        // 以下メンバ変数定義
+        protected ulong[] table;
+
+
+
+        /// <summary>
         /// CRC64向けのテーブルを生成します
         /// </summary>
         /// <param name="polynomial">CRC64で利用する多項式の値</param>
-        /// <returns>生成されたCRCテーブルを返します</returns>
-        public static ulong[] CreateTable(ulong polynomial)
+        /// <returns>生成したCRCテーブルを返します</returns>
+        public override ulong[] CreateTable(ulong polynomial)
         {
             // テーブル用配列を生成
             var table = new ulong[256];
@@ -162,63 +222,19 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定されたバッファ全体を、CRC32の計算を行います
-        /// </summary>
-        /// <remarks>
-        /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
-        /// また、CRC32を計算する場合に continusHash に InitialCrc32HashValue を入れてから、すべてのバッファの処理が終わったら InitialCrc32HashValue の XOR 反転を行って下さい。
-        /// </remarks>
-        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
-        /// <param name="buffer">計算する対象のバッファ</param>
-        /// <returns>CRC32計算された結果を返します</returns>
-        public static uint Calculate(uint continusHash, byte[] buffer)
-        {
-            // 渡されたバッファ全体を計算する
-            return Calculate(continusHash, buffer, 0, buffer.Length);
-        }
-
-
-        /// <summary>
         /// 指定されたバッファ全体を、CRC64の計算を行います
         /// </summary>
         /// <remarks>
         /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
+        /// また、初回の計算をする前に continusHash へ ulong.MaxValue をセットし、すべてのバッファ処理が終了後 ulong.MaxValue の XOR 反転を行って下さい。
         /// </remarks>
         /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <returns>CRC64計算された結果を返します</returns>
-        public static ulong Calculate(ulong continusHash, byte[] buffer)
+        public override ulong Calculate(ulong continusHash, byte[] buffer)
         {
             // 渡されたバッファ全体を計算する
             return Calculate(continusHash, buffer, 0, buffer.Length);
-        }
-
-
-        /// <summary>
-        /// 指定されたバッファの範囲を、CRC32の計算を行います
-        /// </summary>
-        /// <remarks>
-        /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
-        /// また、CRC32を計算する場合に continusHash に InitialCrc32HashValue を入れてから、すべてのバッファの処理が終わったら InitialCrc32HashValue の XOR 反転を行って下さい。
-        /// </remarks>
-        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
-        /// <param name="buffer">計算する対象のバッファ</param>
-        /// <param name="index">バッファの開始位置</param>
-        /// <param name="count">バッファから取り出す量</param>
-        /// <returns>CRC32計算された結果を返します</returns>
-        public static uint Calculate(uint continusHash, byte[] buffer, int index, int count)
-        {
-            // 指定バッファ範囲分ループする
-            var limit = index + count;
-            for (int i = index; i < limit; ++i)
-            {
-                // 右回りCRC計算をする
-                continusHash = crc32Table[(buffer[i] ^ continusHash) & 0xFF] ^ (continusHash >> 8);
-            }
-
-
-            // 計算結果を返す
-            return continusHash;
         }
 
 
@@ -227,20 +243,21 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <remarks>
         /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
+        /// また、初回の計算をする前に continusHash へ ulong.MaxValue をセットし、すべてのバッファ処理が終了後 ulong.MaxValue の XOR 反転を行って下さい。
         /// </remarks>
         /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <param name="index">バッファの開始位置</param>
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>CRC64計算された結果を返します</returns>
-        public static ulong Calculate(ulong continusHash, byte[] buffer, int index, int count)
+        public override ulong Calculate(ulong continusHash, byte[] buffer, int index, int count)
         {
             // 指定バッファ範囲分ループする
             var limit = index + count;
             for (int i = 0; i < limit; ++i)
             {
                 // 右回りCRC計算をする
-                continusHash = crc64Table[(buffer[i] ^ continusHash) & 0xFF] ^ (continusHash >> 8);
+                continusHash = table[(buffer[i] ^ continusHash) & 0xFF] ^ (continusHash >> 8);
             }
 
 
@@ -248,5 +265,216 @@ namespace IceMilkTea.Core
             return continusHash;
         }
     }
+    #endregion
+
+
+    #region ポピュラーなCRC32
+    /// <summary>
+    /// 非常にポピュラーなCRC32を提供するクラスです
+    /// </summary>
+    public class Crc32 : Crc32Base
+    {
+        /// <summary>
+        /// ポピュラーな、右回りCRC32多項式の定数値です
+        /// </summary>
+        public const uint Polynomial = 0xEDB88320U;
+
+
+
+        // クラス変数定義
+        private static uint[] crcTable;
+
+
+
+        /// <summary>
+        /// CRC32のインスタンスの初期化を行います
+        /// </summary>
+        public Crc32()
+        {
+            // まだ共通のCRCテーブルが未生成なら
+            if (crcTable == null)
+            {
+                // テーブルを構築する
+                crcTable = CreateTable(Polynomial);
+            }
+
+
+            // 共通のテーブルの参照を設定する
+            table = crcTable;
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファ全体を、CRCの計算をします
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <returns>計算された結果を返します</returns>
+        public override uint Calculate(byte[] buffer)
+        {
+            // uint.MaxValueによるXOR反転を利用した計算を行い結果を返す
+            return Calculate(uint.MaxValue, buffer, 0, buffer.Length) ^ uint.MaxValue;
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <param name="index">バッファの開始位置</param>
+        /// <param name="count">バッファから取り出す量</param>
+        /// <returns>計算された結果を返します</returns>
+        public override uint Calculate(byte[] buffer, int index, int count)
+        {
+            // uint.MaxValueによるXOR反転を利用した計算を行い結果を返す
+            return Calculate(uint.MaxValue, buffer, index, count) ^ uint.MaxValue;
+        }
+    }
+    #endregion
+
+
+    #region CRC64-ISO
+    /// <summary>
+    /// CRC64-ISOを提供するクラスです
+    /// </summary>
+    public class Crc64Iso : Crc64Base
+    {
+        /// <summary>
+        /// ISOで定義された、右回りCRC64多項式の定数値です
+        /// </summary>
+        public const ulong Polynomial = 0xD800000000000000UL;
+
+
+
+        // クラス変数定義
+        private static ulong[] crcTable;
+
+
+
+        /// <summary>
+        /// CRC64Isoのインスタンスの初期化を行います
+        /// </summary>
+        public Crc64Iso()
+        {
+            // まだ共通のCRCテーブルが未生成なら
+            if (crcTable == null)
+            {
+                // テーブルを構築する
+                crcTable = CreateTable(Polynomial);
+            }
+
+
+            // 共通のテーブルの参照を設定する
+            table = crcTable;
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファ全体を、CRCの計算をします
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <returns>計算された結果を返します</returns>
+        public override ulong Calculate(byte[] buffer)
+        {
+            // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+            return Calculate(ulong.MaxValue, buffer, 0, buffer.Length) ^ ulong.MaxValue;
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <param name="index">バッファの開始位置</param>
+        /// <param name="count">バッファから取り出す量</param>
+        /// <returns>計算された結果を返します</returns>
+        public override ulong Calculate(byte[] buffer, int index, int count)
+        {
+            // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+            return Calculate(ulong.MaxValue, buffer, index, count) ^ ulong.MaxValue;
+        }
+    }
+    #endregion
+
+
+    #region CRC64-ECMA
+    /// <summary>
+    /// CRC64-ECMAを提供するクラスです
+    /// </summary>
+    public class Crc64Ecma : Crc64Base
+    {
+        /// <summary>
+        /// ECMAで定義された、右回りCRC64多項式の定数値です
+        /// </summary>
+        public const ulong Polynomial = 0xC96C5795D7870F42UL;
+
+
+
+        // クラス変数定義
+        private static ulong[] crcTable;
+
+
+
+        /// <summary>
+        /// CRC64Ecmaのインスタンスの初期化を行います
+        /// </summary>
+        public Crc64Ecma()
+        {
+            // まだ共通のCRCテーブルが未生成なら
+            if (crcTable == null)
+            {
+                // テーブルを構築する
+                crcTable = CreateTable(Polynomial);
+            }
+
+
+            // 共通のテーブルの参照を設定する
+            table = crcTable;
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファ全体を、CRCの計算をします
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <returns>計算された結果を返します</returns>
+        public override ulong Calculate(byte[] buffer)
+        {
+            // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+            return Calculate(ulong.MaxValue, buffer, 0, buffer.Length) ^ ulong.MaxValue;
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のバッファ</param>
+        /// <param name="index">バッファの開始位置</param>
+        /// <param name="count">バッファから取り出す量</param>
+        /// <returns>計算された結果を返します</returns>
+        public override ulong Calculate(byte[] buffer, int index, int count)
+        {
+            // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+            return Calculate(ulong.MaxValue, buffer, index, count) ^ ulong.MaxValue;
+        }
+    }
+    #endregion
     #endregion
 }
