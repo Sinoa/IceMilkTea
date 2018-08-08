@@ -15,13 +15,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace IceMilkTea.Core
 {
     /// <summary>
     /// コンテキストを持つことのできるステートマシンクラスです
     /// </summary>
-    /// <typeparam name="TContext">このステートマシンが持つコンテキストのクラス型</typeparam>
+    /// <typeparam name="TContext">このステートマシンが持つコンテキストの型</typeparam>
     public class ImtStateMachine<TContext>
     {
         #region ステートクラス本体と特別ステートクラスの定義
@@ -308,7 +309,7 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <returns>スタックからステートがポップされ次の遷移の準備が完了した場合は true を、ポップするステートがなかったり、ステートによりポップがガードされた場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
-        public bool PopState()
+        public virtual bool PopState()
         {
             // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
             IfNotRunningThrowException();
@@ -391,7 +392,7 @@ namespace IceMilkTea.Core
         /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
-        public bool SendEvent(int eventId)
+        public virtual bool SendEvent(int eventId)
         {
             // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
             IfNotRunningThrowException();
@@ -447,7 +448,7 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
         /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
-        public void Update()
+        public virtual void Update()
         {
             // もしステートマシンの更新状態がアイドリング以外だったら
             if (updateState != UpdateState.Idle)
@@ -527,7 +528,7 @@ namespace IceMilkTea.Core
         /// ステートマシンが未起動の場合に例外を送出します
         /// </summary>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
-        private void IfNotRunningThrowException()
+        protected void IfNotRunningThrowException()
         {
             // そもそもまだ現在実行中のステートが存在していないなら
             if (!Running)
@@ -574,4 +575,371 @@ namespace IceMilkTea.Core
         }
         #endregion
     }
+
+
+
+    #region 同期ステートマシンの実装
+    #region 同期コンテキストの実装
+    /// <summary>
+    /// 同期ステートマシンが保持する、同期コンテキストのクラスです
+    /// </summary>
+    /// <remarks>
+    /// このクラスは ImtSynchronizationStateMachine クラスが、ステートで処理される非同期処理を同期的に制御する際に利用されます
+    /// </remarks>
+    internal class StateMachineSynchronizationContext : SynchronizationContext
+    {
+        /// <summary>
+        /// 同期コンテキストに送られてきたコールバック関数を保持する構造体です
+        /// </summary>
+        private struct Message
+        {
+            /// <summary>
+            /// 処理するべきコールバック
+            /// </summary>
+            private SendOrPostCallback callback;
+
+            /// <summary>
+            /// コールバック関数を呼ぶときに渡すべき状態オブジェクト
+            /// </summary>
+            private object state;
+
+            /// <summary>
+            /// 非同期処理側からの同期呼び出しが行われた際の待機オブジェクト
+            /// </summary>
+            private ManualResetEvent waitHandle;
+
+
+
+            /// <summary>
+            /// Message インスタンスの初期化を行います
+            /// </summary>
+            /// <param name="callback">呼び出すべきコールバック</param>
+            /// <param name="state">コールバックに渡すべきステートオブジェクト</param>
+            /// <param name="waitHandle">同期呼び出しの際に必要な待機オブジェクト</param>
+            public Message(SendOrPostCallback callback, object state, ManualResetEvent waitHandle)
+            {
+                // 渡されたものを覚える
+                this.callback = callback;
+                this.state = state;
+                this.waitHandle = waitHandle;
+            }
+
+
+            /// <summary>
+            /// メッセージの呼び出しを行います。
+            /// また、この時に同期オブジェクトが渡されていた場合は、同期オブジェクトのシグナルも送信します。
+            /// </summary>
+            public void Invoke()
+            {
+                // コールバックの呼び出し
+                callback(state);
+
+
+                // もし待機オブジェクトがあるなら
+                if (waitHandle != null)
+                {
+                    // シグナルを送る
+                    waitHandle.Set();
+                }
+            }
+        }
+
+
+
+        // 以下メンバ変数定義
+        private int myStartupThreadId;
+        private Queue<Message> messageQueue;
+
+
+
+        /// <summary>
+        /// StateMachineSynchronizationContext のインスタンスを初期化します
+        /// </summary>
+        public StateMachineSynchronizationContext()
+        {
+            // 自分が起動したスレッドのIDを覚えつつ
+            // ポストされたメッセージを溜めるキューのインスタンスを生成
+            // （ステート内でのみのメッセージなので容量は既定値のまま）
+            myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
+            messageQueue = new Queue<Message>();
+        }
+
+
+        /// <summary>
+        /// 同期コンテキストに、メッセージを同期呼び出しするように送信します
+        /// </summary>
+        /// <param name="callback">同期呼び出しをして欲しいコールバック関数</param>
+        /// <param name="state">コールバックに渡すオブジェクト</param>
+        public override void Send(SendOrPostCallback callback, object state)
+        {
+            // 呼び出し側が同じスレッドなら
+            if (Thread.CurrentThread.ManagedThreadId == myStartupThreadId)
+            {
+                // わざわざ同期コンテキストに送らないで、自分で呼んでや
+                callback(state);
+                return;
+            }
+
+
+            // 待機オブジェクトを作って
+            using (var waitHandle = new ManualResetEvent(false))
+            {
+                // キューをロック
+                lock (messageQueue)
+                {
+                    // キューに自分のメッセージが処理されるようにキューイング
+                    messageQueue.Enqueue(new Message(callback, state, waitHandle));
+                }
+
+
+                // メッセージキューから取り出されて処理されるまで待つ
+                waitHandle.WaitOne();
+            }
+        }
+
+
+        /// <summary>
+        /// 同期コンテキストに、メッセージを非同期的に呼び出すようにポストします
+        /// </summary>
+        /// <param name="callback">ポストするコールバック関数</param>
+        /// <param name="state">ポストしたコールバック関数に渡すオブジェクト</param>
+        public override void Post(SendOrPostCallback callback, object state)
+        {
+            // キューをロック
+            lock (messageQueue)
+            {
+                // キューにメッセージが処理されるようにキューイング
+                messageQueue.Enqueue(new Message(callback, state, null));
+            }
+        }
+
+
+        /// <summary>
+        /// メッセージキューに蓄えられている、メッセージをすべて処理します
+        /// </summary>
+        internal void DoProcessMessages()
+        {
+            // キューをロック
+            lock (messageQueue)
+            {
+                // キューが空になるまでループ
+                while (messageQueue.Count > 0)
+                {
+                    // キューからメッセージを取り出してそのまま呼び出しを行う
+                    messageQueue.Dequeue().Invoke();
+                }
+            }
+        }
+    }
+    #endregion
+
+
+
+    #region 同期ステートマシン本体の実装
+    /// <summary>
+    /// 同期コンテキストの機能を持った、同期ステートマシンクラスです。
+    /// </summary>
+    /// <remarks>
+    /// 同期ステートマシンは、ステートマシンのあらゆる状態制御処理において、同期コンテキストがそのステートマシンに
+    /// スイッチし、同期コンテキストのハンドリングは、このステートマシンによって委ねられます。
+    /// 状態制御が完了した時は、本来の同期コンテキストに戻ります。
+    /// </remarks>
+    /// <typeparam name="TContext">このステートマシンが持つコンテキストの型（同期コンテキストの型ではありません）</typeparam>
+    public class ImtSynchronizationStateMachine<TContext> : ImtStateMachine<TContext>
+    {
+        // 以下メンバ変数定義
+        private StateMachineSynchronizationContext synchronizationContext;
+
+
+
+        /// <summary>
+        /// ImtSynchronizationStateMachine のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">このステートマシンが持つコンテキスト</param>
+        /// <exception cref="ArgumentNullException">context が null です</exception>
+        public ImtSynchronizationStateMachine(TContext context) : base(context)
+        {
+            // ステートマシン用同期コンテキストを生成
+            synchronizationContext = new StateMachineSynchronizationContext();
+        }
+
+
+        #region 同期コンテキストのハンドリング系
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、このステートマシンに送られた、同期コンテキストのメッセージをすべて処理します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// このステートマシンの状態更新処理中に、同期コンテキストに送られたメッセージを処理するためには必ずこの関数を呼び出すようにして下さい。
+        /// 呼び出さずに放置をしてしまった場合は、システムに深刻なダメージを与えることになります。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        public void DoProcessMessage()
+        {
+            // ステートマシンがまだ起動していないなら例外を吐く
+            IfNotRunningThrowException();
+
+
+            // ステートマシンが既に更新処理を実行しているのなら
+            if (Updating)
+            {
+                // 更新処理中に呼び出すことは許されない
+                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+            }
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 同期コンテキストのメッセージを処理する
+            synchronizationContext.DoProcessMessages();
+
+
+            // 本来の同期コンテキストに戻す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+
+
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、このステートマシンに送られた、同期コンテキストのメッセージをすべて処理します。
+        /// さらに、すべてのメッセージの処理が終わったらそのまま更新処理を呼び出します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// このステートマシンの状態更新処理中に、同期コンテキストに送られたメッセージを処理するためには必ずこの関数を呼び出すようにして下さい。
+        /// 呼び出さずに放置をしてしまった場合は、システムに深刻なダメージを与えることになります。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        public void DoProcessMessageWithUpdate()
+        {
+            // ステートマシンがまだ起動していないなら例外を吐く
+            IfNotRunningThrowException();
+
+
+            // ステートマシンが既に更新処理を実行しているのなら
+            if (Updating)
+            {
+                // 更新処理中に呼び出すことは許されない
+                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+            }
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 同期コンテキストのメッセージを処理を行い、そのまま継続してUpdateを呼ぶ
+            synchronizationContext.DoProcessMessages();
+            base.Update();
+
+
+            // 本来の同期コンテキストに戻す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+        #endregion
+
+
+        #region ステートスタック操作系のオーバーライド
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、ステートスタックに積まれているステートを取り出し、遷移の準備を行います。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は、イベントIDを送ることのない点を除けば SendEvent 関数と非常に似ています。
+        /// 既に SendEvent によって次の遷移の準備ができている場合は、スタックからステートはポップされることはありません。
+        /// さらに、この状態更新処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ次の遷移の準備が完了した場合は true を、ポップするステートがなかったり、ステートによりポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override bool PopState()
+        {
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のPopStateを呼び出す
+            var result = base.PopState();
+
+
+            // 本来の同期コンテキストに戻して結果を返す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+            return result;
+        }
+        #endregion
+
+
+        #region ステートマシン制御系のオーバーライド
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、イベントを送信して、ステート遷移の準備を行います。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
+        /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
+        /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
+        /// 何度も遷移をすることが可能ですが Exit 中で遷移中になるため例外が送出されます。
+        /// そして、この関数の処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <param name="eventId">ステートマシンに送信するイベントID</param>
+        /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override bool SendEvent(int eventId)
+        {
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のSendEventを呼び出す
+            var result = base.SendEvent(eventId);
+
+
+            // 本来の同期コンテキストに戻して結果を返す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+            return result;
+        }
+
+
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、状態を更新します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// ステートマシンの現在処理しているステートの更新を行いますが、まだ未起動の場合は SetStartState 関数によって設定されたステートが起動します。
+        /// また、ステートマシンが初回起動時の場合、ステートのUpdateは呼び出されず、次の更新処理が実行される時になります。
+        /// さらに、この状態更新処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override void Update()
+        {
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のUpdateを呼び出す
+            base.Update();
+
+
+            // 本来の同期コンテキストに戻す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+        #endregion
+    }
+    #endregion
+    #endregion
 }
