@@ -80,8 +80,17 @@ namespace IceMilkTea.Core
             }
             else
             {
-                // 非同期操作の完了イベントに継続関数を登録しておく
-                asyncOperation.completed += (AsyncOperation _) => continuation();
+                // 現在の同期コンテキストを取り出してコールバックの準備もする
+                var context = System.Threading.SynchronizationContext.Current;
+                var callback = new System.Threading.SendOrPostCallback(_ => continuation());
+
+
+                // 非同期操作の完了イベントのハンドリング
+                asyncOperation.completed += (AsyncOperation _) =>
+                {
+                    // 同期コンテキストのポストを行う様に仕向ける
+                    context.Post(callback, null);
+                };
             }
         }
 
