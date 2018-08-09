@@ -439,13 +439,8 @@ namespace IceMilkTea.Core
             loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
             loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
             loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
-#if UNITY_2018_1
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
-#else
             loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
             loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
-#endif
             loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
             loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
             loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
