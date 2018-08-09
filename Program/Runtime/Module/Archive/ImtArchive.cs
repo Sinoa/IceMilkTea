@@ -268,6 +268,25 @@ CRC64の参考URL
 namespace IceMilkTea.Module
 {
     /// <summary>
+    /// ImtArchiveモジュール用の拡張関数実装クラスです。
+    /// </summary>
+    public static class ImtArchiveCodeExtensions
+    {
+        /// <summary>
+        /// 該当のエントリ情報から実体がアーカイブに含まれているか確認をします。
+        /// TODO : 構造体コピーのためコンパイラバージョンが上がり次第 in 引数をつける
+        /// </summary>
+        /// <param name="info">確認対象となるエントリ情報</param>
+        /// <returns>実体が含まれている場合は true を、含まれていない場合は false を返します</returns>
+        public static bool IsContainEntryData(this ImtArchiveEntryInfo info)
+        {
+            return info.Offset != 0;
+        }
+    }
+
+
+
+    /// <summary>
     /// アーカイブに含まれるエントリの情報を表現する構造体です
     /// </summary>
     public struct ImtArchiveEntryInfo
