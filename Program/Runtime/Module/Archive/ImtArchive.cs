@@ -267,4 +267,33 @@ CRC64の参考URL
 
 namespace IceMilkTea.Module
 {
+    /// <summary>
+    /// アーカイブに含まれるエントリの情報を表現する構造体です
+    /// </summary>
+    public struct ImtArchiveEntryInfo
+    {
+        /// <summary>
+        /// エントリIDです。
+        /// 通常は、ファイル名のCRC64-Ecmaによって求められます。
+        /// </summary>
+        public ulong Id;
+
+        /// <summary>
+        /// エントリの実体が入っているアーカイブファイルの先頭からのオフセット。
+        /// エントリの実体がない場合は 0 がセットされている必要があります。
+        /// </summary>
+        public ulong Offset;
+
+        /// <summary>
+        /// エントリの実体のサイズ。
+        /// エントリの実体がない場合は 不定値 になる場合がある事に気をつけてください。
+        /// </summary>
+        public ulong Size;
+
+        /// <summary>
+        /// 予約領域です。
+        /// 常にゼロで初期化されていなければいけません。
+        /// </summary>
+        public ulong Reserved;
+    }
 }
