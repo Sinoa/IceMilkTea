@@ -288,7 +288,7 @@ namespace IceMilkTea.Module
         /// <summary>
         /// マジックナンバーが壊れています
         /// </summary>
-        MagicNumberBroken,
+        BrokenMagicNumber,
 
         /// <summary>
         /// アーカイブバージョンが不正です
@@ -298,7 +298,7 @@ namespace IceMilkTea.Module
         /// <summary>
         /// アーカイブ情報が壊れています
         /// </summary>
-        ArchiveInfoBroken,
+        BrokenArchiveInfo,
 
         /// <summary>
         /// エントリ情報リストオフセットが不正です
@@ -313,7 +313,7 @@ namespace IceMilkTea.Module
         /// <summary>
         /// 予約領域が壊れています
         /// </summary>
-        ReservedBroken,
+        BrokenReserved,
     }
 
 
@@ -490,7 +490,7 @@ namespace IceMilkTea.Module
             if (MagicNumber == null || MagicNumber.Length != 4)
             {
                 // 未初期化も長さ一致しないのもダメ
-                return ImtArchiveHeaderValidateResult.MagicNumberBroken;
+                return ImtArchiveHeaderValidateResult.BrokenMagicNumber;
             }
 
 
@@ -498,7 +498,7 @@ namespace IceMilkTea.Module
             if (MagicNumber[0] != 0x49 || MagicNumber[1] != 0x4D || MagicNumber[2] != 0x54 || MagicNumber[3] != 0x41)
             {
                 // マジックナンバーの状態がよろしくない
-                return ImtArchiveHeaderValidateResult.MagicNumberBroken;
+                return ImtArchiveHeaderValidateResult.BrokenMagicNumber;
             }
 
 
@@ -515,7 +515,7 @@ namespace IceMilkTea.Module
             if ((ArchiveInfo & 0xFFFFFFFF00) != 0)
             {
                 // アーカイブ情報が壊れている
-                return ImtArchiveHeaderValidateResult.ArchiveInfoBroken;
+                return ImtArchiveHeaderValidateResult.BrokenArchiveInfo;
             }
 
 
@@ -539,7 +539,7 @@ namespace IceMilkTea.Module
             if (Reserved != 0)
             {
                 // 予約領域が壊れている
-                return ImtArchiveHeaderValidateResult.ReservedBroken;
+                return ImtArchiveHeaderValidateResult.BrokenReserved;
             }
 
 
@@ -552,6 +552,39 @@ namespace IceMilkTea.Module
 
 
     #region エントリ情報構造体
+    /// <summary>
+    /// アーカイブヘッダの ImtArchiveEntryInfo.Validate() 関数の結果を表す列挙型です。
+    /// </summary>
+    public enum ImtArchiveEntryInfoValidateResult
+    {
+        /// <summary>
+        /// エントリ情報に問題はありません
+        /// </summary>
+        NoProblem,
+
+        /// <summary>
+        /// エントリIDが壊れています
+        /// </summary>
+        BrokenEntryId,
+
+        /// <summary>
+        /// エントリオフセットが不正です
+        /// </summary>
+        InvalidEntryOffset,
+
+        /// <summary>
+        /// エントリサイズが不正です
+        /// </summary>
+        InvalidEntrySize,
+
+        /// <summary>
+        /// 予約領域が壊れています
+        /// </summary>
+        BrokenReserved,
+    }
+
+
+
     /// <summary>
     /// アーカイブに含まれるエントリの情報を表現する構造体です
     /// </summary>
@@ -611,6 +644,53 @@ namespace IceMilkTea.Module
                     sizeof(ulong) + // Size
                     sizeof(ulong); // Reserved
             }
+        }
+
+
+
+        /// <summary>
+        /// エントリ情報が有効かどうか検証をします。
+        /// </summary>
+        /// <remarks>
+        /// ヘッダの整合性を確認するだけであり、アーカイブファイルそのものの整合性を保証するものではありません。
+        /// </remarks>
+        /// <returns>ヘッダ情報の検証結果に対する結果を返します。問題がなければ ImtArchiveHeaderValidateResult.NoProblem を返します。</returns>
+        public ImtArchiveEntryInfoValidateResult Validate()
+        {
+            // エントリIDが0なら
+            if (Id == 0)
+            {
+                // エントリIDが壊れている
+                return ImtArchiveEntryInfoValidateResult.BrokenEntryId;
+            }
+
+
+            // オフセットが0以外で、アーカイブファイルヘッダ未満の値なら
+            if (Offset != 0 && Offset < ImtArchiveHeader.HeaderSize)
+            {
+                // 明らかな不正値である
+                return ImtArchiveEntryInfoValidateResult.InvalidEntryOffset;
+            }
+
+
+            // サイズが負の値なら
+            if (Size < 0)
+            {
+                // 明らかな不正値である
+                return ImtArchiveEntryInfoValidateResult.InvalidEntrySize;
+            }
+
+
+            // 予約領域が0以外なら
+            if (Reserved != 0)
+            {
+                // 予約領域が壊れている
+                return ImtArchiveEntryInfoValidateResult.BrokenReserved;
+            }
+
+
+            // 上記の検証を全てパスしたのなら、ひとまず問題はない
+            return ImtArchiveEntryInfoValidateResult.NoProblem;
         }
     }
     #endregion
