@@ -16,7 +16,7 @@
 namespace IceMilkTea.Module
 {
     /// <summary>
-    /// IceMilkTeaArchive のリーダークラスです
+    /// アーカイブのローレベルなリーダークラスです。
     /// </summary>
     /// <remarks>
     /// このクラスは、ヘッダやエントリ情報などのデータを素直に読み込むだけの実装になっており、読み込まれたデータの整合性などを保証をしていません。
