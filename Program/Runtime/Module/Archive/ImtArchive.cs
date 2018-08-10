@@ -776,6 +776,51 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
+        /// ImtArchiveReadStream のインスタンスを初期化します
+        /// </summary>
+        /// <remarks>
+        /// このインスタンスに渡すストリームは、最低でも CanRead CanSeek をサポートするストリームでなければいけません。
+        /// </remarks>
+        /// <param name="info">アーカイブに含まれるエントリの情報</param>
+        /// <param name="stream">アーカイブからデータを読み取るためのストリーム</param>
+        /// <exception cref="ArgumentNullException">stream が null です</exception>
+        /// <exception cref="ArgumentException">渡されたエントリ情報に問題が発生しました。詳細は例外の内容を確認してください。</exception>
+        /// <exception cref="ArgumentException">ストリームは最低でも CanRead および CanSeek をサポートしなければいけません</exception>
+        public ImtArchiveReadStream(ImtArchiveEntryInfo info, Stream stream)
+        {
+            // ストリームがnullなら
+            if (stream == null)
+            {
+                // どうやって読み込めばよいのか
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+
+            // ストリームが、読み取りまたはシークが出来ないものなら
+            if (!(stream.CanRead && stream.CanSeek))
+            {
+                // ストリームは読み取りとシークをサポートしなければならない
+                throw new ArgumentException("ストリームは最低でも CanRead および CanSeek をサポートしなければいけません", nameof(stream));
+            }
+
+
+            // エントリの情報の検証に問題があるなら
+            var entryValidateResult = info.Validate();
+            if (entryValidateResult != ImtArchiveEntryInfoValidateResult.NoProblem)
+            {
+                // ストリームの読み込みは出来ない
+                throw new ArgumentException($"エントリ情報の問題'{entryValidateResult.ToString()}'が発生しました", nameof(info));
+            }
+
+
+            // 初期化をして終了
+            entryInfo = info;
+            originalStream = stream;
+            virtualPosition = 0;
+        }
+
+
+        /// <summary>
         /// ストリームのバッファをクリアします
         /// </summary>
         public override void Flush()
@@ -801,16 +846,32 @@ namespace IceMilkTea.Module
         /// </returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
+            // 仮想位置がサイズと同値なら
+            if (virtualPosition == entryInfo.Size)
+            {
+                // もう末尾まで到達しているので直ちに0を返す
+                return 0;
+            }
+
+
+            // 残りの読み取れる範囲より要求サイズが大きいなら調整する
+            var availableSize = entryInfo.Size - virtualPosition;
+            count = availableSize < count ? (int)availableSize : count;
+
+
             // ストリームをロック
-            int readSize = 0;
+            int readSize;
             lock (originalStream)
             {
-                // ストリームからデータを読み込む
+                // 望まれる位置にシークしてからストリームからデータを読み込む（Readの例外はStream側に任せる）
+                // TODO : Seekは可能であれば、本当に必要とする時（他がReadもSeekもしていない時）だけSeekするようにしたい
+                originalStream.Seek(entryInfo.Offset + virtualPosition, SeekOrigin.Begin);
                 readSize = originalStream.Read(buffer, offset, count);
             }
 
 
-            // 読み込んだサイズを返す
+            // 読み込んだサイズ分仮想位置を進めて返す
+            virtualPosition += readSize;
             return readSize;
         }
 
@@ -821,11 +882,26 @@ namespace IceMilkTea.Module
         /// <param name="offset">設定する位置</param>
         /// <param name="origin">指定された offset がどの位置からを示すかを表します</param>
         /// <returns>設定された新しいストリームの位置を返します</returns>
+        /// <exception cref="ArgumentOutOfRangeException">指定されたオフセットがストリームの範囲を超えています</exception>
         public override long Seek(long offset, SeekOrigin origin)
         {
-            // 仮想位置に設定をして結果を返す
-            virtualPosition = offset;
-            return virtualPosition;
+            // 最終的に設定する位置を、原点の指定方法に基づいて求める
+            long finalOffset =
+                origin == SeekOrigin.Begin ? offset :
+                origin == SeekOrigin.Current ? virtualPosition + offset :
+                origin == SeekOrigin.End ? entryInfo.Size + offset : 0L;
+
+
+            // 求められたオフセットが、負の値またはストリームの長さ以上なら
+            if (finalOffset < 0 || finalOffset >= entryInfo.Size)
+            {
+                // 指定されたオフセットはストリームが扱える範囲を超えている
+                throw new ArgumentOutOfRangeException(nameof(offset), "指定されたオフセットがストリームの範囲を超えています");
+            }
+
+
+            // 仮想位置に求められた位置を設定して返す
+            return virtualPosition = finalOffset;
         }
 
 
@@ -876,13 +952,5 @@ namespace IceMilkTea.Module
 
     public class ImtArchive
     {
-        private ImtArchiveEntryInfo[] entries;
-        private object streamLockObject;
-
-
-
-        public ImtArchive(Stream stream)
-        {
-        }
     }
 }
