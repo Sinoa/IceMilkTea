@@ -270,6 +270,7 @@ CRC64の参考URL
 #endregion
 
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace IceMilkTea.Module
@@ -694,4 +695,194 @@ namespace IceMilkTea.Module
         }
     }
     #endregion
+
+
+
+    #region ストリーム
+    /// <summary>
+    /// アーカイブ内に含まれるエントリの実体を読み込む為のストリームクラスです
+    /// </summary>
+    /// <remarks>
+    /// このストリームは、読み取り専用で書き込むことは出来ません、さらに長さの変更などが出来ないことにも注意してください。
+    /// 書き込みや長さの変更を行おうとすると NotSupportedException がスローされます。
+    /// </remarks>
+    public class ImtArchiveReadStream : Stream
+    {
+        // 以下メンバ変数定義
+        private ImtArchiveEntryInfo entryInfo;
+        private Stream originalStream;
+        private long virtualPosition;
+
+
+
+        /// <summary>
+        /// ストリームの読み込みが可能かどうか
+        /// </summary>
+        public override bool CanRead => originalStream.CanRead;
+
+
+        /// <summary>
+        /// ストリームのシークが可能かどうか
+        /// </summary>
+        public override bool CanSeek => originalStream.CanSeek;
+
+
+        /// <summary>
+        /// このストリームは書き込みが出来ません。
+        /// 常に false を返します。
+        /// </summary>
+        public override bool CanWrite => false;
+
+
+        /// <summary>
+        /// ストリームの長さを取得します
+        /// </summary>
+        public override long Length => entryInfo.Size;
+
+
+        /// <summary>
+        /// ストリームの操作位置を設定取得をします
+        /// </summary>
+        public override long Position
+        {
+            get
+            {
+                // 仮想の位置を返す
+                return virtualPosition;
+            }
+            set
+            {
+                // 負の値が来たら
+                if (value < 0)
+                {
+                    // ストリームの負の位置ってどこですか
+                    throw new ArgumentOutOfRangeException(nameof(Position));
+                }
+
+
+                // ストリーム本来の長さ以上に設定されようとしたら
+                if (value >= entryInfo.Size)
+                {
+                    // ストリームの末尾を超えた設定は許されない
+                    throw new EndOfStreamException();
+                }
+
+
+                // 位置は仮想の位置に設定する
+                virtualPosition = value;
+            }
+        }
+
+
+
+        /// <summary>
+        /// ストリームのバッファをクリアします
+        /// </summary>
+        public override void Flush()
+        {
+            // ストリームをロック
+            lock (originalStream)
+            {
+                // オリジナルのストリームをフラッシュする
+                originalStream.Flush();
+            }
+        }
+
+
+        /// <summary>
+        /// ストリームから、指定バイト分読み込み、指定されたバッファにデータを書き込みます。
+        /// </summary>
+        /// <param name="buffer">読み取られたデータを書き込むバッファ</param>
+        /// <param name="offset">バッファの書き込む位置のオフセット</param>
+        /// <param name="count">バッファに書き込むバイト数</param>
+        /// <returns>
+        /// バッファに書き込んだバイト数を返しますが、指定されたバイト数未満を返すことがあります。
+        /// また、ストリームの末尾に到達している場合は 0 を返すことがあります。
+        /// </returns>
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            // ストリームをロック
+            int readSize = 0;
+            lock (originalStream)
+            {
+                // ストリームからデータを読み込む
+                readSize = originalStream.Read(buffer, offset, count);
+            }
+
+
+            // 読み込んだサイズを返す
+            return readSize;
+        }
+
+
+        /// <summary>
+        /// ストリームの位置を、指定された位置に設定します。
+        /// </summary>
+        /// <param name="offset">設定する位置</param>
+        /// <param name="origin">指定された offset がどの位置からを示すかを表します</param>
+        /// <returns>設定された新しいストリームの位置を返します</returns>
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            // 仮想位置に設定をして結果を返す
+            virtualPosition = offset;
+            return virtualPosition;
+        }
+
+
+        /// <summary>
+        /// このストリームでは、長さの設定はサポートをしていません。
+        /// 常に NotSupportedException をスローします。
+        /// </summary>
+        /// <param name="value">長さの設定はサポートしていません</param>
+        /// <exception cref="NotSupportedException">このストリームでは、長さの設定はサポートをしていません。</exception>
+        public override void SetLength(long value)
+        {
+            // サポートはしていない
+            throw new NotSupportedException("このストリームでは、長さの設定はサポートをしていません。");
+        }
+
+
+        /// <summary>
+        /// このストリームでは、書き込みのサポートをしていません。
+        /// 常に NotSupportedException をスローします。
+        /// </summary>
+        /// <param name="buffer">書き込みをサポートしていません</param>
+        /// <param name="offset">書き込みをサポートしていません</param>
+        /// <param name="count">書き込みをサポートしていません</param>
+        /// <exception cref="NotSupportedException">このストリームでは、書き込みのサポートをしていません。</exception>
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            // サポートはしていない
+            throw new NotSupportedException("このストリームでは、書き込みのサポートをしていません。");
+        }
+
+
+        /// <summary>
+        /// このインスタンスが保持しているエントリ情報のコピーを取得します
+        /// </summary>
+        /// <param name="result">エントリの情報を受け取りたい構造体への参照</param>
+        public void GetEntryInfo(out ImtArchiveEntryInfo result)
+        {
+            // 全てコピー（そのまま代入でも良いけど）
+            result.Id = entryInfo.Id;
+            result.Offset = entryInfo.Offset;
+            result.Size = entryInfo.Size;
+            result.Reserved = entryInfo.Reserved;
+        }
+    }
+    #endregion
+
+
+
+    public class ImtArchive
+    {
+        private ImtArchiveEntryInfo[] entries;
+        private object streamLockObject;
+
+
+
+        public ImtArchive(Stream stream)
+        {
+        }
+    }
 }
