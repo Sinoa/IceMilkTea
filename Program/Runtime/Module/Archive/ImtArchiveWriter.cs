@@ -200,6 +200,10 @@ namespace IceMilkTea.Module
         }
 
 
+        /// <summary>
+        /// 指定されたバッファ全体を書き込みます
+        /// </summary>
+        /// <param name="buffer">書き込むバッファ</param>
         public void Write(byte[] buffer)
         {
             // インデックスの位置と長さを指定して書き込む
@@ -207,6 +211,12 @@ namespace IceMilkTea.Module
         }
 
 
+        /// <summary>
+        /// 指定されたバッファの範囲を書き込みます
+        /// </summary>
+        /// <param name="buffer">書き込むバッファ</param>
+        /// <param name="index">バッファの読み取る開始インデックス</param>
+        /// <param name="count">バッファから読み取る量</param>
         public void Write(byte[] buffer, int index, int count)
         {
             // 素直に書き込む
