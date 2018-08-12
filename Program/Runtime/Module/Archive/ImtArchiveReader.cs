@@ -66,11 +66,8 @@ namespace IceMilkTea.Module
             }
 
 
-            // ストリームを覚える
+            // ストリームを覚えて、内部バッファを今のうちに用意しておく
             BaseStream = stream;
-
-
-            // 内部バッファを今のうちに用意しておく
             internalBuffer = new byte[ImtArchiveHeader.HeaderSize > ImtArchiveEntryInfo.InfoSize ? ImtArchiveHeader.HeaderSize : ImtArchiveEntryInfo.InfoSize];
         }
 
