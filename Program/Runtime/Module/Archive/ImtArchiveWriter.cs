@@ -139,68 +139,6 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
-        /// ストリームに、渡されたストリームから読み取れるだけ読み取ったデータを書き込みます
-        /// </summary>
-        /// <remarks>
-        /// 既定のコントロールサイズを4KiBとして Write(Stream, int) 関数を呼び出します。
-        /// </remarks>
-        /// <param name="stream">ストリームに書き込むためのデータを読み取るストリーム</param>
-        /// <see cref="Write(Stream, int)"/>
-        public void Write(Stream stream)
-        {
-            // 4KiBのバッファサイズで書き込み制御をする
-            Write(stream, 4 << 10);
-        }
-
-
-        /// <summary>
-        /// ストリームに、渡されたストリームから読み取れるだけ読み取ったデータを書き込みます
-        /// </summary>
-        /// <param name="stream">ストリームに書き込むためのデータを読み取るストリーム</param>
-        /// <param name="controlBufferSize">ストリームから読み出したバッファを受ける制御用バッファのサイズ</param>
-        /// <exception cref="ArgumentNullException">stream が null です</exception>
-        /// <exception cref="ArgumentOutOfRangeException">controlBufferSize が 0 以下です</exception>
-        public void Write(Stream stream, int controlBufferSize)
-        {
-            // そもそもストリームが渡されていないなら
-            if (stream == null)
-            {
-                // 続行出来ない
-                throw new ArgumentNullException(nameof(stream));
-            }
-
-
-            // コントロールバッファサイズが0以下なら
-            if (controlBufferSize <= 0)
-            {
-                // バッファ無しはあり得ない
-                throw new ArgumentOutOfRangeException(nameof(controlBufferSize));
-            }
-
-
-            // 一時読み取りバッファを確保
-            var buffer = new byte[controlBufferSize];
-
-
-            // 無限ループ
-            while (true)
-            {
-                // バッファの読み取りサイズが0になったら抜ける
-                var readSize = stream.Read(buffer, 0, controlBufferSize);
-                if (readSize == 0)
-                {
-                    // もう読み取るデータが無いので終了
-                    break;
-                }
-
-
-                // 読み取ったデータ分書き込む
-                BaseStream.Write(buffer, 0, readSize);
-            }
-        }
-
-
-        /// <summary>
         /// 指定されたバッファ全体を書き込みます
         /// </summary>
         /// <param name="buffer">書き込むバッファ</param>
