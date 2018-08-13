@@ -622,6 +622,46 @@ namespace IceMilkTea.Module
         /// ストリームが必要な、実装ごとにストリームの取得をしても問題はありません。
         /// </remarks>
         /// <param name="entryId">エントリストリームとして取得したい、エントリのID</param>
+        /// <returns>生成されたエントリストリームを返します</returns>
+        /// <exception cref="ArgumentException">エントリID '{entryId}' のエントリ情報が見つけられませんでした</exception>
+        /// <exception cref="ArgumentException">エントリID '{entryId}' のエントリ情報はありますが、エントリの実体が存在しません</exception>
+        public ImtArchiveEntryStream GetEntryStream(ulong entryId)
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // まずはエントリIDの該当インデックスを引っ張り込むが、見つけられなかった場合は
+            var entryIndex = FindEntryIndex(entryId);
+            if (entryIndex == EntryIndexNotFound)
+            {
+                // 見つけられなかったよー
+                throw new ArgumentException($"エントリID '{entryId}' のエントリ情報が見つけられませんでした", nameof(entryId));
+            }
+
+
+            // エントリの実体が無いなら
+            if (!entries[entryIndex].IsContainEntryData)
+            {
+                // 実体がないよー
+                throw new ArgumentException($"エントリID '{entryId}' のエントリ情報はありますが、エントリの実体が存在しません", nameof(entryId));
+            }
+
+
+            // 見つけたのならストリームを生成して返す
+            return new ImtArchiveEntryStream(entries[entryIndex], archiveReader.BaseStream);
+        }
+
+
+        /// <summary>
+        /// 指定されたエントリIDの、エントリストリームを取得します。
+        /// ストリームは、コンストラクタに渡された readStream をベースストリームとして使用します。
+        /// </summary>
+        /// <remarks>
+        /// この関数が返す、エントリのストリームは共有権限などの制御は無いため
+        /// ストリームが必要な、実装ごとにストリームの取得をしても問題はありません。
+        /// </remarks>
+        /// <param name="entryId">エントリストリームとして取得したい、エントリのID</param>
         /// <param name="stream">エントリの取得に成功した場合は、エントリストリームを設定しますが、見つけられなかった場合は 既定値(null) として初期化されます</param>
         /// <returns>指定されたエントリのストリームを返します</returns>
         public bool TryGetEntryStream(ulong entryId, out ImtArchiveEntryStream stream)
