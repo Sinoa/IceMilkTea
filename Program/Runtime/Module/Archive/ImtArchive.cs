@@ -271,6 +271,8 @@ CRC64の参考URL
 
 using System;
 using System.IO;
+using System.Text;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.Module
 {
@@ -280,11 +282,26 @@ namespace IceMilkTea.Module
     /// </summary>
     public class ImtArchive : IDisposable
     {
+        /// <summary>
+        /// 内部文字エンコーディング用バッファサイズ
+        /// </summary>
+        private const int EncodingBufferSize = (1 << 10);
+
+        /// <summary>
+        /// エントリ検索で見つからなかった時のインデックス値
+        /// </summary>
+        private const int EntryIndexNotFound = (-1);
+
+
+
         // メンバ変数定義
         private ImtArchiveHeader header;
         private ImtArchiveEntryInfo[] entries;
         private ImtArchiveReader archiveReader;
         private ImtArchiveWriter archiveWriter;
+        private Crc64Base crc;
+        private Encoding encoding;
+        private byte[] encodingBuffer;
         private long readStreamHeadPosition;
         private long writeStreamHeadPosition;
         private bool disposed;
@@ -394,6 +411,12 @@ namespace IceMilkTea.Module
 
             // 破棄後のオープン状態をどうするかを覚える
             this.leaveOpen = leaveOpen;
+
+
+            // CRCとエンコーディングのインスタンスも用意
+            encodingBuffer = new byte[EncodingBufferSize];
+            encoding = new UTF8Encoding(false);
+            crc = new Crc64Ecma();
         }
 
 
@@ -575,6 +598,101 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
+        /// エントリ名からエントリIDを計算します。
+        /// </summary>
+        /// <remarks>
+        /// この関数は、実際にエントリ情報に格納されているIDを求めるために利用されます。
+        /// </remarks>
+        /// <param name="entryName">エントリIDを計算する、エントリ名</param>
+        /// <returns>計算されたエントリIDを返します</returns>
+        public ulong CalculateEntryId(string entryName)
+        {
+            // CRC計算をした結果を返す
+            var encodeSize = encoding.GetBytes(entryName, 0, entryName.Length, encodingBuffer, 0);
+            return crc.Calculate(encodingBuffer, 0, encodeSize);
+        }
+
+
+        /// <summary>
+        /// 指定されたエントリIDの、エントリストリームを取得します。
+        /// ストリームは、コンストラクタに渡された readStream をベースストリームとして使用します。
+        /// </summary>
+        /// <remarks>
+        /// この関数が返す、エントリのストリームは共有権限などの制御は無いため
+        /// ストリームが必要な、実装ごとにストリームの取得をしても問題はありません。
+        /// </remarks>
+        /// <param name="entryId">エントリストリームとして取得したい、エントリのID</param>
+        /// <param name="stream">エントリの取得に成功した場合は、エントリストリームを設定しますが、見つけられなかった場合は 既定値(null) として初期化されます</param>
+        /// <returns>指定されたエントリのストリームを返します</returns>
+        public bool TryGetEntryStream(ulong entryId, out ImtArchiveEntryStream stream)
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // まずはエントリIDの該当インデックスを引っ張り込むが、見つけられなかった場合は
+            var entryIndex = FindEntryIndex(entryId);
+            if (entryIndex == EntryIndexNotFound)
+            {
+                // 取得できなかったことを返す
+                stream = default(ImtArchiveEntryStream);
+                return false;
+            }
+
+
+            // 該当のエントリの実体が無いなら
+            if (!entries[entryIndex].IsContainEntryData)
+            {
+                // 取得できなかったことを返す
+                stream = default(ImtArchiveEntryStream);
+                return false;
+            }
+
+
+            // 見つけたのならストリームを生成して見つけたことを返す
+            stream = new ImtArchiveEntryStream(entries[entryIndex], archiveReader.BaseStream);
+            return true;
+        }
+
+
+        /// <summary>
+        /// アーカイブに、指定されたエントリIDのエントリ情報及び、エントリの実体が含まれるかを調べます。
+        /// </summary>
+        /// <remarks>
+        /// この関数は、エントリIDからエントリ情報を求めますが、エントリ情報が存在しても
+        /// エントリの実体がない場合は、エントリが含まれていないとして判断します。
+        /// </remarks>
+        /// <param name="entryId">エントリが含まれているか確認したい、エントリID</param>
+        /// <returns>エントリが含まれている場合は true を、含まれていない場合は false を返します</returns>
+        public bool Contain(ulong entryId)
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // エントリIDからエントリインデックスを探してもらって NotFound なら
+            var entryIndex = FindEntryIndex(entryId);
+            if (entryIndex == EntryIndexNotFound)
+            {
+                // 見つけられなかった
+                return false;
+            }
+
+
+            // エントリの実体が存在しないなら
+            if (!entries[entryIndex].IsContainEntryData)
+            {
+                // エントリ情報があっても実体が無いなら存在しないとする
+                return false;
+            }
+
+
+            // エントリの実体もあるなら問題はなし
+            return true;
+        }
+
+
+        /// <summary>
         /// 現在保持しているエントリの数を取得します
         /// </summary>
         /// <returns>現在保持しているエントリの数を返します</returns>
@@ -592,6 +710,57 @@ namespace IceMilkTea.Module
 
 
         #region 共通処理
+        /// <summary>
+        /// エントリ情報の配列から、指定されたエントリIDを含むインデックスを検索します。
+        /// </summary>
+        /// <param name="entryId">検索するエントリID</param>
+        /// <returns>該当のエントリIDを見つけた場合は、そのインデックスを返しますが、見つけられなかった場合は EntryIndexNotFound を返します</returns>
+        private int FindEntryIndex(ulong entryId)
+        {
+            // そもそもエントリの長さが0なら
+            if (entries.Length == 0)
+            {
+                // 見つかるわけがない
+                return EntryIndexNotFound;
+            }
+
+
+            // 初回の検索範囲を初期化する
+            var head = 0;
+            var tail = entries.Length;
+
+
+            // 見つかるまでループ
+            while (head <= tail)
+            {
+                // 中心位置を求める
+                var pivot = (head + tail) / 2;
+
+
+                // 現在の中心位置に該当のIDを見つけたのなら
+                if (entries[pivot].Id == entryId)
+                {
+                    // 見つけたこの位置を知ってほしい
+                    return pivot;
+                }
+                else if (entries[pivot].Id < entryId)
+                {
+                    // 現在の中心位置より、要求IDが大きいのなら頭を後ろにずらしてトライ
+                    head = pivot + 1;
+                }
+                else if (entries[pivot].Id > entryId)
+                {
+                    // 現在の中心位置より、要求IDが小さいならお尻を前にずらしてトライ
+                    tail = pivot - 1;
+                }
+            }
+
+
+            // ループを抜けてしまったのなら見つけられなかった
+            return EntryIndexNotFound;
+        }
+
+
         /// <summary>
         /// 既に解放済みの場合は、例外を送出します。
         /// </summary>
