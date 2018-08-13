@@ -13,6 +13,9 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.IO;
+
 namespace IceMilkTea.Module
 {
     /// <summary>
@@ -47,5 +50,108 @@ namespace IceMilkTea.Module
         /// </remarks>
         /// <param name="installStream">アーカイバにエントリデータを書き込むためのインストールストリーム</param>
         public abstract void DoInstall(ImtArchiveEntryInstallStream installStream);
+    }
+
+
+
+    /// <summary>
+    /// ファイルからアーカイブに、エントリをインストールするクラスです。
+    /// </summary>
+    public class ImtArchiveEntryFileInstaller : ImtArchiveEntryInstaller
+    {
+        // 以下メンバ変数定義
+        private string filePath;
+        private string entryName;
+        private long entrySize;
+
+
+
+        /// <summary>
+        /// エントリ名を取得します
+        /// </summary>
+        public override string EntryName => entryName;
+
+
+        /// <summary>
+        /// エントリのサイズを取得します
+        /// </summary>
+        public override long EntrySize => entrySize;
+
+
+
+        /// <summary>
+        /// ImtArchiveEntryFileInstaller のインスタンスを初期化します
+        /// </summary>
+        /// <param name="filePath">アーカイブにインストールするファイルへのパス</param>
+        /// <exception cref="ArgumentException">filePath が null または、扱えない文字列が指定されました</exception>
+        /// <exception cref="FileNotFoundException">インストールする該当のファイルが見つかりませんでした</exception>
+        public ImtArchiveEntryFileInstaller(string filePath)
+        {
+            // そもそも無効な文字列が渡されていたら
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                // パスとしては使えない文字列は受け入れられない
+                throw new ArgumentException($"{nameof(filePath)} が null または、扱えない文字列が指定されました");
+            }
+
+
+            // 指定されたファイルが見つからなかったら
+            if (!File.Exists(filePath))
+            {
+                // ファイルが見つからなかった例外を吐く
+                throw new FileNotFoundException("インストールする該当のファイルが見つかりませんでした", filePath);
+            }
+
+
+            // それぞれの変数を初期化する
+            this.filePath = filePath;
+            entryName = Path.GetFileName(filePath);
+            entrySize = new FileInfo(filePath).Length;
+        }
+
+
+        /// <summary>
+        /// インストールを行います
+        /// </summary>
+        /// <param name="installStream">インストールするためのストリーム</param>
+        public override void DoInstall(ImtArchiveEntryInstallStream installStream)
+        {
+            // この段階でファイルが見つからなかったら
+            if (!File.Exists(filePath))
+            {
+                // インストールに失敗として通知して終了
+                installStream.FinishInstall(ImtArchiveEntryInstallResult.Failed);
+                return;
+            }
+
+
+            // インストールするファイルを開く
+            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                // ファイルの読み込みバッファを用意
+                var buffer = new byte[1 << 10];
+
+
+                // 無便ループ
+                while (true)
+                {
+                    // ファイルを読み込んでもし末尾に到達したのなら
+                    var readSize = fileStream.Read(buffer, 0, buffer.Length);
+                    if (readSize == 0)
+                    {
+                        // もう終わり
+                        break;
+                    }
+
+
+                    // インストールストリームに読み込んだデータを書き込む
+                    installStream.Write(buffer, 0, readSize);
+                }
+
+
+                // ループから抜けてきたのならインストールは完了ということを通知する
+                installStream.FinishInstall(ImtArchiveEntryInstallResult.Success);
+            }
+        }
     }
 }
