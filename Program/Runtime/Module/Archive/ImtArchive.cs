@@ -269,12 +269,342 @@ CRC64の参考URL
 **********************************************************************/
 #endregion
 
+using System;
+using System.IO;
+
 namespace IceMilkTea.Module
 {
-    public class ImtArchive
+    /// <summary>
+    /// IceMilkTeaArchive のアーカイブを総合的に制御を行うクラスです。
+    /// アーカイブからエントリを読み込むためのストリーム取得や、エントリの更新もこのクラスで行います。
+    /// </summary>
+    public class ImtArchive : IDisposable
     {
-        protected ImtArchive()
+        // メンバ変数定義
+        private ImtArchiveHeader header;
+        private ImtArchiveEntryInfo[] entries;
+        private ImtArchiveReader archiveReader;
+        private ImtArchiveWriter archiveWriter;
+        private long readStreamHeadPosition;
+        private long writeStreamHeadPosition;
+        private bool disposed;
+        private bool leaveOpen;
+
+
+
+        /// <summary>
+        /// 現在、保持しているエントリ情報の数
+        /// </summary>
+        public int EntryInfoCount
         {
+            get { return GetEntryInfoCount(); }
         }
+
+
+
+        #region コンストラクタ＆デストラクタ＆Dispose
+        /// <summary>
+        /// ImtArchive のインスタンスをファイルパスを基に初期化します。
+        /// </summary>
+        /// <remarks>
+        /// このコンストラクタは内部で、読み込み用と書き込み用のストリームを、ファイル共有が非常に緩い状態でオープンします。
+        /// つまり、他のプロセスなどからも該当のファイルを、ReadやWriteでオープンすることは可能です。
+        /// また、コンストラクタでアーカイブをオープンしても、データの読み込みをしないのでエントリ情報は持っていません。
+        /// エントリ情報の取得をする前に必ず FetchManageData() 関数を呼び出してください
+        /// </remarks>
+        /// <param name="path">アーカイブをファイルとして扱うパス</param>
+        public ImtArchive(string path)
+        {
+            // 指定されたパスのファイルのFileStreamを、緩いファイル共有で開く
+            var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite, 4 << 10, FileOptions.RandomAccess);
+            Initialize(stream, stream, false);
+        }
+
+
+        /// <summary>
+        /// ImtArchive のインスタンスをストリームから初期化します。
+        /// </summary>
+        /// <remarks>
+        /// 引数で受け取る readStream および writeStream は、同一である必要ではありません。
+        /// また、コンストラクタでアーカイブをオープンしても、データの読み込みをしないのでエントリ情報は持っていません。
+        /// エントリ情報の取得をする前に必ず FetchManageData() 関数を呼び出してください
+        /// </remarks>
+        /// <param name="readStream">アーカイブデータを読み取るストリーム。ストリームは CanRead および CanSeek をサポートしなければなりません</param>
+        /// <param name="writeStream">アーカイブデータに書き込むストリーム。ストリームは CanWrite および CanSeek をサポートしなければなりません</param>
+        /// <param name="leaveOpen">ImtArchive オブジェクトを破棄した後に readStream および writeStream を開いたままにする場合は true を、それ以外の場合は false を指定</param>
+        /// <exception cref="ArgumentNullException">readStream または writeStream が null です</exception>
+        /// <exception cref="NotSupportedException">readStream が CanRead または CanSeek をサポートしていません</exception>
+        /// <exception cref="NotSupportedException">writeStream が CanWrite または CanSeek をサポートしていません</exception>
+        public ImtArchive(Stream readStream, Stream writeStream, bool leaveOpen)
+        {
+            // 初期化関数を呼ぶ
+            Initialize(readStream, writeStream, leaveOpen);
+        }
+
+
+        /// <summary>
+        /// ImtArchive クラスの共通コンストラクタです
+        /// </summary>
+        /// <param name="readStream">アーカイブデータを読み取るストリーム。ストリームは CanRead および CanSeek をサポートしなければなりません</param>
+        /// <param name="writeStream">アーカイブデータに書き込むストリーム。ストリームは CanWrite および CanSeek をサポートしなければなりません</param>
+        /// <param name="leaveOpen">ImtArchive オブジェクトを破棄した後に readStream および writeStream を開いたままにする場合は true を、それ以外の場合は false を指定</param>
+        /// <exception cref="ArgumentNullException">readStream または writeStream が null です</exception>
+        /// <exception cref="NotSupportedException">readStream が CanRead または CanSeek をサポートしていません</exception>
+        /// <exception cref="NotSupportedException">writeStream が CanWrite または CanSeek をサポートしていません</exception>
+        private void Initialize(Stream readStream, Stream writeStream, bool leaveOpen)
+        {
+            // readStream または writeStream が null なら
+            if (readStream == null || writeStream == null)
+            {
+                // どちらも参照は渡さないとダメ
+                throw new ArgumentNullException($"'{nameof(readStream)}' または '{nameof(writeStream)}' が null です");
+            }
+
+
+            // readStream が CanRead または CanSeek をサポートしていないなら
+            if (!(readStream.CanRead && readStream.CanSeek))
+            {
+                // 読み込みストリームなのに読み込みが出来ない
+                throw new NotSupportedException($"'{nameof(readStream)}'が CanRead または CanSeek をサポートしていません");
+            }
+
+
+            // writeStream が CanWrite または CanSeek をサポートしていないなら
+            if (!(writeStream.CanWrite && writeStream.CanSeek))
+            {
+                // 書き込みストリームなのに書き込みが出来ない
+                throw new NotSupportedException($"'{nameof(readStream)}'が CanWrite または CanSeek をサポートしていません");
+            }
+
+
+            // 読み込みと書き込みのストリームを覚える
+            archiveReader = new ImtArchiveReader(readStream);
+            archiveWriter = new ImtArchiveWriter(writeStream);
+
+
+            // ストリームの渡された時点を先頭位置として覚える
+            readStreamHeadPosition = readStream.Position;
+            writeStreamHeadPosition = writeStream.Position;
+
+
+            // 一度、ヘッダとエントリ情報は空情報として初期化しておく
+            ImtArchiveHeader.CreateArchiveHeader(out header);
+            entries = new ImtArchiveEntryInfo[0];
+
+
+            // 破棄後のオープン状態をどうするかを覚える
+            this.leaveOpen = leaveOpen;
+        }
+
+
+        /// <summary>
+        /// ImtArchive のインスタンスを破棄します
+        /// </summary>
+        ~ImtArchive()
+        {
+            // デストラクタからのDispose呼び出し
+            Dispose(false);
+        }
+
+
+        /// <summary>
+        /// ImtArchive のリソースを破棄します
+        /// </summary>
+        public void Dispose()
+        {
+            // DisposeからのDispose呼び出しをしてデストラクタを呼ばないようにしてもらう
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+        /// <summary>
+        /// 実際のリソース破棄処理を行います。
+        /// </summary>
+        /// <param name="disposing">Disposeからの呼び出しの場合は true を、それ以外の場合は false を指定</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            // 既に破棄済みなら
+            if (disposed)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // Disposeからの呼び出しなら
+            if (disposing)
+            {
+                // 破棄処理でストリームを開きっぱ指定にはなってないのなら
+                if (!leaveOpen)
+                {
+                    // もし読み込みと書き込みが同じストリームなら
+                    if (archiveReader.BaseStream == archiveWriter.BaseStream)
+                    {
+                        // 片方だけストリームを閉じる
+                        archiveWriter.BaseStream.Dispose();
+                    }
+                    else
+                    {
+                        // 両方閉じる
+                        archiveReader.BaseStream.Dispose();
+                        archiveWriter.BaseStream.Dispose();
+                    }
+                }
+            }
+
+
+            // 解放済みであることを示す
+            disposed = true;
+        }
+        #endregion
+
+
+        #region 情報取得系関数群
+        /// <summary>
+        /// 読み込みストリームの長さから、アーカイブの管理情報を取り出せるか判断します。
+        /// </summary>
+        /// <remarks>
+        /// この関数は、読み込みストリームの長さが、アーカイブヘッダの長さに届くかどうかの判定を行うため
+        /// 実際のデータが正しく読み込める保証はしていません。
+        /// </remarks>
+        /// <returns>アーカイブヘッダを読み込むのに十分な長さがある場合は true を、長さが足りない場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">このアーカイブは既に解放済みです</exception>
+        public bool CanFetchManageData()
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // 読み込みストリームの長さから、読み取り位置を差し引いて、アーカイブヘッダのサイズに届くかどうかの結果を返す
+            return (archiveReader.BaseStream.Length - readStreamHeadPosition) >= ImtArchiveHeader.HeaderSize;
+        }
+
+
+        /// <summary>
+        /// 読み込みストリームからアーカイブの管理情報を取り出し、
+        /// このインスタンス上にアーカイブ情報やエントリ情報を構築します。
+        /// </summary>
+        /// <remarks>
+        /// この関数で、管理情報を取り出した際に、管理データに損傷が無いかの検証も行われます。
+        /// よって、この関数が無事に終了した場合は、管理情報に問題はないと判断しても構いません。
+        /// また、この関数は読み込みストリームをロックするため、既にエントリストリームが動作している場合は
+        /// エントリストリームのReadにパフォーマンス影響が発生することに気をつけてください。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">このアーカイブは既に解放済みです</exception>
+        /// <exception cref="InvalidOperationException">アーカイブヘッダに {'errorContent'} の問題が発生しました</exception>
+        /// <exception cref="InvalidOperationException">エントリ情報が、ID昇順で格納されていません</exception>
+        /// <exception cref="InvalidOperationException">エントリ情報に '{errorContent}' の問題が発生しました</exception>
+        public void FetchManageData()
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // 一時的にヘッダを覚えておくための変数を宣言
+            var tempHeader = default(ImtArchiveHeader);
+
+
+            // 読み込みストリームのロック
+            lock (archiveReader.BaseStream)
+            {
+                // まずは、読み込みストリームを先頭（コンストラクタのタイミングで取った位置）に移動してヘッダを読み込む
+                archiveReader.BaseStream.Seek(readStreamHeadPosition, SeekOrigin.Begin);
+                archiveReader.Read(out tempHeader);
+            }
+
+
+            // ヘッダの整合性をチェックして問題が発生したのなら
+            var headerValidateResult = ImtArchiveHeader.Validate(ref tempHeader);
+            if (headerValidateResult != ImtArchiveHeaderValidateResult.NoProblem)
+            {
+                // ヘッダの検証に問題が発生したことを吐く
+                throw new InvalidOperationException($"アーカイブヘッダに '{headerValidateResult.ToString()}' の問題が発生しました");
+            }
+
+
+            // エントリ情報も新しく読み取るため新しいエントリ情報配列を生成
+            // TODO : I/O改善のために、エントリ情報を読み込むためのバッファを一気にロードするためのバッファを用意とかしたいなぁ
+            var tempEntries = new ImtArchiveEntryInfo[tempHeader.EntryInfoCount];
+
+
+            // 読み込みストリームのロック
+            lock (archiveReader.BaseStream)
+            {
+                // エントリ情報のリストのオフセットに移動して、必要個数分読み込む
+                // TODO : 上記にも書いてあるとおりできれは、ここで構築作業をせず lock スコープ外で byte[] からエントリ情報を構築出来るようにするといいかも
+                archiveReader.BaseStream.Seek(readStreamHeadPosition + tempHeader.EntryInfoListOffset, SeekOrigin.Begin);
+                for (int i = 0; i < tempEntries.Length; ++i)
+                {
+                    // ひたすら詰める
+                    archiveReader.Read(out tempEntries[i]);
+                }
+            }
+
+
+            // 読み込まれたエントリ情報の全てをちゃんとした情報か整合性のチェックを行う
+            var previousEntryId = 0UL;
+            for (int i = 0; i < tempEntries.Length; ++i)
+            {
+                // 一つ前のエントリIDより小さいのなら
+                if (previousEntryId > tempEntries[i].Id)
+                {
+                    // ID昇順にデータを格納する仕様違反になるので例外を吐く
+                    throw new InvalidOperationException("エントリ情報が、ID昇順で格納されていません");
+                }
+
+
+                // エントリ情報の整合性をチェックして問題が発生したのなら
+                var entryInfoValidateResult = ImtArchiveEntryInfo.Validate(ref tempEntries[i]);
+                if (entryInfoValidateResult != ImtArchiveEntryInfoValidateResult.NoProblem)
+                {
+                    // エントリ情報の検証に問題が発生したことを吐く
+                    throw new InvalidOperationException($"エントリ情報に '{entryInfoValidateResult.ToString()}' の問題が発生しました");
+                }
+
+
+                // 一つ前エントリIDの更新
+                previousEntryId = tempEntries[i].Id;
+            }
+
+
+            // 上記すべての検証を終えたら、正しい情報として判断し記憶する
+            header = tempHeader;
+            entries = tempEntries;
+        }
+
+
+        /// <summary>
+        /// 現在保持しているエントリの数を取得します
+        /// </summary>
+        /// <returns>現在保持しているエントリの数を返します</returns>
+        /// <exception cref="InvalidOperationException">このアーカイブは既に解放済みです</exception>
+        public int GetEntryInfoCount()
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // エントリの数を返す
+            return entries.Length;
+        }
+        #endregion
+
+
+        #region 共通処理
+        /// <summary>
+        /// 既に解放済みの場合は、例外を送出します。
+        /// </summary>
+        /// <exception cref="InvalidOperationException">このアーカイブは既に解放済みです</exception>
+        private void IfDisposedThenException()
+        {
+            // もし既に解放済みなら
+            if (disposed)
+            {
+                // このアーカイブクラスは解放済みなので何も出来ないということを吐く
+                throw new InvalidOperationException("このアーカイブは既に解放済みです");
+            }
+        }
+        #endregion
     }
 }
