@@ -47,7 +47,7 @@ namespace IceMilkTea.Module
         /// </remarks>
         /// <param name="stream">アーカイブデータを書き込むためのストリーム</param>
         /// <exception cref="ArgumentNullException">stream が null です</exception>
-        /// <exception cref="ArgumentException">stream が CanWrite をサポートしていません</exception>
+        /// <exception cref="NotSupportedException">stream が CanWrite をサポートしていません</exception>
         public ImtArchiveWriter(Stream stream)
         {
             // ストリームが渡されていないのなら
@@ -62,7 +62,7 @@ namespace IceMilkTea.Module
             if (!stream.CanWrite)
             {
                 // 書き込みが出来ないとダメです
-                throw new ArgumentException($"{nameof(stream)} が CanWrite をサポートしていません");
+                throw new NotSupportedException($"{nameof(stream)} が CanWrite をサポートしていません");
             }
 
 

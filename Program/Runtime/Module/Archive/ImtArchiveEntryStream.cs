@@ -104,7 +104,7 @@ namespace IceMilkTea.Module
         /// <param name="stream">アーカイブからデータを読み取るためのストリーム</param>
         /// <exception cref="ArgumentNullException">stream が null です</exception>
         /// <exception cref="ArgumentException">渡されたエントリ情報に問題が発生しました。詳細は例外の内容を確認してください。</exception>
-        /// <exception cref="ArgumentException">ストリームは最低でも CanRead および CanSeek をサポートしなければいけません</exception>
+        /// <exception cref="NotSupportedException">ストリームは最低でも CanRead および CanSeek をサポートしなければいけません</exception>
         /// <exception cref="ArgumentException">エントリの実体が存在しないエントリの情報が渡されました</exception>
         public ImtArchiveEntryStream(ImtArchiveEntryInfo info, Stream stream)
         {
@@ -120,7 +120,7 @@ namespace IceMilkTea.Module
             if (!(stream.CanRead && stream.CanSeek))
             {
                 // ストリームは読み取りとシークをサポートしなければならない
-                throw new ArgumentException("ストリームは最低でも CanRead および CanSeek をサポートしなければいけません", nameof(stream));
+                throw new NotSupportedException("ストリームは最低でも CanRead および CanSeek をサポートしなければいけません");
             }
 
 

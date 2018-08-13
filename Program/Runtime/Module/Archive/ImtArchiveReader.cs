@@ -47,7 +47,7 @@ namespace IceMilkTea.Module
         /// </remarks>
         /// <param name="stream">アーカイブデータを読み込むためのストリーム</param>
         /// <exception cref="ArgumentNullException">stream が null です</exception>
-        /// <exception cref="ArgumentException">stream が CanRead をサポートしていません</exception>
+        /// <exception cref="NotSupportedException">stream が CanRead をサポートしていません</exception>
         public ImtArchiveReader(Stream stream)
         {
             // ストリームが渡されていないなら
@@ -62,7 +62,7 @@ namespace IceMilkTea.Module
             if (!stream.CanRead)
             {
                 // 読み込めないストリームはだめ
-                throw new ArgumentException($"{nameof(stream)} が CanRead をサポートしていません", nameof(stream));
+                throw new NotSupportedException($"{nameof(stream)} が CanRead をサポートしていません");
             }
 
 
