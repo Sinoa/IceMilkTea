@@ -272,7 +272,9 @@ CRC64の参考URL
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using IceMilkTea.Core;
 
 namespace IceMilkTea.Module
@@ -283,6 +285,152 @@ namespace IceMilkTea.Module
     /// </summary>
     public class ImtArchive : IDisposable
     {
+        #region 待機系
+        /// <summary>
+        /// アーカイブのエントリインストール状態を監視を行うクラスです
+        /// </summary>
+        public class ImtArchiveEntryInstallMonitor
+        {
+            /// <summary>
+            /// インストールの全てが完了した時に呼び出されます
+            /// </summary>
+            public event Action InstallFinished;
+
+
+
+            /// <summary>
+            /// このモニタが監視しているアーカイブのインスタンスを取得します
+            /// </summary>
+            public ImtArchive archive { get; private set; }
+
+
+            /// <summary>
+            /// インストール結果を取得します。
+            /// Nullableとして用意されているため結果がない場合はnullになります
+            /// </summary>
+            public ImtArchiveEntryInstallResult? Result { get; private set; }
+
+
+
+            /// <summary>
+            /// ImtArchiveEntryInstallMonitor のインスタンスを初期化します
+            /// </summary>
+            /// <param name="archive">監視する ImtArchive のインスタンス</param>
+            /// <exception cref="ArgumentNullException">archive が null です</exception>
+            public ImtArchiveEntryInstallMonitor(ImtArchive archive)
+            {
+                // 担当アーカイブがnullなら
+                if (archive == null)
+                {
+                    // 何を監視すれば良いんじゃ
+                    throw new ArgumentNullException(nameof(archive));
+                }
+
+
+                // 担当アーカイブを覚える
+                this.archive = archive;
+                Result = null;
+            }
+
+
+            /// <summary>
+            /// アーカイブのインストール待機オブジェクトを取得します
+            /// </summary>
+            /// <returns>インストール待機オブジェクトを返します</returns>
+            public ImtArchiveEntryInstallAwaiter GetAwaiter()
+            {
+                // インストール待機オブジェクトを返す
+                return new ImtArchiveEntryInstallAwaiter(this);
+            }
+
+
+            /// <summary>
+            /// 全インストーラが終了した通知を行います
+            /// </summary>
+            /// <param name="result">インストール結果</param>
+            internal void NotifyInstallAllFinish(ImtArchiveEntryInstallResult result)
+            {
+                // 結果を覚える
+                Result = result;
+
+
+                // イベントがあれば呼び出して全て解除する
+                InstallFinished?.Invoke();
+                InstallFinished = null;
+
+
+                // イベント呼び出しが終わったら結果を忘れる
+                Result = null;
+            }
+        }
+
+
+        /// <summary>
+        /// エントリインストールの待機構造体です。
+        /// アーカイブのインストール状況を待機します。
+        /// </summary>
+        public struct ImtArchiveEntryInstallAwaiter : INotifyCompletion
+        {
+            // メンバ変数定義
+            private ImtArchiveEntryInstallMonitor monitor;
+
+
+
+            /// <summary>
+            /// インストールが完了したかどうか
+            /// </summary>
+            public bool IsCompleted => monitor.Result.HasValue;
+
+
+
+            /// <summary>
+            /// ImtArchiveEntryInstallAwaiter の初期化を行います
+            /// </summary>
+            /// <param name="monitor">この待機オブジェクトを生成したモニタ</param>
+            public ImtArchiveEntryInstallAwaiter(ImtArchiveEntryInstallMonitor monitor)
+            {
+                // メンバ変数の初期化
+                this.monitor = monitor;
+            }
+
+
+            /// <summary>
+            /// タスクの完了処理を行います
+            /// </summary>
+            /// <param name="continuation">タスク完了後の継続処理を行う対象の関数</param>
+            public void OnCompleted(Action continuation)
+            {
+                // 完了していれば
+                if (IsCompleted)
+                {
+                    // 継続関数を直ちに呼ぶ
+                    continuation();
+                }
+
+
+                // 現在の同期コンテキストを取り出して、イベントの登録
+                var context = SynchronizationContext.Current;
+                monitor.InstallFinished += () =>
+                {
+                    // コンテキストに継続関数を呼んでもらう
+                    context.Post(_ => continuation(), null);
+                };
+            }
+
+
+            /// <summary>
+            /// タスクの結果を取得します
+            /// </summary>
+            public ImtArchiveEntryInstallResult GetResult()
+            {
+                // 結果を返す（Nullableだが、nullだったとしても失敗として通知する）
+                return monitor.Result.HasValue ? monitor.Result.Value : ImtArchiveEntryInstallResult.Failed;
+            }
+        }
+        #endregion
+
+
+
         /// <summary>
         /// 内部文字エンコーディング用バッファサイズ
         /// </summary>
@@ -303,6 +451,7 @@ namespace IceMilkTea.Module
         private ImtArchiveReader archiveReader;
         private ImtArchiveWriter archiveWriter;
         private Queue<ImtArchiveEntryInstaller> installerQueue;
+        private ImtArchiveEntryInstallMonitor installMonitor;
         private byte[] encodingBuffer;
         private long readStreamHeadPosition;
         private long writeStreamHeadPosition;
@@ -420,6 +569,7 @@ namespace IceMilkTea.Module
             encoding = new UTF8Encoding(false);
             crc = new Crc64Ecma();
             installerQueue = new Queue<ImtArchiveEntryInstaller>();
+            installMonitor = new ImtArchiveEntryInstallMonitor(this);
         }
 
 
@@ -753,7 +903,15 @@ namespace IceMilkTea.Module
 
 
         #region エントリ情報書き込み関数群
-        public void InstallEntry(ImtArchiveEntryInstaller installer)
+        /// <summary>
+        /// 指定されたインストーラを、インストーラキューに追加します
+        /// </summary>
+        /// <remarks>
+        /// インストールするエントリの数が複数ある場合は、必要なインストーラの全てを追加することをおすすめします。
+        /// 一つずつインストールを実行してしまうと、パフォーマンスに非常な悪影響を及ぼす可能性があります。
+        /// </remarks>
+        /// <param name="installer">キューに追加するインストーラ</param>
+        public void EnqueueInstaller(ImtArchiveEntryInstaller installer)
         {
             // インストーラがnullなら
             if (installer == null)
@@ -763,21 +921,24 @@ namespace IceMilkTea.Module
             }
 
 
-            // インストールするエントリ名が無効なら
-            if (string.IsNullOrWhiteSpace(installer.EntryName))
-            {
-                // 無効な名前はインストールを続行出来ない
-                throw new ArgumentException($"インストーラが、無効なエントリ名を返しました", nameof(installer));
-            }
+            // この段階ではインストーラのプロパティ検査はせずそのままキューに突っ込む
+            installerQueue.Enqueue(installer);
+        }
+
+
+        /// <summary>
+        /// インストーラキューに待機している全てのインストーラを順次実行していきます。
+        /// また、この関数は全てのインストーラが完了することは待たずに、処理を返すことがあります。
+        /// </summary>
+        /// <returns>インストール状況を監視するオブジェクトを返します</returns>
+        public ImtArchiveEntryInstallMonitor InstallEntryAsync()
+        {
+            // モニタを返す
+            return installMonitor;
         }
 
 
         private void OnEntryInstallFinished(ImtArchiveEntryInstaller installer, ImtArchiveEntryInstallResult result)
-        {
-        }
-
-
-        private void DoInstall()
         {
         }
         #endregion
