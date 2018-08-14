@@ -35,6 +35,7 @@ namespace IceMilkTea.Module
 
         /// <summary>
         /// これからインストールするエントリのサイズ
+        /// 0を取得される場合は、実体の無いエントリのみのインストールになります
         /// </summary>
         public abstract long EntrySize { get; }
 

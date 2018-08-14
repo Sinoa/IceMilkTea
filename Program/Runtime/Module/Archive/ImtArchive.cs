@@ -270,6 +270,7 @@ CRC64の参考URL
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using IceMilkTea.Core;
@@ -295,12 +296,13 @@ namespace IceMilkTea.Module
 
 
         // メンバ変数定義
+        private Crc64Base crc;
+        private Encoding encoding;
         private ImtArchiveHeader header;
         private ImtArchiveEntryInfo[] entries;
         private ImtArchiveReader archiveReader;
         private ImtArchiveWriter archiveWriter;
-        private Crc64Base crc;
-        private Encoding encoding;
+        private Queue<ImtArchiveEntryInstaller> installerQueue;
         private byte[] encodingBuffer;
         private long readStreamHeadPosition;
         private long writeStreamHeadPosition;
@@ -413,10 +415,11 @@ namespace IceMilkTea.Module
             this.leaveOpen = leaveOpen;
 
 
-            // CRCとエンコーディングのインスタンスも用意
+            // 他メンバ変数の初期化を行う
             encodingBuffer = new byte[EncodingBufferSize];
             encoding = new UTF8Encoding(false);
             crc = new Crc64Ecma();
+            installerQueue = new Queue<ImtArchiveEntryInstaller>();
         }
 
 
@@ -749,6 +752,37 @@ namespace IceMilkTea.Module
         #endregion
 
 
+        #region エントリ情報書き込み関数群
+        public void InstallEntry(ImtArchiveEntryInstaller installer)
+        {
+            // インストーラがnullなら
+            if (installer == null)
+            {
+                // インストールを続行出来ない
+                throw new ArgumentNullException(nameof(installer));
+            }
+
+
+            // インストールするエントリ名が無効なら
+            if (string.IsNullOrWhiteSpace(installer.EntryName))
+            {
+                // 無効な名前はインストールを続行出来ない
+                throw new ArgumentException($"インストーラが、無効なエントリ名を返しました", nameof(installer));
+            }
+        }
+
+
+        private void OnEntryInstallFinished(ImtArchiveEntryInstaller installer, ImtArchiveEntryInstallResult result)
+        {
+        }
+
+
+        private void DoInstall()
+        {
+        }
+        #endregion
+
+
         #region 共通処理
         /// <summary>
         /// エントリ情報の配列から、指定されたエントリIDを含むインデックスを検索します。
@@ -798,6 +832,78 @@ namespace IceMilkTea.Module
 
             // ループを抜けてしまったのなら見つけられなかった
             return EntryIndexNotFound;
+        }
+
+
+        /// <summary>
+        /// 指定さたら新しいエントリ情報を、現在のエントリ情報配列にマージをします
+        /// </summary>
+        /// <remarks>
+        /// 重複するエントリIDが新しいエントリ情報配列に含まれていた場合の動作は保証していません
+        /// </remarks>
+        /// <param name="infos">これからマージする新しいエントリ情報の配列</param>
+        /// <returns>マージされた新しいエントリ情報の配列を返します</returns>
+        private ImtArchiveEntryInfo[] MergeEntryInfo(ImtArchiveEntryInfo[] infos)
+        {
+            // 渡された配列の長さが１より大きいなら
+            if (infos.Length > 1)
+            {
+                // IDでソートする
+                Array.Sort(infos, (x, y) => x.Id < y.Id ? -1 : x.Id == y.Id ? 0 : 1);
+            }
+
+
+            // 全体を受け取る新しいエントリ配列を用意
+            var newEntries = new ImtArchiveEntryInfo[entries.Length + infos.Length];
+
+
+            // 古い配列と新しい配列をマージする間はループ
+            var oldArrayIndex = 0;
+            var newArrayIndex = 0;
+            while (oldArrayIndex < entries.Length && newArrayIndex < newEntries.Length)
+            {
+                // もし古いエントリIDの方が小さいなら
+                if (entries[oldArrayIndex].Id < infos[newArrayIndex].Id)
+                {
+                    // 古い方のエントリを入れて古いインデックスを進める
+                    newEntries[oldArrayIndex + newArrayIndex] = entries[oldArrayIndex];
+                    ++oldArrayIndex;
+                }
+                else
+                {
+                    // 新しい方のエントリが小さいなら新しいエントリを入れて新しいインデックスを進める
+                    newEntries[oldArrayIndex + newArrayIndex] = infos[newArrayIndex];
+                    ++newArrayIndex;
+                }
+            }
+
+
+            // 既に古いインデックスが末尾まで達しているのなら
+            if (oldArrayIndex == entries.Length)
+            {
+                // 新しい配列から持ってくるだけの作業
+                for (int i = newArrayIndex; i < infos.Length; ++i)
+                {
+                    // 残りの要素をひたすらコピー
+                    newEntries[oldArrayIndex + i] = infos[i];
+                }
+            }
+
+
+            // 既に新しいインデックスが末尾まで達しているのなら
+            if (newArrayIndex == infos.Length)
+            {
+                // 古い配列から持ってくるだけの作業
+                for (int i = oldArrayIndex; i < entries.Length; ++i)
+                {
+                    // 残りの要素をひたすらコピー
+                    newEntries[newArrayIndex + i] = entries[i];
+                }
+            }
+
+
+            // 完成した新しいエントリ情報の配列を変えす
+            return newEntries;
         }
 
 
