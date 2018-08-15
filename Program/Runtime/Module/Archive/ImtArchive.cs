@@ -1188,7 +1188,7 @@ namespace IceMilkTea.Module
 
             // 初回の検索範囲を初期化する
             var head = 0;
-            var tail = entries.Length;
+            var tail = entries.Length - 1;
 
 
             // 見つかるまでループ
