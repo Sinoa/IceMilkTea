@@ -1247,7 +1247,7 @@ namespace IceMilkTea.Module
             // 古い配列と新しい配列をマージする間はループ
             var oldArrayIndex = 0;
             var newArrayIndex = 0;
-            while (oldArrayIndex < entries.Length && newArrayIndex < newEntries.Length)
+            while (oldArrayIndex < entries.Length && newArrayIndex < infos.Length)
             {
                 // もし古いエントリIDの方が小さいなら
                 if (entries[oldArrayIndex].Id < infos[newArrayIndex].Id)
