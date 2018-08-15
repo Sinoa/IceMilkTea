@@ -1104,6 +1104,7 @@ namespace IceMilkTea.Module
             // TODO : 都度エントリIDを計算するのはもったいないのでどうにかする（そもそもエントリ情報のインデックスも取得済みで良い気もする）
             var entryInfo = entries[FindEntryIndex(CalculateEntryId(installer.EntryName))];
             entryInfo.Offset = writeStreamHeadPosition + installOffset;
+            entryInfo.Size = installer.EntrySize;
 
 
             // インストール用ストリームの生成をしてインストーラに渡す
