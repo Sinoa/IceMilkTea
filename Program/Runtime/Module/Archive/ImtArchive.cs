@@ -957,8 +957,13 @@ namespace IceMilkTea.Module
         /// </remarks>
         /// <param name="installer">キューに追加するインストーラ</param>
         /// <exception cref="InvalidOperationException">インストールが既に開始されています</exception>
+        /// <exception cref="ArgumentException">既に同じエントリ名'{installer.EntryName}'を持ったインストーラが追加済みです</exception>
         public void EnqueueInstaller(ImtArchiveEntryInstaller installer)
         {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
             // インストールが始まっているのなら
             if (installStarted)
             {
@@ -975,7 +980,19 @@ namespace IceMilkTea.Module
             }
 
 
-            // この段階ではインストーラのプロパティ検査はせずそのままキューに突っ込む
+            // キューの中を走査する
+            foreach (var queuedInstaller in installerQueue)
+            {
+                // 同じエントリ名のインストーラがいるなら
+                if (queuedInstaller.EntryName == installer.EntryName)
+                {
+                    // 同じ名前のエントリ名は許されない！
+                    throw new ArgumentException($"既に同じエントリ名'{installer.EntryName}'を持ったインストーラが追加済みです", nameof(installer));
+                }
+            }
+
+
+            // インストーラをキューに突っ込む
             installerQueue.Enqueue(installer);
         }
 
@@ -991,6 +1008,10 @@ namespace IceMilkTea.Module
         /// <exception cref="InvalidOperationException">インストーラが無効なエントリサイズを返しました</exception>
         public ImtArchiveEntryInstallMonitor InstallEntryAsync()
         {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
             // インストールが始まっているのなら
             if (installStarted)
             {
