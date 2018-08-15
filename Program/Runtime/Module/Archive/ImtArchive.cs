@@ -292,9 +292,37 @@ namespace IceMilkTea.Module
         public class ImtArchiveEntryInstallMonitor
         {
             /// <summary>
+            /// 待機オブジェクトの継続情報を保持します
+            /// </summary>
+            private struct AwaiterContinuInfo
+            {
+                /// <summary>
+                /// 待機オブジェクトの継続する同期コンテキスト
+                /// </summary>
+                public SynchronizationContext context;
+
+                /// <summary>
+                /// 待機オブジェクトの継続関数
+                /// </summary>
+                public Action callback;
+            }
+
+
+
+            /// <summary>
             /// インストールの全てが完了した時に呼び出されます
             /// </summary>
             public event Action InstallFinished;
+
+
+
+            // クラス変数宣言
+            private static SendOrPostCallback postContinuationFunctionCache = new SendOrPostCallback(_ => ((Action)_)());
+
+
+
+            // メンバ変数定義
+            private List<AwaiterContinuInfo> awaiterContinuInfoList;
 
 
 
@@ -302,13 +330,6 @@ namespace IceMilkTea.Module
             /// このモニタが監視しているアーカイブのインスタンスを取得します
             /// </summary>
             public ImtArchive archive { get; private set; }
-
-
-            /// <summary>
-            /// インストール結果を取得します。
-            /// Nullableとして用意されているため結果がない場合はnullになります
-            /// </summary>
-            public ImtArchiveEntryInstallResult? Result { get; private set; }
 
 
 
@@ -329,7 +350,7 @@ namespace IceMilkTea.Module
 
                 // 担当アーカイブを覚える
                 this.archive = archive;
-                Result = null;
+                awaiterContinuInfoList = new List<AwaiterContinuInfo>();
             }
 
 
@@ -345,22 +366,41 @@ namespace IceMilkTea.Module
 
 
             /// <summary>
+            /// 待機オブジェクトからの継続関数の登録を行います
+            /// </summary>
+            /// <param name="continuation"></param>
+            internal void RegisterContinuFunction(Action continuation)
+            {
+                // このタイミングの同期コンテキストを取得して継続関数情報リストに追加
+                awaiterContinuInfoList.Add(new AwaiterContinuInfo()
+                {
+                    context = SynchronizationContext.Current,
+                    callback = continuation,
+                });
+            }
+
+
+            /// <summary>
             /// 全インストーラが終了した通知を行います
             /// </summary>
-            /// <param name="result">インストール結果</param>
-            internal void NotifyInstallAllFinish(ImtArchiveEntryInstallResult result)
+            internal void NotifyInstallAllFinish()
             {
-                // 結果を覚える
-                Result = result;
+                // 待機オブジェクトの同期コンテキスト呼び出しを行う
+                for (int i = 0; i < awaiterContinuInfoList.Count; ++i)
+                {
+                    // 同期オブジェクトに継続関数をポストする
+                    var continuInfo = awaiterContinuInfoList[i];
+                    continuInfo.context.Post(postContinuationFunctionCache, continuInfo.callback);
+                }
+
+
+                // リストをクリア
+                awaiterContinuInfoList.Clear();
 
 
                 // イベントがあれば呼び出して全て解除する
                 InstallFinished?.Invoke();
                 InstallFinished = null;
-
-
-                // イベント呼び出しが終わったら結果を忘れる
-                Result = null;
             }
         }
 
@@ -379,7 +419,7 @@ namespace IceMilkTea.Module
             /// <summary>
             /// インストールが完了したかどうか
             /// </summary>
-            public bool IsCompleted => monitor.Result.HasValue;
+            public bool IsCompleted => !monitor.archive.installStarted;
 
 
 
@@ -403,18 +443,14 @@ namespace IceMilkTea.Module
                 // 完了していれば
                 if (IsCompleted)
                 {
-                    // 継続関数を直ちに呼ぶ
+                    // 継続関数を直ちに呼んで終わり
                     continuation();
+                    return;
                 }
 
 
-                // 現在の同期コンテキストを取り出して、イベントの登録
-                var context = SynchronizationContext.Current;
-                monitor.InstallFinished += () =>
-                {
-                    // コンテキストに継続関数を呼んでもらう
-                    context.Post(_ => continuation(), null);
-                };
+                // 継続関数の登録をして終わり
+                monitor.RegisterContinuFunction(continuation);
             }
 
 
@@ -423,8 +459,8 @@ namespace IceMilkTea.Module
             /// </summary>
             public ImtArchiveEntryInstallResult GetResult()
             {
-                // 結果を返す（Nullableだが、nullだったとしても失敗として通知する）
-                return monitor.Result.HasValue ? monitor.Result.Value : ImtArchiveEntryInstallResult.Failed;
+                // 結果を返す
+                return monitor.archive.InstallFailed ? ImtArchiveEntryInstallResult.Failed : ImtArchiveEntryInstallResult.Success;
             }
         }
         #endregion
@@ -453,7 +489,6 @@ namespace IceMilkTea.Module
         private Queue<ImtArchiveEntryInstaller> installerQueue;
         private ImtArchiveEntryInstallMonitor installMonitor;
         private long installOffset;
-        private bool installFailed;
         private bool installStarted;
         private byte[] encodingBuffer;
         private long readStreamHeadPosition;
@@ -470,6 +505,12 @@ namespace IceMilkTea.Module
         {
             get { return GetEntryInfoCount(); }
         }
+
+
+        /// <summary>
+        /// 前回のインストールが失敗したかどうかを取得します
+        /// </summary>
+        public bool InstallFailed { get; private set; }
 
 
 
@@ -1013,7 +1054,7 @@ namespace IceMilkTea.Module
 
             // インストールを開始したことと、インストールするべきオフセット、インストール失敗のクリアを設定
             installStarted = true;
-            installFailed = false;
+            InstallFailed = false;
             installOffset = header.EntryInfoListOffset;
 
 
@@ -1086,7 +1127,7 @@ namespace IceMilkTea.Module
             if (result == ImtArchiveEntryInstallResult.Failed)
             {
                 // 失敗したマークをつける
-                installFailed = true;
+                InstallFailed = true;
             }
 
 
@@ -1124,7 +1165,7 @@ namespace IceMilkTea.Module
 
             // キューが空になったのなら真の意味でインストール完了なので、インストール完了状態にしてモニタにインストール完了通知をする
             installStarted = false;
-            installMonitor.NotifyInstallAllFinish(installFailed ? ImtArchiveEntryInstallResult.Failed : ImtArchiveEntryInstallResult.Success);
+            installMonitor.NotifyInstallAllFinish();
         }
         #endregion
 
