@@ -452,6 +452,9 @@ namespace IceMilkTea.Module
         private ImtArchiveWriter archiveWriter;
         private Queue<ImtArchiveEntryInstaller> installerQueue;
         private ImtArchiveEntryInstallMonitor installMonitor;
+        private long installOffset;
+        private bool installFailed;
+        private bool installStarted;
         private byte[] encodingBuffer;
         private long readStreamHeadPosition;
         private long writeStreamHeadPosition;
@@ -903,16 +906,26 @@ namespace IceMilkTea.Module
 
 
         #region エントリ情報書き込み関数群
+        // TODO : インストールコードはインストール管理クラスに分けたほうが良いかもしれない
         /// <summary>
-        /// 指定されたインストーラを、インストーラキューに追加します
+        /// 指定されたインストーラを、インストーラキューに追加します。
         /// </summary>
         /// <remarks>
         /// インストールするエントリの数が複数ある場合は、必要なインストーラの全てを追加することをおすすめします。
         /// 一つずつインストールを実行してしまうと、パフォーマンスに非常な悪影響を及ぼす可能性があります。
         /// </remarks>
         /// <param name="installer">キューに追加するインストーラ</param>
+        /// <exception cref="InvalidOperationException">インストールが既に開始されています</exception>
         public void EnqueueInstaller(ImtArchiveEntryInstaller installer)
         {
+            // インストールが始まっているのなら
+            if (installStarted)
+            {
+                // インストール関数は呼び出せない
+                throw new InvalidOperationException("インストールが既に開始されています");
+            }
+
+
             // インストーラがnullなら
             if (installer == null)
             {
@@ -931,15 +944,187 @@ namespace IceMilkTea.Module
         /// また、この関数は全てのインストーラが完了することは待たずに、処理を返すことがあります。
         /// </summary>
         /// <returns>インストール状況を監視するオブジェクトを返します</returns>
+        /// <exception cref="InvalidOperationException">インストールが既に開始されています</exception>
+        /// <exception cref="InvalidOperationException">インストーラが１つもキューに追加されていません</exception>
+        /// <exception cref="InvalidOperationException">インストーラが無効なエントリ名を返しました</exception>
+        /// <exception cref="InvalidOperationException">インストーラが無効なエントリサイズを返しました</exception>
         public ImtArchiveEntryInstallMonitor InstallEntryAsync()
         {
-            // モニタを返す
+            // インストールが始まっているのなら
+            if (installStarted)
+            {
+                // インストール関数は呼び出せない
+                throw new InvalidOperationException("インストールが既に開始されています");
+            }
+
+
+            // インストーラキューが空なら
+            if (installerQueue.Count == 0)
+            {
+                // 何をインストールすれば良いんじゃ
+                throw new InvalidOperationException("インストーラが１つもキューに追加されていません");
+            }
+
+
+            // インストール前の事前情報変数を用意
+            var newerEntryInfoList = new List<ImtArchiveEntryInfo>(installerQueue.Count);
+            var necessaryFreeSpace = 0L;
+
+
+            // キューの数分回って検査しつつ新規追加分の数も数える
+            foreach (var installer in installerQueue)
+            {
+                // もしインストーラが無効なエントリ名を差し出してきたら
+                if (string.IsNullOrWhiteSpace(installer.EntryName))
+                {
+                    // そのエントリ名は受け付けられない
+                    throw new InvalidOperationException("インストーラが無効なエントリ名を返しました");
+                }
+
+
+                // インストーラが不正なサイズを要求してきたら
+                if (installer.EntrySize < 0)
+                {
+                    // 負のサイズのデータってなんだろうか
+                    throw new InvalidOperationException("インストーラが無効なエントリサイズを返しました");
+                }
+
+
+                // エントリ名からエントリIDを作って、必要空きスペースサイズに要求サイズを加算
+                var entryId = CalculateEntryId(installer.EntryName);
+                necessaryFreeSpace += installer.EntrySize;
+
+
+                // エントリIDで検索してインデックスが見つからなかったら
+                if (FindEntryIndex(entryId) == EntryIndexNotFound)
+                {
+                    // 新規追加分のエントリとして新規追加エントリリストに追加
+                    newerEntryInfoList.Add(new ImtArchiveEntryInfo()
+                    {
+                        // 各エントリ情報を設定
+                        Id = entryId,
+                        Offset = 0L,
+                        Size = installer.EntrySize,
+                        Reserved = 0UL,
+                    });
+                }
+            }
+
+
+            // インストールを開始したことと、インストールするべきオフセット、インストール失敗のクリアを設定
+            installStarted = true;
+            installFailed = false;
+            installOffset = header.EntryInfoListOffset;
+
+
+            // 新規追加エントリをマージして、直ちに参照を更新する（要素の更新自体は、実際に該当インストールが完了してからになる）
+            // TODO : 出来ることならインストールクラスに分けてエントリ情報の更新タイミングとかも適切にハンドリングしたい
+            entries = MergeEntryInfo(newerEntryInfoList.ToArray());
+
+
+            // 書き込みストリームをロック
+            lock (archiveWriter.BaseStream)
+            {
+                // インストールするためにアーカイブの領域を広げるため新しいエントリサイズ分を追加して広げる
+                var newArchiveSize = archiveWriter.BaseStream.Length + necessaryFreeSpace + ImtArchiveEntryInfo.InfoSize * entries.Length;
+                archiveWriter.BaseStream.SetLength(newArchiveSize);
+
+
+                // 新しいエントリ情報リストのオフセットに移動して、新しいエントリを一気に書き込む
+                archiveWriter.BaseStream.Seek(writeStreamHeadPosition + header.EntryInfoListOffset + necessaryFreeSpace, SeekOrigin.Begin);
+                for (int i = 0; i < entries.Length; ++i)
+                {
+                    // エントリ情報を書き込む
+                    archiveWriter.Write(ref entries[i]);
+                }
+
+
+                // 先頭に戻ってエントリオフセット＆カウント更新版のヘッダを書き込む
+                header.EntryInfoCount = entries.Length;
+                header.EntryInfoListOffset = header.EntryInfoListOffset + necessaryFreeSpace;
+                archiveWriter.BaseStream.Seek(writeStreamHeadPosition, SeekOrigin.Begin);
+                archiveWriter.Write(ref header);
+            }
+
+
+            // まずはキューの先頭にいるインストーラを取得してインストール開始をポストしてモニタを返す
+            SynchronizationContext.Current.Post(x => DoInstall((ImtArchiveEntryInstaller)x), installerQueue.Peek());
             return installMonitor;
         }
 
 
+        /// <summary>
+        /// 指定されたインストーラによるインストールを行います。
+        /// </summary>
+        /// <param name="installer">インストールを行うインストーラ</param>
+        private void DoInstall(ImtArchiveEntryInstaller installer)
+        {
+            // エントリ情報を取得してインストールオフセットを渡す（ここはコピーなので実際のエントリ情報の更新ではない）
+            // TODO : 都度エントリIDを計算するのはもったいないのでどうにかする（そもそもエントリ情報のインデックスも取得済みで良い気もする）
+            var entryInfo = entries[FindEntryIndex(CalculateEntryId(installer.EntryName))];
+            entryInfo.Offset = writeStreamHeadPosition + installOffset;
+
+
+            // インストール用ストリームの生成をしてインストーラに渡す
+            var installStream = new ImtArchiveEntryInstallStream(entryInfo, archiveWriter.BaseStream, installer, OnEntryInstallFinished);
+            installer.DoInstall(installStream);
+        }
+
+
+        /// <summary>
+        /// インストーラによるインストールが終わった時の処理を行います
+        /// </summary>
+        /// <param name="installer">インストール完了通知をしたインストーラ</param>
+        /// <param name="result">インストール結果</param>
         private void OnEntryInstallFinished(ImtArchiveEntryInstaller installer, ImtArchiveEntryInstallResult result)
         {
+            // キューからでもインストーラを取り出せるが、ここは素直に捨てる
+            installerQueue.Dequeue();
+
+
+            // もしインストール失敗したのなら
+            if (result == ImtArchiveEntryInstallResult.Failed)
+            {
+                // 失敗したマークをつける
+                installFailed = true;
+            }
+
+
+            // エントリのインデックスを取り出す
+            // TODO : 都度エントリIDを計算するのはもったいないのでどうにかする（そもそもエントリ情報のインデックスも取得済みで良い気もする）
+            var entryIndex = FindEntryIndex(CalculateEntryId(installer.EntryName));
+
+
+            // エントリの更新とインストールオフセットを更新
+            entries[entryIndex].Offset = installOffset;
+            installOffset += installer.EntrySize;
+
+
+            // エントリのインデックスからアーカイブの更新するべきオフセットを求める
+            var updateEntryInfoOffset = writeStreamHeadPosition + header.EntryInfoListOffset + ImtArchiveEntryInfo.InfoSize * entryIndex;
+
+
+            // 書き込みストリームをロック
+            lock (archiveWriter.BaseStream)
+            {
+                // シークして新しいエントリ情報を書き込む
+                archiveWriter.BaseStream.Seek(updateEntryInfoOffset, SeekOrigin.Begin);
+                archiveWriter.Write(ref entries[entryIndex]);
+            }
+
+
+            // キューが空ではないなら
+            if (installerQueue.Count > 0)
+            {
+                // インストールを続ける
+                SynchronizationContext.Current.Post(x => DoInstall((ImtArchiveEntryInstaller)x), installerQueue.Peek());
+                return;
+            }
+
+
+            // キューが空になったのなら真の意味でインストール完了なので、インストール完了状態にしてモニタにインストール完了通知をする
+            installStarted = false;
+            installMonitor.NotifyInstallAllFinish(installFailed ? ImtArchiveEntryInstallResult.Failed : ImtArchiveEntryInstallResult.Success);
         }
         #endregion
 
@@ -1002,7 +1187,7 @@ namespace IceMilkTea.Module
         /// <remarks>
         /// 重複するエントリIDが新しいエントリ情報配列に含まれていた場合の動作は保証していません
         /// </remarks>
-        /// <param name="infos">これからマージする新しいエントリ情報の配列</param>
+        /// <param name="infos">これからマージする新しいエントリ情報の配列（エントリ情報は内部でソートするため、ソート済みである必要はありません）</param>
         /// <returns>マージされた新しいエントリ情報の配列を返します</returns>
         private ImtArchiveEntryInfo[] MergeEntryInfo(ImtArchiveEntryInfo[] infos)
         {
