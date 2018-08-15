@@ -1087,8 +1087,8 @@ namespace IceMilkTea.Module
             // 書き込みストリームをロック
             lock (archiveWriter.BaseStream)
             {
-                // インストールするためにアーカイブの領域を広げるため新しいエントリサイズ分を追加して広げる
-                var newArchiveSize = archiveWriter.BaseStream.Length + necessaryFreeSpace + ImtArchiveEntryInfo.InfoSize * newerEntryInfoList.Count;
+                // 現在抱えている情報で書き込むべきインストールファイルのサイズを求める
+                var newArchiveSize = ImtArchiveHeader.HeaderSize + necessaryFreeSpace + ImtArchiveEntryInfo.InfoSize * entries.Length;
                 archiveWriter.BaseStream.SetLength(newArchiveSize);
 
 
