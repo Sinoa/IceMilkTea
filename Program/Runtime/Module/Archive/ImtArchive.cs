@@ -1139,6 +1139,7 @@ namespace IceMilkTea.Module
 
             // エントリの更新とインストールオフセットを更新
             entries[entryIndex].Offset = installOffset;
+            entries[entryIndex].Size = installer.EntrySize;
             installOffset += installer.EntrySize;
 
 
