@@ -34,6 +34,15 @@ namespace IceMilkTea.Core
             // AsyncOperationのAwaiterのインスタンスを返す
             return new AsyncOperationAwaiter(asyncOperation);
         }
+
+        /// <summary>
+        /// AsyncOperationをFire And Forget呼び出しします。await可能だという警告を潰すことができます
+        /// </summary>
+        /// <param name="asyncOperation">Fire and Forgetする対象のAsyncOperation</param>
+        public static void Forget(this AsyncOperation asyncOperation)
+        {
+            // Fire And Forget
+        }
     }
 
 
