@@ -35,6 +35,7 @@ namespace IceMilkTea.Core
             return new AsyncOperationAwaiter(asyncOperation);
         }
 
+
         /// <summary>
         /// AsyncOperationをFire And Forgetします。await可能だという警告を潰すことができます
         /// </summary>
