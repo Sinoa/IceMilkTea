@@ -36,7 +36,7 @@ namespace IceMilkTea.Core
         }
 
         /// <summary>
-        /// AsyncOperationをFire And Forget呼び出しします。await可能だという警告を潰すことができます
+        /// AsyncOperationをFire And Forgetします。await可能だという警告を潰すことができます
         /// </summary>
         /// <param name="asyncOperation">Fire and Forgetする対象のAsyncOperation</param>
         public static void Forget(this AsyncOperation asyncOperation)
