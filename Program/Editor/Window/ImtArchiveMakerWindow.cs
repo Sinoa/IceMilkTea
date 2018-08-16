@@ -13,41 +13,41 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using IceMilkTeaEditor.Window;
 using UnityEditor;
+using UnityEngine;
 
-namespace IceMilkTeaEditor.Common
+namespace IceMilkTeaEditor.Window
 {
     /// <summary>
-    /// UnityエディタのメニューにIceMilkTeaのメニューを取りまとめるクラスです
+    /// IceMilkTeaアーカイブをGUI上で作るためのウィンドウを提供するクラスです
     /// </summary>
-    internal static class EditorMenu
+    public class ImtArchiveMakerWindow : EditorWindow
     {
-        // 定数定義
-        private const string RootMenuName = "IceMilkTea";
-        private const string WindowMenuName = RootMenuName + "/Window";
-
-
-
         /// <summary>
-        /// GameMainAssetGenerateウィンドウを開きます
+        /// ウィンドウを開きます
         /// </summary>
-        [MenuItem(WindowMenuName + "/GameMainAsset")]
-        public static void OpenGameMainAssetGenerateWindow()
+        public static void OpenWindow()
         {
-            // GameMainGenerateWindowを開く
-            GameMainAssetGenerateWindow.OpenWindow();
+            // ウィンドウインスタンスを取得する関数でウィンドウを開く
+            GetWindow<ImtArchiveMakerWindow>();
         }
 
 
         /// <summary>
-        /// ImtArchiveMakerウィンドウを開きます
+        /// エディタウィンドウのインスタンスを初期化します
         /// </summary>
-        [MenuItem(WindowMenuName + "/ImtArchiveMaker")]
-        public static void OpenImtArchiveMakerWindow()
+        private void Awake()
         {
-            // ImtArchiveMakerWindowを開く
-            ImtArchiveMakerWindow.OpenWindow();
+            // タイトルの変更
+            titleContent = new GUIContent("ImtArchiveMaker");
+        }
+
+
+        /// <summary>
+        /// エディタウィンドウのGUIのハンドリングと描画を行います
+        /// </summary>
+        private void OnGUI()
+        {
         }
     }
 }
