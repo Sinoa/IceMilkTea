@@ -16,7 +16,7 @@
 
 ### 作者(Author)
 
-* Sinoa
+* Sinoa <sinoa.dev@gmail.com>
 
 ### ライセンス(License)
 
@@ -28,4 +28,5 @@
 未記入
 
 ## 開発協力者(Develop Collaborators)
-* mitchydeath
+* mitchydeath <michiwaki.shohei@gmail.com>
+* enrike3 <eiki.kudaka@live.jp>
