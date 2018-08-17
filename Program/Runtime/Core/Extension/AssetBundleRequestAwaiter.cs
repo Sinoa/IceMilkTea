@@ -21,28 +21,28 @@ using UnityEngine;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// ResourceRequest クラスの拡張関数実装用クラスです
+    /// AssetBundleRequest クラスの拡張関数実装用クラスです
     /// </summary>
-    public static class ResourceRequestExtension
+    public static class AssetBundleRequestExtension
     {
         /// <summary>
-        /// ResourceRequest の待機可能なオブジェクトを取得します
+        /// AssetBundleRequest の待機オブジェクトを取得します
         /// </summary>
-        /// <param name="resourceRequest">待機する対象の ResourceRequest</param>
-        /// <returns>ResourceRequest の待機可能なオブジェクトを返します</returns>
-        public static ResourceRequestAwaiter GetAwaiter(this ResourceRequest resourceRequest)
+        /// <param name="request">待機する AssetBundleRequest</param>
+        /// <returns>AssetBundleRequest の待機オブジェクトを返します</returns>
+        public static AssetBundleRequestAwaiter GetAwaiter(this AssetBundleRequest request)
         {
-            // ResourceRequestのAwaiterのインスタンスを返す
-            return new ResourceRequestAwaiter(resourceRequest);
+            // AssetBundleRequest待機オブジェクトを生成して返す
+            return new AssetBundleRequestAwaiter(request);
         }
     }
 
 
 
     /// <summary>
-    /// Unity の ResourceRequest による非同期制御同期オブジェクトを async - await に対応させた Awaiter 構造体です
+    /// AssetBundleRequest クラスの待機構造体です
     /// </summary>
-    public struct ResourceRequestAwaiter : INotifyCompletion
+    public struct AssetBundleRequestAwaiter : INotifyCompletion
     {
         // 構造体変数宣言
         private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
@@ -50,56 +50,57 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
-        private ResourceRequest resourceRequest;
+        private AssetBundleRequest request;
 
 
 
         /// <summary>
-        /// タスクが完了しているかどうか
+        /// タスクが完了したかどうか
         /// </summary>
-        public bool IsCompleted => resourceRequest.isDone;
+        public bool IsCompleted => request.isDone;
 
 
 
         /// <summary>
-        /// ResourceRequestAwaiter オブジェクトの初期化を行います
+        /// AssetBundleRequestAwaiter のインスタンスを初期化します
         /// </summary>
-        /// <param name="request">待機処理をする対象の ResourceRequest インスタンス</param>
-        public ResourceRequestAwaiter(ResourceRequest request)
+        /// <param name="request">待機する AssetBundleRequest</param>
+        public AssetBundleRequestAwaiter(AssetBundleRequest request)
         {
             // 覚える
-            resourceRequest = request;
+            this.request = request;
         }
 
 
         /// <summary>
         /// タスクの完了処理を行います
         /// </summary>
-        /// <param name="continuation">タスク完了後の継続処理を行う対象の関数</param>
+        /// <param name="continuation">タスクの継続関数</param>
         public void OnCompleted(Action continuation)
         {
-            // 既に完了状態で呼び出されたのなら
+            // タスクがすでに完了しているのなら
             if (IsCompleted)
             {
-                // 直ちに後続処理を叩く
+                // 継続関数を直ちに呼び出して終了
                 continuation();
                 return;
             }
 
 
-            // 現在の同期コンテキストを取り出して、同期コンテキストにPostするような非同期完了イベントを登録
+            // 現在の同期コンテキストを取得して、ロード完了イベントからコンテキストにPostするように登録する
             var context = SynchronizationContext.Current;
-            resourceRequest.completed += _ => context.Post(cache, continuation);
+            request.completed += _ => context.Post(cache, continuation);
         }
 
 
         /// <summary>
-        /// 非同期結果を取得します
+        /// タスクの結果を取得します
         /// </summary>
+        /// <returns>タスクの結果を返します</returns>
         public UnityEngine.Object GetResult()
         {
-            // ロード結果を返す
-            return resourceRequest.asset;
+            // 結果を返す
+            return request.asset;
         }
     }
 }

@@ -20,7 +20,7 @@ using UnityEngine;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// AsyncOperation クラスの拡張関数実装用構造体です
+    /// AsyncOperation クラスの拡張関数実装用クラスです
     /// </summary>
     public static class AsyncOperationExtension
     {
