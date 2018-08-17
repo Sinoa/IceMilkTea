@@ -20,7 +20,7 @@ using UnityEngine;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// AsyncOperation クラスの拡張関数実装用構造体です
+    /// AsyncOperation クラスの拡張関数実装用クラスです
     /// </summary>
     public static class AsyncOperationExtension
     {
@@ -33,6 +33,16 @@ namespace IceMilkTea.Core
         {
             // AsyncOperationのAwaiterのインスタンスを返す
             return new AsyncOperationAwaiter(asyncOperation);
+        }
+
+
+        /// <summary>
+        /// AsyncOperationをFire And Forgetします。await可能だという警告を潰すことができます
+        /// </summary>
+        /// <param name="asyncOperation">Fire and Forgetする対象のAsyncOperation</param>
+        public static void Forget(this AsyncOperation asyncOperation)
+        {
+            // Fire And Forget
         }
     }
 
