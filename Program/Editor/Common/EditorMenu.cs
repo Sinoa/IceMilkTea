@@ -32,7 +32,7 @@ namespace IceMilkTeaEditor.Common
         /// <summary>
         /// GameMainAssetGenerateウィンドウを開きます
         /// </summary>
-        [MenuItem(WindowMenuName + "/GameMainAsset")]
+        [MenuItem(WindowMenuName + "/GameMainAssetCreate")]
         public static void OpenGameMainAssetGenerateWindow()
         {
             // GameMainGenerateWindowを開く
@@ -43,7 +43,7 @@ namespace IceMilkTeaEditor.Common
         /// <summary>
         /// ImtArchiveMakerウィンドウを開きます
         /// </summary>
-        [MenuItem(WindowMenuName + "/ImtArchiveMaker")]
+        [MenuItem(WindowMenuName + "/ArchiveMaker")]
         public static void OpenImtArchiveMakerWindow()
         {
             // ImtArchiveMakerWindowを開く
