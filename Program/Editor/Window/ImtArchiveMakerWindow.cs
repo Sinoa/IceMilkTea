@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -23,6 +25,12 @@ namespace IceMilkTeaEditor.Window
     /// </summary>
     public class ImtArchiveMakerWindow : EditorWindow
     {
+        // メンバ変数定義
+        private List<string> filePathList;
+        private Vector2 scrollPosition;
+
+
+
         /// <summary>
         /// ウィンドウを開きます
         /// </summary>
@@ -38,8 +46,13 @@ namespace IceMilkTeaEditor.Window
         /// </summary>
         private void Awake()
         {
-            // タイトルの変更
-            titleContent = new GUIContent("ImtArchiveMaker");
+            // ウィンドウ設定をする
+            titleContent = new GUIContent("ArchiveMaker");
+            minSize = new Vector2(640.0f, 480.0f);
+
+
+            // メンバ変数の初期化
+            filePathList = new List<string>();
         }
 
 
@@ -47,6 +60,116 @@ namespace IceMilkTeaEditor.Window
         /// エディタウィンドウのGUIのハンドリングと描画を行います
         /// </summary>
         private void OnGUI()
+        {
+            // 水平レイアウトにする
+            using (new GUILayout.HorizontalScope())
+            {
+                // インクルードするファイル選択ボタンを押されたら
+                if (GUILayout.Button("インクルードするファイルを選択"))
+                {
+                    // 該当ハンドラ関数を呼ぶ
+                    OnIncludeFileSelectButtonClick();
+                }
+
+
+                // フォルダごと選択するボタンを押されたら
+                if (GUILayout.Button("フォルダから選択"))
+                {
+                    // 該当ハンドラ関数を呼ぶ
+                    OnIncludeDirectorySelectButtonClick();
+                }
+
+
+                // ビルドボタンを押されたら
+                if (GUILayout.Button("ビルド"))
+                {
+                    // 該当ハンドラ関数を呼ぶ
+                    OnBuildButtonClick();
+                }
+            }
+
+
+            // スクロールレイアウトにする
+            using (var scrollView = new EditorGUILayout.ScrollViewScope(scrollPosition))
+            {
+                // スクロール量を覚えておく
+                scrollPosition = scrollView.scrollPosition;
+
+
+                // 現在の選択済みファイルパス分回る
+                foreach (var filePath in filePathList)
+                {
+                    // ラベルとして表示する
+                    GUILayout.Label(filePath);
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// ファイルをひとつだけ選択するボタンのクリックイベントを処理します
+        /// </summary>
+        private void OnIncludeFileSelectButtonClick()
+        {
+            // ファイル選択ダイアログを表示して、選択されなかったら
+            var filePath = EditorUtility.OpenFilePanel("アーカイブに入れるファイルを選択して下さい", string.Empty, string.Empty);
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                // なにもせず終了
+                return;
+            }
+
+
+            // パスを正規化して、既に登録済みなら
+            filePath = filePath.Replace("\\", "/");
+            if (filePathList.Contains(filePath))
+            {
+                // 終了
+                return;
+            }
+
+
+            // ファイルリストに登録する
+            filePathList.Add(filePath);
+        }
+
+
+        /// <summary>
+        /// フォルダごと選択するボタンのクリックイベントを処理します
+        /// </summary>
+        private void OnIncludeDirectorySelectButtonClick()
+        {
+            // ディレクトリ選択ダイアログを表示して、選択されなかったら
+            var dirPath = EditorUtility.OpenFolderPanel("インクルードするファイルを含んだフォルダを選択して下さい", string.Empty, string.Empty);
+            if (string.IsNullOrWhiteSpace(dirPath))
+            {
+                // 終了
+                return;
+            }
+
+
+            // ディレクトリ内のファイルを列挙する
+            foreach (var tempFilePath in Directory.EnumerateFiles(dirPath, "*.*", SearchOption.TopDirectoryOnly))
+            {
+                // パスを正規化して、既に登録済みなら
+                var filePath = tempFilePath.Replace("\\", "/");
+                if (filePathList.Contains(filePath))
+                {
+                    // 次のパスへ
+                    continue;
+                }
+
+
+                // ファイルリストに登録する
+                filePathList.Add(filePath);
+            }
+        }
+
+
+        /// <summary>
+        /// ビルドボタンのクリックイベントを処理します
+        /// </summary>
+        private void OnBuildButtonClick()
         {
         }
     }
