@@ -27,6 +27,9 @@
 
 未記入
 
-## 開発協力者(Develop Collaborators)
+## 開発貢献者(Development Contributor)
+
+IceMilkTeaの、開発の協力や貢献をしてくれた方々のリストになります。
+
 * mitchydeath <michiwaki.shohei@gmail.com>
 * enrike3 <eiki.kudaka@live.jp>
