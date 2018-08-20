@@ -15,6 +15,8 @@
 
 using System.Collections.Generic;
 using System.IO;
+using IceMilkTea.Module;
+using IceMilkTeaEditor.Utility;
 using UnityEditor;
 using UnityEngine;
 
@@ -169,8 +171,40 @@ namespace IceMilkTeaEditor.Window
         /// <summary>
         /// ビルドボタンのクリックイベントを処理します
         /// </summary>
-        private void OnBuildButtonClick()
+        private async void OnBuildButtonClick()
         {
+            // ファイルを保存するダイアログを表示して、選択されなかったら
+            var filePath = EditorUtility.SaveFilePanel("保存するアーカイブを選択して下さい", string.Empty, "gamepack", string.Empty);
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                // 終了
+                return;
+            }
+
+
+            // 指定されたパスのアーカイブに、ファイルをインストールする
+            var result = await ImtArchiveEditorUtility.BuildArchiveAsync(filePath, filePathList.ToArray(), (title, message, progress) =>
+            {
+                // 進行ダイアログを出す
+                EditorUtility.DisplayProgressBar(title, message, progress);
+            });
+
+
+            // 進行ダイアログを消す
+            EditorUtility.ClearProgressBar();
+
+
+            // もしインストールに失敗したのなら
+            if (result == ImtArchiveEntryInstallResult.Failed)
+            {
+                // ビルドに失敗したことを通知する
+                EditorUtility.DisplayDialog("エラー", "アーカイブのビルドに失敗しました", "OK");
+                return;
+            }
+
+
+            // ビルドが終わったことを通知する
+            EditorUtility.DisplayDialog("完了", "アーカイブのビルドが完了しました", "OK");
         }
     }
 }
