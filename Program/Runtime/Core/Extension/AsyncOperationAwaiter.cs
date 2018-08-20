@@ -15,6 +15,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 
 namespace IceMilkTea.Core
@@ -53,6 +54,11 @@ namespace IceMilkTea.Core
     /// </summary>
     public struct AsyncOperationAwaiter : INotifyCompletion
     {
+        // 構造体変数宣言
+        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+
+
         // メンバ変数定義
         private AsyncOperation asyncOperation;
 
@@ -87,21 +93,13 @@ namespace IceMilkTea.Core
             {
                 // 直ちに後続処理を叩く
                 continuation();
+                return;
             }
-            else
-            {
-                // 現在の同期コンテキストを取り出してコールバックの準備もする
-                var context = System.Threading.SynchronizationContext.Current;
-                var callback = new System.Threading.SendOrPostCallback(_ => continuation());
 
 
-                // 非同期操作の完了イベントのハンドリング
-                asyncOperation.completed += (AsyncOperation _) =>
-                {
-                    // 同期コンテキストのポストを行う様に仕向ける
-                    context.Post(callback, null);
-                };
-            }
+            // 現在の同期コンテキストを取り出して、イベント時に呼び出してもらうようにする
+            var context = SynchronizationContext.Current;
+            asyncOperation.completed += _ => context.Post(cache, continuation);
         }
 
 
@@ -110,16 +108,6 @@ namespace IceMilkTea.Core
         /// </summary>
         public void GetResult()
         {
-            // 非同期操作が終わっているなら
-            if (IsCompleted)
-            {
-                // 直ちに抜ける
-                return;
-            }
-
-
-            // いま現状のUnityでAsyncOperationを同期的に待機する方法が見いだせない（待機可能とは）
-            throw new InvalidOperationException("UnityのAsyncOperationを同一フレームで待つことが出来ません");
         }
     }
 }

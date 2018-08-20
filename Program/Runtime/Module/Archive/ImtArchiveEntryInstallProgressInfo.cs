@@ -13,41 +13,35 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using IceMilkTeaEditor.Window;
-using UnityEditor;
-
-namespace IceMilkTeaEditor.Common
+namespace IceMilkTea.Module
 {
     /// <summary>
-    /// UnityエディタのメニューにIceMilkTeaのメニューを取りまとめるクラスです
+    /// アーカイブのエントリインストール進行情報を保持した構造体です
     /// </summary>
-    internal static class EditorMenu
+    public struct ImtArchiveEntryInstallProgressInfo
     {
-        // 定数定義
-        private const string RootMenuName = "IceMilkTea";
-        private const string WindowMenuName = RootMenuName + "/Window";
+        /// <summary>
+        /// 担当するインストーラ
+        /// </summary>
+        public ImtArchiveEntryInstaller Installer { get; private set; }
+
+        /// <summary>
+        /// 今回のインストーラを含め、残りのインストールする数
+        /// </summary>
+        public int RemainingInstallCount { get; private set; }
 
 
 
         /// <summary>
-        /// GameMainAssetGenerateウィンドウを開きます
+        /// ImtArchiveEntryInstallProgressInfo のインスタンスを初期化します
         /// </summary>
-        [MenuItem(WindowMenuName + "/GameMainAssetCreate")]
-        public static void OpenGameMainAssetGenerateWindow()
+        /// <param name="installer">担当するインストーラ</param>
+        /// <param name="remainingInstallCount">残りのインストール数</param>
+        public ImtArchiveEntryInstallProgressInfo(ImtArchiveEntryInstaller installer, int remainingInstallCount)
         {
-            // GameMainGenerateWindowを開く
-            GameMainAssetGenerateWindow.OpenWindow();
-        }
-
-
-        /// <summary>
-        /// ImtArchiveMakerウィンドウを開きます
-        /// </summary>
-        [MenuItem(WindowMenuName + "/ArchiveMaker")]
-        public static void OpenImtArchiveMakerWindow()
-        {
-            // ImtArchiveMakerWindowを開く
-            ImtArchiveMakerWindow.OpenWindow();
+            // 初期化をする
+            Installer = installer;
+            RemainingInstallCount = remainingInstallCount;
         }
     }
 }

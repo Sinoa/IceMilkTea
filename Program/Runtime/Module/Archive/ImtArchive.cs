@@ -479,6 +479,11 @@ namespace IceMilkTea.Module
 
 
 
+        // クラス変数宣言
+        private static readonly Progress<ImtArchiveEntryInstallProgressInfo> DefaultEmptyProgress = new Progress<ImtArchiveEntryInstallProgressInfo>();
+
+
+
         // メンバ変数定義
         private Crc64Base crc;
         private Encoding encoding;
@@ -488,6 +493,7 @@ namespace IceMilkTea.Module
         private ImtArchiveWriter archiveWriter;
         private Queue<ImtArchiveEntryInstaller> installerQueue;
         private ImtArchiveEntryInstallMonitor installMonitor;
+        private IProgress<ImtArchiveEntryInstallProgressInfo> installProgress;
         private long installOffset;
         private bool installStarted;
         private byte[] encodingBuffer;
@@ -1001,12 +1007,13 @@ namespace IceMilkTea.Module
         /// インストーラキューに待機している全てのインストーラを順次実行していきます。
         /// また、この関数は全てのインストーラが完了することは待たずに、処理を返すことがあります。
         /// </summary>
+        /// <param name="progress">インストーラにインストールを要求するたびに、その進捗を確認するオブジェクト。通知を受けない場合は null の指定が可能です</param>
         /// <returns>インストール状況を監視するオブジェクトを返します</returns>
         /// <exception cref="InvalidOperationException">インストールが既に開始されています</exception>
         /// <exception cref="InvalidOperationException">インストーラが１つもキューに追加されていません</exception>
         /// <exception cref="InvalidOperationException">インストーラが無効なエントリ名を返しました</exception>
         /// <exception cref="InvalidOperationException">インストーラが無効なエントリサイズを返しました</exception>
-        public ImtArchiveEntryInstallMonitor InstallEntryAsync()
+        public ImtArchiveEntryInstallMonitor InstallEntryAsync(IProgress<ImtArchiveEntryInstallProgressInfo> progress)
         {
             // 解放済みかどうかの処理を挟む
             IfDisposedThenException();
@@ -1074,6 +1081,7 @@ namespace IceMilkTea.Module
 
 
             // インストールを開始したことと、インストールするべきオフセット、インストール失敗のクリアを設定
+            installProgress = progress ?? DefaultEmptyProgress;
             installStarted = true;
             InstallFailed = false;
             installOffset = header.EntryInfoListOffset;
@@ -1126,6 +1134,10 @@ namespace IceMilkTea.Module
             var entryInfo = entries[FindEntryIndex(CalculateEntryId(installer.EntryName))];
             entryInfo.Offset = writeStreamHeadPosition + installOffset;
             entryInfo.Size = installer.EntrySize;
+
+
+            // プログレス通知をする
+            installProgress.Report(new ImtArchiveEntryInstallProgressInfo(installer, installerQueue.Count));
 
 
             // インストール用ストリームの生成をしてインストーラに渡す
