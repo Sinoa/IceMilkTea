@@ -55,40 +55,43 @@ namespace IceMilkTeaEditor.Utility
             progress = progress ?? new Action<string, string, float>((title, message, prog) => { });
 
 
-            // アーカイブを開いて、管理データをフェッチ出来るなら
-            var archive = new ImtArchive(archivePath);
-            if (archive.CanFetchManageData())
+            // アーカイブを開く
+            using (var archive = new ImtArchive(archivePath))
             {
-                // 管理データをフェッチする
-                archive.FetchManageData();
+                // 管理データをフェッチ出来るなら
+                if (archive.CanFetchManageData())
+                {
+                    // 管理データをフェッチする
+                    archive.FetchManageData();
+                }
+
+
+                // ファイルパスの数分回る
+                for (int i = 0; i < includeFilePaths.Length; ++i)
+                {
+                    // 現在の進行状況を確認する
+                    var currentProgress = i / (float)includeFilePaths.Length;
+                    var includeFilePath = includeFilePaths[i];
+
+
+                    // 進行通知をしながらインストーラを準備する
+                    progress("インストーラを準備しています", $"[{i + 1}/{includeFilePaths.Length}] {includeFilePath}", currentProgress);
+                    archive.EnqueueInstaller(new ImtArchiveEntryFileInstaller(includeFilePath));
+                }
+
+
+                // インストール通知をして、インストール結果を返す
+                return await archive.InstallEntryAsync(new Progress<ImtArchiveEntryInstallProgressInfo>(info =>
+                {
+                    // 現在の進行状況を確認する
+                    var installStep = includeFilePaths.Length - info.RemainingInstallCount;
+                    var currentProgress = installStep / (float)includeFilePaths.Length;
+
+
+                    // インストール状況を通知する
+                    progress("インストールしています", $"[{installStep + 1}/{includeFilePaths.Length}] {info.Installer.EntryName}", currentProgress);
+                }));
             }
-
-
-            // ファイルパスの数分回る
-            for (int i = 0; i < includeFilePaths.Length; ++i)
-            {
-                // 現在の進行状況を確認する
-                var currentProgress = i / (float)includeFilePaths.Length;
-                var includeFilePath = includeFilePaths[i];
-
-
-                // 進行通知をしながらインストーラを準備する
-                progress("インストーラを準備しています", $"[{i + 1}/{includeFilePaths.Length}] {includeFilePath}", currentProgress);
-                archive.EnqueueInstaller(new ImtArchiveEntryFileInstaller(includeFilePath));
-            }
-
-
-            // インストール通知をして、インストール結果を返す
-            return await archive.InstallEntryAsync(new Progress<ImtArchiveEntryInstallProgressInfo>(info =>
-            {
-                // 現在の進行状況を確認する
-                var installStep = includeFilePaths.Length - info.RemainingInstallCount;
-                var currentProgress = installStep / (float)includeFilePaths.Length;
-
-
-                // インストール状況を通知する
-                progress("インストールしています", $"[{installStep + 1}/{includeFilePaths.Length}] {info.Installer.EntryName}", currentProgress);
-            }));
         }
     }
 }
