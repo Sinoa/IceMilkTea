@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading;
 
 namespace IceMilkTea.Core
@@ -586,7 +587,7 @@ namespace IceMilkTea.Core
     /// <remarks>
     /// このクラスは ImtSynchronizationStateMachine クラスが、ステートで処理される非同期処理を同期的に制御する際に利用されます
     /// </remarks>
-    internal class StateMachineSynchronizationContext : SynchronizationContext
+    internal class StateMachineSynchronizationContext : SynchronizationContext, IDisposable
     {
         /// <summary>
         /// 同期コンテキストに送られてきたコールバック関数を保持する構造体です
@@ -596,17 +597,17 @@ namespace IceMilkTea.Core
             /// <summary>
             /// 処理するべきコールバック
             /// </summary>
-            private SendOrPostCallback callback;
+            public SendOrPostCallback callback { get; private set; }
 
             /// <summary>
             /// コールバック関数を呼ぶときに渡すべき状態オブジェクト
             /// </summary>
-            private object state;
+            public object state { get; private set; }
 
             /// <summary>
             /// 非同期処理側からの同期呼び出しが行われた際の待機オブジェクト
             /// </summary>
-            private ManualResetEvent waitHandle;
+            public ManualResetEvent waitHandle { get; private set; }
 
 
 
@@ -649,6 +650,8 @@ namespace IceMilkTea.Core
         // 以下メンバ変数定義
         private int myStartupThreadId;
         private Queue<Message> messageQueue;
+        private SynchronizationContext failbackSynContext;
+        private bool disposed;
 
 
 
@@ -662,6 +665,76 @@ namespace IceMilkTea.Core
             // （ステート内でのみのメッセージなので容量は既定値のまま）
             myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
             messageQueue = new Queue<Message>();
+
+
+            // フェイルバック先の同期コンテキストを拾っておく
+            failbackSynContext = AsyncOperationManager.SynchronizationContext;
+        }
+
+
+        /// <summary>
+        /// StateMachineSynchronizationContext のデストラクタです
+        /// </summary>
+        ~StateMachineSynchronizationContext()
+        {
+            // デストラクタからのDispose呼び出し
+            Dispose(false);
+        }
+
+
+        /// <summary>
+        /// リソースの解放を行います
+        /// </summary>
+        public void Dispose()
+        {
+            // DisposeからのDispose呼び出しをしてデストラクタを呼ばれないようにする
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+        /// <summary>
+        /// リソースの実際の解放を行います
+        /// </summary>
+        /// <param name="disposing">マネージ解放なら true を、アンマネージの解放なら false を指定</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            // すでに解放済みなら
+            if (disposed)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // キューをロック
+            lock (messageQueue)
+            {
+                // 自身のメッセージキューが空になるまでループ
+                while (messageQueue.Count > 0)
+                {
+                    // メッセージを取り出す
+                    var message = messageQueue.Dequeue();
+
+
+                    // 自身に送られたメッセージを全て、フェイルバック先同期コンテキストに Post する
+                    // （Send されたメッセージも、どうしようもないので Post する）
+                    failbackSynContext.Post(message.callback, message.state);
+
+
+                    // Send 呼び出しの待機ハンドルが存在するなら
+                    if (message.waitHandle != null)
+                    {
+                        // シグナルを送ってハンドルを破棄する
+                        message.waitHandle.Set();
+                        message.waitHandle.Dispose();
+                    }
+                }
+            }
+
+
+            // 解放済みマーク
+            disposed = true;
         }
 
 
@@ -670,8 +743,13 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="callback">同期呼び出しをして欲しいコールバック関数</param>
         /// <param name="state">コールバックに渡すオブジェクト</param>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         public override void Send(SendOrPostCallback callback, object state)
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // 呼び出し側が同じスレッドなら
             if (Thread.CurrentThread.ManagedThreadId == myStartupThreadId)
             {
@@ -703,8 +781,13 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="callback">ポストするコールバック関数</param>
         /// <param name="state">ポストしたコールバック関数に渡すオブジェクト</param>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         public override void Post(SendOrPostCallback callback, object state)
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // キューをロック
             lock (messageQueue)
             {
@@ -717,8 +800,13 @@ namespace IceMilkTea.Core
         /// <summary>
         /// メッセージキューに蓄えられている、メッセージをすべて処理します
         /// </summary>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         internal void DoProcessMessages()
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // キューをロック
             lock (messageQueue)
             {
@@ -728,6 +816,21 @@ namespace IceMilkTea.Core
                     // キューからメッセージを取り出してそのまま呼び出しを行う
                     messageQueue.Dequeue().Invoke();
                 }
+            }
+        }
+
+
+        /// <summary>
+        /// すでに解放済みの場合に ObjectDisposedException 例外を送出します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        private void ThrowIfDisposed()
+        {
+            // すでに破棄済みなら
+            if (disposed)
+            {
+                // 例外を送出する
+                throw new ObjectDisposedException(nameof(StateMachineSynchronizationContext));
             }
         }
     }
@@ -745,10 +848,11 @@ namespace IceMilkTea.Core
     /// 状態制御が完了した時は、本来の同期コンテキストに戻ります。
     /// </remarks>
     /// <typeparam name="TContext">このステートマシンが持つコンテキストの型（同期コンテキストの型ではありません）</typeparam>
-    public class ImtSynchronizationStateMachine<TContext> : ImtStateMachine<TContext>
+    public class ImtSynchronizationStateMachine<TContext> : ImtStateMachine<TContext>, IDisposable
     {
         // 以下メンバ変数定義
         private StateMachineSynchronizationContext synchronizationContext;
+        private bool disposed;
 
 
 
@@ -764,6 +868,54 @@ namespace IceMilkTea.Core
         }
 
 
+        /// <summary>
+        /// ImtSynchronizationStateMachine のデストラクタです
+        /// </summary>
+        ~ImtSynchronizationStateMachine()
+        {
+            // デストラクタからDispose呼び出し
+            Dispose(false);
+        }
+
+
+        /// <summary>
+        /// リソースの解放をします
+        /// </summary>
+        public void Dispose()
+        {
+            // DisposeからのDispose呼び出しをして、デストラクタを呼ばないようにしてもらう
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+        /// <summary>
+        /// リソースの実際の解放をします
+        /// </summary>
+        /// <param name="disposing">マネージ解放の場合は true を、アンマネージ解放の場合は false を指定</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            // 解放済みなら
+            if (disposed)
+            {
+                // 直ちに終了
+                return;
+            }
+
+
+            // マネージ解放なら
+            if (disposing)
+            {
+                // 同期コンテキストの解放もする
+                synchronizationContext.Dispose();
+            }
+
+
+            // 解放済みマーク
+            disposed = true;
+        }
+
+
         #region 同期コンテキストのハンドリング系
         /// <summary>
         /// このステートマシンに同期コンテキストをスイッチしてから、このステートマシンに送られた、同期コンテキストのメッセージをすべて処理します。
@@ -775,8 +927,13 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         public void DoProcessMessage()
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // ステートマシンがまだ起動していないなら例外を吐く
             IfNotRunningThrowException();
 
@@ -814,8 +971,13 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         public void DoProcessMessageWithUpdate()
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // ステートマシンがまだ起動していないなら例外を吐く
             IfNotRunningThrowException();
 
@@ -856,10 +1018,15 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <returns>スタックからステートがポップされ次の遷移の準備が完了した場合は true を、ポップするステートがなかったり、ステートによりポップがガードされた場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         /// <see cref="DoProcessMessage"/>
         /// <see cref="DoProcessMessageWithUpdate"/>
         public override bool PopState()
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
             var previousContext = SynchronizationContext.Current;
             SynchronizationContext.SetSynchronizationContext(synchronizationContext);
@@ -892,10 +1059,15 @@ namespace IceMilkTea.Core
         /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         /// <see cref="DoProcessMessage"/>
         /// <see cref="DoProcessMessageWithUpdate"/>
         public override bool SendEvent(int eventId)
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
             var previousContext = SynchronizationContext.Current;
             SynchronizationContext.SetSynchronizationContext(synchronizationContext);
@@ -922,10 +1094,15 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
         /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
         /// <see cref="DoProcessMessage"/>
         /// <see cref="DoProcessMessageWithUpdate"/>
         public override void Update()
         {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
             // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
             var previousContext = SynchronizationContext.Current;
             SynchronizationContext.SetSynchronizationContext(synchronizationContext);
@@ -939,6 +1116,21 @@ namespace IceMilkTea.Core
             SynchronizationContext.SetSynchronizationContext(previousContext);
         }
         #endregion
+
+
+        /// <summary>
+        /// すでに解放済みの場合に ObjectDisposedException 例外を送出します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        private void ThrowIfDisposed()
+        {
+            // すでに破棄済みなら
+            if (disposed)
+            {
+                // 例外を送出する
+                throw new ObjectDisposedException(nameof(ImtSynchronizationStateMachine<TContext>));
+            }
+        }
     }
     #endregion
     #endregion
