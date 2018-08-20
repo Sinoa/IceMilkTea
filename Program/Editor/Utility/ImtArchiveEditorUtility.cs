@@ -79,8 +79,16 @@ namespace IceMilkTeaEditor.Utility
 
 
             // インストール通知をして、インストール結果を返す
-            progress("インストールしています", "インストールが完了するまでお待ち下さい", 1.0f);
-            return await archive.InstallEntryAsync();
+            return await archive.InstallEntryAsync(new Progress<ImtArchiveEntryInstallProgressInfo>(info =>
+            {
+                // 現在の進行状況を確認する
+                var installStep = includeFilePaths.Length - info.RemainingInstallCount;
+                var currentProgress = installStep / (float)includeFilePaths.Length;
+
+
+                // インストール状況を通知する
+                progress("インストールしています", $"[{installStep + 1}/{includeFilePaths.Length}] {info.Installer.EntryName}", currentProgress);
+            }));
         }
     }
 }
