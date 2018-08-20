@@ -56,8 +56,9 @@ namespace IceMilkTea.Module
         /// <param name="entryInfo">データの書き込みをしたエントリ情報</param>
         /// <param name="bufferLength">書き込みを行うバッファの長さ</param>
         /// <param name="offset">指定されたバッファの読み込み位置</param>
-        /// <param name="writeSize">指定されたバッファの読み取りサイズ</param>
-        protected internal abstract void OnEntryWrite(ref ImtArchiveEntryInfo entryInfo, int bufferLength, long offset, int writeSize);
+        /// <param name="requestSize">要求されたバッファの読み込みサイズ</param>
+        /// <param name="writeSize">実際のバッファの読み取りサイズ</param>
+        protected internal abstract void OnEntryWrite(ref ImtArchiveEntryInfo entryInfo, int bufferLength, long offset, int requestSize, int writeSize);
 
 
         /// <summary>

@@ -855,7 +855,7 @@ namespace IceMilkTea.Module
             // もしI/Oモニタオブジェクトが設定されていたら
             if (ioMonitor != null)
             {
-                // IOモニタリング可能なストリームで返す
+                // I/Oモニタリング可能なストリームで返す
                 return new ImtArchiveEntryMonitorableStream(entries[entryIndex], archiveReader.BaseStream, ioMonitor);
             }
 
@@ -898,6 +898,15 @@ namespace IceMilkTea.Module
                 // 取得できなかったことを返す
                 stream = default(ImtArchiveEntryStream);
                 return false;
+            }
+
+
+            // もしI/Oモニタオブジェクトが設定されていたら
+            if (ioMonitor != null)
+            {
+                // I/Oモニタリング可能なストリームで返す
+                stream = new ImtArchiveEntryMonitorableStream(entries[entryIndex], archiveReader.BaseStream, ioMonitor);
+                return true;
             }
 
 
@@ -1149,8 +1158,13 @@ namespace IceMilkTea.Module
             installProgress.Report(new ImtArchiveEntryInstallProgressInfo(installer, installerQueue.Count));
 
 
-            // インストール用ストリームの生成をしてインストーラに渡す
-            var installStream = new ImtArchiveEntryInstallStream(entryInfo, archiveWriter.BaseStream, installer, OnEntryInstallFinished);
+            // もし I/O監視オブジェクトが存在するならI/O監視バージョンストリームを挟むが、存在しないなら通常のストリームを生成する。
+            var installStream = ioMonitor != null ?
+                new ImtArchiveEntryMonitorableInstallStream(entryInfo, archiveWriter.BaseStream, installer, OnEntryInstallFinished, ioMonitor):
+                new ImtArchiveEntryInstallStream(entryInfo, archiveWriter.BaseStream, installer, OnEntryInstallFinished);
+
+
+            // インストールを開始する
             installer.DoInstall(installStream);
         }
 
