@@ -74,6 +74,10 @@ namespace IceMilkTea.Module
             // 情報を受取る
             ioMonitor = monitor;
             entryInfo = info;
+
+
+            // モニタにストリームオープンされたことを通知する
+            ioMonitor.OnEntryOpen(ref info);
         }
 
 
