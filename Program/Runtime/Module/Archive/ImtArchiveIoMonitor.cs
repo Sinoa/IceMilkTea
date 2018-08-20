@@ -18,7 +18,8 @@ using System.IO;
 namespace IceMilkTea.Module
 {
     /// <summary>
-    /// アーカイブのIOを細かく監視することが出来る抽象クラスです
+    /// アーカイブのIOを細かく監視することが出来る抽象クラスです。
+    /// また、モニタリングクラスのすべてのメンバはスレッドセーフに動作しなければなりません。
     /// </summary>
     public abstract class ImtArchiveIoMonitor
     {

@@ -491,6 +491,7 @@ namespace IceMilkTea.Module
         private ImtArchiveEntryInfo[] entries;
         private ImtArchiveReader archiveReader;
         private ImtArchiveWriter archiveWriter;
+        private ImtArchiveIoMonitor ioMonitor;
         private Queue<ImtArchiveEntryInstaller> installerQueue;
         private ImtArchiveEntryInstallMonitor installMonitor;
         private IProgress<ImtArchiveEntryInstallProgressInfo> installProgress;
@@ -851,6 +852,14 @@ namespace IceMilkTea.Module
             }
 
 
+            // もしI/Oモニタオブジェクトが設定されていたら
+            if (ioMonitor != null)
+            {
+                // IOモニタリング可能なストリームで返す
+                return new ImtArchiveEntryMonitorableStream(entries[entryIndex], archiveReader.BaseStream, ioMonitor);
+            }
+
+
             // 見つけたのならストリームを生成して返す
             return new ImtArchiveEntryStream(entries[entryIndex], archiveReader.BaseStream);
         }
@@ -1201,6 +1210,26 @@ namespace IceMilkTea.Module
             // キューが空になったのなら真の意味でインストール完了なので、インストール完了状態にしてモニタにインストール完了通知をする
             installStarted = false;
             installMonitor.NotifyInstallAllFinish();
+        }
+        #endregion
+
+
+        #region 汎用関数群
+        /// <summary>
+        /// このアーカイブのI/Oを監視するオブジェクトを設定します。
+        /// また、設定を解除する場合は null を指定します。
+        /// ただし、設定が反映されるのは、この関数を呼出した後のエントリストリームに対してのみに有効です。
+        /// </summary>
+        /// <param name="monitor">アーカイブのI/Oを監視する ImtArchiveIoMonitor のインスタンス。設定を解除する場合は null を指定。</param>
+        /// <exception cref="InvalidOperationException">このアーカイブは既に解放済みです</exception>
+        public void SetIoMonitor(ImtArchiveIoMonitor monitor)
+        {
+            // 解放済みかどうかの処理を挟む
+            IfDisposedThenException();
+
+
+            // そのまま引数の値を受け取る
+            ioMonitor = monitor;
         }
         #endregion
 
