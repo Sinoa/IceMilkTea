@@ -49,5 +49,16 @@ namespace IceMilkTeaEditor.Common
             // ImtArchiveMakerWindowを開く
             ImtArchiveMakerWindow.OpenWindow();
         }
+
+
+        /// <summary>
+        /// AssetBundleBuildウィンドウを開きます
+        /// </summary>
+        [MenuItem(WindowMenuName + "/AssetBundleBuild")]
+        public static void OpenAssetBundleBuildWindow()
+        {
+            // AssetBundleWindowを開く
+            AssetBundleBuildWindow.OpenWindow();
+        }
     }
 }
