@@ -15,6 +15,7 @@
 
 using UnityEditor;
 using UnityEngine;
+using System.IO;
 
 namespace IceMilkTeaEditor.Window
 {
@@ -118,8 +119,16 @@ namespace IceMilkTeaEditor.Window
                 // Windowsビルドが有効なら
                 if (buildWin64)
                 {
-                    // Windowsビルドを開始する
+                    // ディレクトリパスを用意して、ディレクトリ実体が無いなら
                     var assetBundleDirPath = outputDirectoryPath.Replace(PlaceHolderPlatformNamePattern, "Win64");
+                    if (!Directory.Exists(assetBundleDirPath))
+                    {
+                        // ディレクトリを生成する
+                        Directory.CreateDirectory(assetBundleDirPath);
+                    }
+
+
+                    // Windowsビルドを開始する
                     BuildPipeline.BuildAssetBundles(assetBundleDirPath, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.StandaloneWindows64);
                 }
 
@@ -127,8 +136,16 @@ namespace IceMilkTeaEditor.Window
                 // Androidビルドが有効なら
                 if (buildAndroid)
                 {
-                    // Androidビルドを開始する
+                    // ディレクトリパスを用意して、ディレクトリ実体が無いなら
                     var assetBundleDirPath = outputDirectoryPath.Replace(PlaceHolderPlatformNamePattern, "Android");
+                    if (!Directory.Exists(assetBundleDirPath))
+                    {
+                        // ディレクトリを生成する
+                        Directory.CreateDirectory(assetBundleDirPath);
+                    }
+
+
+                    // Androidビルドを開始する
                     BuildPipeline.BuildAssetBundles(assetBundleDirPath, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.Android);
                 }
 
@@ -136,10 +153,22 @@ namespace IceMilkTeaEditor.Window
                 // iOSビルドが有効なら
                 if (buildIos)
                 {
-                    // iOSビルドを開始する
+                    // ディレクトリパスを用意して、ディレクトリ実体が無いなら
                     var assetBundleDirPath = outputDirectoryPath.Replace(PlaceHolderPlatformNamePattern, "iOS");
+                    if (!Directory.Exists(assetBundleDirPath))
+                    {
+                        // ディレクトリを生成する
+                        Directory.CreateDirectory(assetBundleDirPath);
+                    }
+
+
+                    // iOSビルドを開始する
                     BuildPipeline.BuildAssetBundles(assetBundleDirPath, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.iOS);
                 }
+
+
+                // ビルドが終わったことを伝える
+                EditorUtility.DisplayDialog("完了", "ビルドが終了しました", "OK");
             }
 
 
