@@ -97,6 +97,13 @@ namespace IceMilkTeaEditor.Window
                 outputDirectoryPath = EditorGUILayout.TextField(new GUIContent("出力先ディレクトリ"), outputDirectoryPath);
                 if (GUILayout.Button("...", GUILayout.Width(25.0f)))
                 {
+                    // フォルダの保存ダイアログを表示して選択されたのなら
+                    var selectedSaveDirectoryPath = EditorUtility.SaveFolderPanel("出力先ディレクトリを選択してください", string.Empty, string.Empty);
+                    if (!string.IsNullOrWhiteSpace(selectedSaveDirectoryPath))
+                    {
+                        // 出力先ディレクトリの更新して再描画イベントを発行
+                        outputDirectoryPath = selectedSaveDirectoryPath;
+                    }
                 }
             }
 
@@ -108,6 +115,31 @@ namespace IceMilkTeaEditor.Window
             // ビルドボタンが押されたのなら
             if (GUILayout.Button("ビルド"))
             {
+                // Windowsビルドが有効なら
+                if (buildWin64)
+                {
+                    // Windowsビルドを開始する
+                    var assetBundleDirPath = outputDirectoryPath.Replace(PlaceHolderPlatformNamePattern, "Win64");
+                    BuildPipeline.BuildAssetBundles(assetBundleDirPath, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.StandaloneWindows64);
+                }
+
+
+                // Androidビルドが有効なら
+                if (buildAndroid)
+                {
+                    // Androidビルドを開始する
+                    var assetBundleDirPath = outputDirectoryPath.Replace(PlaceHolderPlatformNamePattern, "Android");
+                    BuildPipeline.BuildAssetBundles(assetBundleDirPath, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.Android);
+                }
+
+
+                // iOSビルドが有効なら
+                if (buildIos)
+                {
+                    // iOSビルドを開始する
+                    var assetBundleDirPath = outputDirectoryPath.Replace(PlaceHolderPlatformNamePattern, "iOS");
+                    BuildPipeline.BuildAssetBundles(assetBundleDirPath, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.iOS);
+                }
             }
 
 
