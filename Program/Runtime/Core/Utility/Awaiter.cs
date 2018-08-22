@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -460,18 +461,38 @@ namespace IceMilkTea.Core
             /// <summary>
             /// 継続関数登録時の同期コンテキスト
             /// </summary>
-            public SynchronizationContext Context;
+            private SynchronizationContext context;
 
             /// <summary>
             /// 登録された継続関数
             /// </summary>
-            public Action continuation;
+            private Action continuation;
+
+
+
+            /// <summary>
+            /// Handler のインスタンスを初期化します
+            /// </summary>
+            /// <param name="context">利用する同期コンテキスト</param>
+            /// <param name="continuation">同期コンテキストにPostする継続関数</param>
+            public Handler(SynchronizationContext context, Action continuation)
+            {
+                // 初期化
+                this.context = context;
+                this.continuation = continuation;
+            }
+
+
+            /// <summary>
+            /// 同期コンテキストに継続関数をPostします
+            /// </summary>
+            /// <param name="callback">同期コンテキストにPostするためのコールバック関数</param>
+            public void DoPost(SendOrPostCallback callback)
+            {
+                // 同期コンテキストに継続関数をポスト素r
+                context.Post(callback, continuation);
+            }
         }
-
-
-
-        // 定数定義
-        private const int DefaultBufferSize = 8;
 
 
 
@@ -481,15 +502,14 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
-        private Handler[] handlers;
-        private int handleCount;
+        private Queue<Handler> handlerQueue;
 
 
 
         /// <summary>
-        /// AwaiterContinuationHandler のインスタンスを初期化します。
+        /// AwaiterContinuationHandler のインスタンスを既定サイズで初期化します。
         /// </summary>
-        public AwaiterContinuationHandler() : this(DefaultBufferSize)
+        public AwaiterContinuationHandler() : this(capacity: 8)
         {
         }
 
@@ -500,37 +520,23 @@ namespace IceMilkTea.Core
         /// <param name="capacity">登録する継続関数の初期容量</param>
         public AwaiterContinuationHandler(int capacity)
         {
-            // ハンドラ配列の初期化
-            handlers = new Handler[capacity];
-            handleCount = 0;
+            // ハンドラキューの生成
+            handlerQueue = new Queue<Handler>(capacity);
         }
 
 
         /// <summary>
         /// Awaiter の継続関数を登録します。
-        /// 登録した継続関数は SetSignal() 関数にて継続を行うことが可能です。
+        /// 登録した継続関数は SetSignal() または SetOneShotSignal() 関数にて継続を行うことが可能です。
         /// </summary>
         /// <param name="continuation">登録する継続関数</param>
         public void RegisterContinuation(Action continuation)
         {
-            // 配列をロック
-            lock (handlers)
+            // キューをロック
+            lock (handlerQueue)
             {
-                // もしハンドラ配列の長さが登録ハンドル数に到達しているのなら
-                if (handlers.Length == handleCount)
-                {
-                    // 倍のサイズで新しい容量を確保する
-                    EnsureCapacity(handlers.Length * 2);
-                }
-
-
-                // 継続関数をハンドラ配列に追加する
-                handlers[handleCount++] = new Handler()
-                {
-                    // ハンドラ構造体の初期化（このタイミングで同期コンテキストを拾う）
-                    Context = AsyncOperationManager.SynchronizationContext,
-                    continuation = continuation,
-                };
+                // 継続関数をハンドラキューに追加する
+                handlerQueue.Enqueue(new Handler(AsyncOperationManager.SynchronizationContext, continuation));
             }
         }
 
@@ -541,59 +547,31 @@ namespace IceMilkTea.Core
         /// </summary>
         public void SetSignal()
         {
-            // 配列をロック
-            lock (handlers)
+            // キューをロック
+            lock (handlerQueue)
             {
-                // 登録されたハンドラの数分回る
-                for (int i = 0; i < handleCount; ++i)
+                // キューが空になるまでループ
+                while (handlerQueue.Count > 0)
                 {
-                    // 同期コンテキストに継続関数をポストして（実際はキャッシュされたSendOrPostCallbackを通す）参照を忘れる
-                    handlers[i].Context.Post(cache, handlers[i].continuation);
-                    handlers[i].Context = null;
-                    handlers[i].continuation = null;
+                    // キューからハンドラをデキューして継続関数をポストする
+                    handlerQueue.Dequeue().DoPost(cache);
                 }
-
-
-                // ハンドラを空にする
-                handleCount = 0;
             }
         }
 
 
         /// <summary>
-        /// ハンドラ配列を指定された容量で新しく確保します
+        /// 登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
+        /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
         /// </summary>
-        /// <param name="newCapacity">新しいハンドラの容量（既定値より小さい値の場合は既定値に設定されます）</param>
-        private void EnsureCapacity(int newCapacity)
+        public void SetOneShotSignal()
         {
-            // 既定値より小さいなら
-            if (newCapacity < DefaultBufferSize)
+            // キューをロック
+            lock (handlerQueue)
             {
-                // 規定値に強制的に設定する
-                newCapacity = DefaultBufferSize;
+                // キューからハンドラをデキューして継続関数をポストする
+                handlerQueue.Dequeue().DoPost(cache);
             }
-
-
-            // 新しい容量が、既に使用済み容量未満の場合なら
-            if (newCapacity < handleCount)
-            {
-                // 新しく確保できない事を吐く
-                throw new ArgumentException("指定された新しい容量が、使用済み容量未満です", nameof(newCapacity));
-            }
-
-
-            // もし新しい容量が、現在の容量と同じなら
-            if (newCapacity == handlers.Length)
-            {
-                // 既に同サイズの容量なので何もせず終了
-                return;
-            }
-
-
-            // 新しい配列を確保して、旧配列から使用済みデータをコピー後、参照を新しい配列に設定する
-            var newHandlers = new Handler[newCapacity];
-            Array.Copy(handlers, newHandlers, handleCount);
-            handlers = newHandlers;
         }
     }
     #endregion
