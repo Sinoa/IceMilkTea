@@ -94,10 +94,11 @@ namespace IceMilkTea.Core
     /// <remarks>
     /// 単純なシグナル操作による、待機制御を実現する場合には有用です。
     /// </remarks>
-    public abstract class ImtAwaitableWaitHandle : IAwaitable
+    public abstract class ImtAwaitableWaitHandle : IAwaitable, IDisposable
     {
         // メンバ変数定義
         protected AwaiterContinuationHandler awaiterHandler;
+        private bool disposed;
 
 
 
@@ -122,11 +123,50 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ImtAwaitableWaitHandle のデストラクタです
+        /// </summary>
+        ~ImtAwaitableWaitHandle()
+        {
+            // Disposeを叩く
+            Dispose();
+        }
+
+
+        /// <summary>
+        /// すべての待機オブジェクトにシグナルを送信して
+        /// いつでも破棄されるようにします。
+        /// </summary>
+        public void Dispose()
+        {
+            // 既に解放済みなら
+            if (disposed)
+            {
+                // なにもしない
+                return;
+            }
+
+
+            // すべての待機オブジェクトを処理して、解放済みマークを付ける
+            awaiterHandler.SetSignal();
+            disposed = true;
+
+
+            // ファイナライザを呼ばないようにしてもらう
+            GC.SuppressFinalize(this);
+        }
+
+
+        /// <summary>
         /// このオブジェクトの待機オブジェクトを取得します
         /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
         /// <returns>待機オブジェクトを返します</returns>
         public ImtAwaiter GetAwaiter()
         {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
             // 単純なAwaiterを返す
             return new ImtAwaiter(this);
         }
@@ -136,8 +176,13 @@ namespace IceMilkTea.Core
         /// 継続関数を登録します
         /// </summary>
         /// <param name="continuation">登録する継続関数</param>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
         public virtual void RegisterContinuation(Action continuation)
         {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
             // 継続関数を登録する
             awaiterHandler.RegisterContinuation(continuation);
         }
@@ -155,6 +200,21 @@ namespace IceMilkTea.Core
         /// オブジェクトが待機状態になるようにします。
         /// </summary>
         public abstract void ResetSignal();
+
+
+        /// <summary>
+        /// 解放済みの場合、解放済みの例外を送出します。
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        protected void ThrowIfDisposed()
+        {
+            // 解放済みなら
+            if (disposed)
+            {
+                // 解放済み例外を投げる
+                throw new ObjectDisposedException("待機ハンドルは解放済みです");
+            }
+        }
     }
 
 
@@ -178,9 +238,14 @@ namespace IceMilkTea.Core
         /// また、 ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
         /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
         /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
         /// <see cref="ResetSignal"/>
         public override void SetSignal()
         {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
             // シグナル状態を設定して、継続関数を呼び出す
             IsCompleted = true;
             awaiterHandler.SetSignal();
@@ -190,8 +255,13 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 待機ハンドラを非シグナル状態にして、待機オブジェクトに待機してもらうようにします。
         /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
         public override void ResetSignal()
         {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
             // 非シグナル状態にする
             IsCompleted = false;
         }
@@ -217,8 +287,13 @@ namespace IceMilkTea.Core
         /// また、待機オブジェクトの待機が解除された直後に、直ちに非シグナル状態になるため
         /// すべての待機オブジェクトの待機を解除するためには、再び SetSignal() を呼び出す必要があります。
         /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
         public override void SetSignal()
         {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
             // シグナル状態を設定して、継続関数を１つだけ呼び出した後、直ちに非シグナル状態にする
             IsCompleted = true;
             awaiterHandler.SetOneShotSignal();
@@ -229,8 +304,13 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 待機ハンドラを非シグナル状態にして、待機オブジェクトに待機してもらうようにします。
         /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
         public override void ResetSignal()
         {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
             // 非シグナル状態にする
             IsCompleted = false;
         }
