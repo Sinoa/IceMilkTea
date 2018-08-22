@@ -209,6 +209,122 @@ namespace IceMilkTea.Core
 
 
 
+    #region EventToAwaiter構造体
+    /// <summary>
+    /// イベント実装のコードを、待機可能なコードに変換する構造体です
+    /// </summary>
+    /// <remarks>
+    /// この構造体は、メモリのAllocコストがそこそこあるので、適所を見極めて使うようにして下さい。
+    /// イベントの発生頻度が低く、メモリAllocがあまり気にならないタイミングなどでは、強力に発揮します。
+    /// </remarks>
+    /// <typeparam name="TEventDelegate">イベントのデリゲートのシグネチャ</typeparam>
+    public struct ImtAwaiterFromEvent<TEventDelegate> : INotifyCompletion
+    {
+        // 構造体変数宣言
+        private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+
+
+        // メンバ変数定義
+        private Func<bool> isCompleted;
+        private Action<TEventDelegate> register;
+        private Action<TEventDelegate> unregister;
+        private Func<Action, TEventDelegate> eventFrom;
+        private TEventDelegate eventHandler;
+        private SynchronizationContext context;
+        private Action continuation;
+
+
+
+        /// <summary>
+        /// タスクが完了したかどうか
+        /// </summary>
+        public bool IsCompleted => isCompleted();
+
+
+
+        /// <summary>
+        /// ImtAwaiterFromEvent のインスタンスを初期化します
+        /// </summary>
+        /// <param name="completed">待機オブジェクトが、タスクの完了を扱うための関数</param>
+        /// <param name="convert">待機オブジェクト内部の継続関数を、イベントハンドラから呼び出せるようにするための変換関数</param>
+        /// <param name="eventRegister">実際のイベントに登録するための関数</param>
+        /// <param name="eventUnregister">実際のイベントから登録を解除するための関数</param>
+        public ImtAwaiterFromEvent(Func<bool> completed, Func<Action, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
+        {
+            // 初期化
+            isCompleted = completed;
+            eventFrom = convert;
+            register = eventRegister;
+            unregister = eventUnregister;
+            eventHandler = default(TEventDelegate);
+            context = null;
+            continuation = null;
+        }
+
+
+        /// <summary>
+        /// タスクが完了した時のハンドリングを行います。
+        /// </summary>
+        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // 既にタスクが完了しているのなら
+            if (IsCompleted)
+            {
+                // 直ちに継続関数を叩いて終了
+                continuation();
+                return;
+            }
+
+
+            // 現在の同期コンテキストの取得と継続関数を覚えておく
+            context = AsyncOperationManager.SynchronizationContext;
+            this.continuation = continuation;
+
+
+
+            // イベントハンドラから継続関数を呼び出すための、関数の変換（イベントハンドラ -> 継続関数）をしてイベントの登録をする
+            eventHandler = eventFrom(DoEventHandle);
+            register(eventHandler);
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得しますが、この構造体は常に結果は操作しません。
+        /// </summary>
+        public void GetResult()
+        {
+            // No handling...
+        }
+
+
+        /// <summary>
+        /// この構造体を待機可能オブジェクトとして、自身のインスタンスコピーを取得します
+        /// </summary>
+        /// <returns>自身のコピーを返します</returns>
+        public ImtAwaiterFromEvent<TEventDelegate> GetAwaiter()
+        {
+            // コピーを返す
+            // TODO : できればコピーではなくもっと賢い方法があれば変更したい
+            return this;
+        }
+
+
+        /// <summary>
+        /// イベントハンドラによって呼び出され、同期コンテキストに継続関数をポストします。
+        /// </summary>
+        private void DoEventHandle()
+        {
+            // イベントの解除を行い、同期コンテキストに継続関数をポストする
+            unregister(eventHandler);
+            context.Post(cache, continuation);
+        }
+    }
+    #endregion
+
+
+
     #region Awaiter継続関数ハンドラ構造体
     /// <summary>
     /// 比較的スタンダードな Awaiter の継続関数をハンドリングするクラスです。
