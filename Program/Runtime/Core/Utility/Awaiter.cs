@@ -196,6 +196,45 @@ namespace IceMilkTea.Core
             IsCompleted = false;
         }
     }
+
+
+
+    /// <summary>
+    /// シグナル状態を自動コントロールする待機可能な、待機ハンドラクラスです
+    /// </summary>
+    public class ImtAwaitableAutoReset : ImtAwaitableWaitHandle
+    {
+        /// <summary>
+        /// ImtAwaitableAutoReset のインスタンスを初期化します
+        /// </summary>
+        public ImtAwaitableAutoReset() : base(false)
+        {
+        }
+
+
+        /// <summary>
+        /// 待機ハンドラをシグナル状態にして、最初に待機した１つの待機オブジェクトの待機を解除します。
+        /// また、待機オブジェクトの待機が解除された直後に、直ちに非シグナル状態になるため
+        /// すべての待機オブジェクトの待機を解除するためには、再び SetSignal() を呼び出す必要があります。
+        /// </summary>
+        public override void SetSignal()
+        {
+            // シグナル状態を設定して、継続関数を１つだけ呼び出した後、直ちに非シグナル状態にする
+            IsCompleted = true;
+            awaiterHandler.SetOneShotSignal();
+            ResetSignal();
+        }
+
+
+        /// <summary>
+        /// 待機ハンドラを非シグナル状態にして、待機オブジェクトに待機してもらうようにします。
+        /// </summary>
+        public override void ResetSignal()
+        {
+            // 非シグナル状態にする
+            IsCompleted = false;
+        }
+    }
     #endregion
 
 
@@ -682,6 +721,14 @@ namespace IceMilkTea.Core
             // キューをロック
             lock (handlerQueue)
             {
+                // キューは既に空であれば
+                if (handlerQueue.Count == 0)
+                {
+                    // 終了
+                    return;
+                }
+
+
                 // キューからハンドラをデキューして継続関数をポストする
                 handlerQueue.Dequeue().DoPost(cache);
             }
