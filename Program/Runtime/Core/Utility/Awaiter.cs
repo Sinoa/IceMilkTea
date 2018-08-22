@@ -87,6 +87,119 @@ namespace IceMilkTea.Core
 
 
 
+    #region AwaitableWaitHandle
+    /// <summary>
+    /// シグナル操作をして待機状態をコントロールすることの出来る、待機可能な抽象クラスです。
+    /// </summary>
+    /// <remarks>
+    /// 単純なシグナル操作による、待機制御を実現する場合には有用です。
+    /// </remarks>
+    public abstract class ImtAwaitableWaitHandle : IAwaitable
+    {
+        // メンバ変数定義
+        protected AwaiterContinuationHandler awaiterHandler;
+
+
+
+        /// <summary>
+        /// シグナル状態を表します。
+        /// true がシグナル状態 false が非シグナル状態です。
+        /// </summary>
+        public bool IsCompleted { get; protected set; }
+
+
+
+        /// <summary>
+        /// ImtAwaitableWaitHandle のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialSignal">初期のシグナル状態</param>
+        public ImtAwaitableWaitHandle(bool initialSignal)
+        {
+            // 待機オブジェクトハンドラの生成とシグナル状態を初期化
+            awaiterHandler = new AwaiterContinuationHandler();
+            IsCompleted = initialSignal;
+        }
+
+
+        /// <summary>
+        /// このオブジェクトの待機オブジェクトを取得します
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        public ImtAwaiter GetAwaiter()
+        {
+            // 単純なAwaiterを返す
+            return new ImtAwaiter(this);
+        }
+
+
+        /// <summary>
+        /// 継続関数を登録します
+        /// </summary>
+        /// <param name="continuation">登録する継続関数</param>
+        public virtual void RegisterContinuation(Action continuation)
+        {
+            // 継続関数を登録する
+            awaiterHandler.RegisterContinuation(continuation);
+        }
+
+
+        /// <summary>
+        /// この待機ハンドルのシグナルを設定して。
+        /// 待機状態を解除します。
+        /// </summary>
+        public abstract void SetSignal();
+
+
+        /// <summary>
+        /// この大気ハンドルのシグナルを解除して。
+        /// オブジェクトが待機状態になるようにします。
+        /// </summary>
+        public abstract void ResetSignal();
+    }
+
+
+
+    /// <summary>
+    /// シグナル状態をマニュアルコントロールする待機可能な、待機ハンドラクラスです
+    /// </summary>
+    public class ImtAwaitableManualReset : ImtAwaitableWaitHandle
+    {
+        /// <summary>
+        /// ImtAwaitableManualReset のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialSignal">初期のシグナル状態</param>
+        public ImtAwaitableManualReset(bool initialSignal) : base(initialSignal)
+        {
+        }
+
+
+        /// <summary>
+        /// 待機ハンドラをシグナル状態にして、待機オブジェクトの待機を解除します。
+        /// また、 ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
+        /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
+        /// </summary>
+        /// <see cref="ResetSignal"/>
+        public override void SetSignal()
+        {
+            // シグナル状態を設定して、継続関数を呼び出す
+            IsCompleted = true;
+            awaiterHandler.SetSignal();
+        }
+
+
+        /// <summary>
+        /// 待機ハンドラを非シグナル状態にして、待機オブジェクトに待機してもらうようにします。
+        /// </summary>
+        public override void ResetSignal()
+        {
+            // 非シグナル状態にする
+            IsCompleted = false;
+        }
+    }
+    #endregion
+
+
+
     #region Awaiter構造体
     /// <summary>
     /// 値を返さない、汎用的な待機構造体です。
