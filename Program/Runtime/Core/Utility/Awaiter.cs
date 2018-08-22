@@ -15,10 +15,201 @@
 
 using System;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace IceMilkTea.Core
 {
+    #region Awaitableインターフェイス
+    /// <summary>
+    /// 値を返さない、待機可能なオブジェクトが実装する、インターフェイスを定義しています。
+    /// </summary>
+    public interface IAwaitable
+    {
+        /// <summary>
+        /// タスクが完了している場合は true を、完了していない場合は false を取り出します。
+        /// </summary>
+        bool IsCompleted { get; }
+
+
+
+        /// <summary>
+        /// 待機をするための、汎用待機オブジェクト ImtAwaiter を取得します。
+        /// </summary>
+        /// <returns>汎用待機オブジェクト ImtAwaiter のインスタンスを返します</returns>
+        ImtAwaiter GetAwaiter();
+
+
+        /// <summary>
+        /// Awaiter が待機を完了した時に継続動作するための、継続関数を登録します。
+        /// </summary>
+        /// <param name="continuation">登録する継続関数</param>
+        void RegisterContinuation(Action continuation);
+    }
+
+
+
+    /// <summary>
+    /// 値を返す、待機可能なオブジェクトが実装する、インターフェイスを定義しています。
+    /// </summary>
+    /// <typeparam name="TResult">待機可能オブジェクトが返す値の型</typeparam>
+    public interface IAwaitable<TResult>
+    {
+        /// <summary>
+        /// タスクが完了している場合は true を、完了していない場合は false を取り出します。
+        /// </summary>
+        bool IsCompleted { get; }
+
+
+
+        /// <summary>
+        /// 待機をするための、汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> を取得します。
+        /// </summary>
+        /// <returns>汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> のインスタンスを返します</returns>
+        ImtAwaiter<TResult> GetAwaiter();
+
+
+        /// <summary>
+        /// Awaiter が待機を完了した時に継続動作するための、継続関数を登録します。
+        /// </summary>
+        /// <param name="continuation">登録する継続関数</param>
+        void RegisterContinuation(Action continuation);
+
+
+        /// <summary>
+        /// 待機した結果を取得します。
+        /// </summary>
+        /// <returns>継続動作時に取得される結果を返します</returns>
+        TResult GetResult();
+    }
+    #endregion
+
+
+
+    #region Awaiter構造体
+    /// <summary>
+    /// 値を返さない、汎用的な待機構造体です。
+    /// </summary>
+    public struct ImtAwaiter : INotifyCompletion
+    {
+        // メンバ変数定義
+        private IAwaitable awaitableContext;
+
+
+
+        /// <summary>
+        /// IAwaitable.IsCompleted の値を取り出します
+        /// </summary>
+        public bool IsCompleted => awaitableContext.IsCompleted;
+
+
+
+        /// <summary>
+        /// ImtAwaiter のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">この待機オブジェクトを保持する IAwaitable</param>
+        public ImtAwaiter(IAwaitable context)
+        {
+            // 保持する担当を覚える
+            awaitableContext = context;
+        }
+
+
+        /// <summary>
+        /// タスクが完了した時のハンドリングを行います。
+        /// </summary>
+        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // 既にタスクが完了しているのなら
+            if (IsCompleted)
+            {
+                // 直ちに継続関数を叩いて終了
+                continuation();
+                return;
+            }
+
+
+            // 継続関数を登録する
+            awaitableContext.RegisterContinuation(continuation);
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得しますが、この構造体は常に結果は操作しません。
+        /// </summary>
+        public void GetResult()
+        {
+            // No handling...
+        }
+    }
+
+
+
+    /// <summary>
+    /// 値を返す、汎用的な待機構造体です。
+    /// </summary>
+    /// <typeparam name="TResult">待機可能オブジェクトが返す値の型</typeparam>
+    public struct ImtAwaiter<TResult> : INotifyCompletion
+    {
+        // メンバ変数定義
+        private IAwaitable<TResult> awaitableContext;
+
+
+
+        /// <summary>
+        /// IAwaitable<typeparamref name="TResult"/>.IsCompleted の値を取り出します
+        /// </summary>
+        public bool IsCompleted => awaitableContext.IsCompleted;
+
+
+
+        /// <summary>
+        /// ImtAwaiter のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">この待機オブジェクトを保持する IAwaitable<typeparamref name="TResult"/></param>
+        public ImtAwaiter(IAwaitable<TResult> context)
+        {
+            // 保持する担当を覚える
+            awaitableContext = context;
+        }
+
+
+        /// <summary>
+        /// タスクが完了した時のハンドリングを行います。
+        /// </summary>
+        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // 既にタスクが完了しているのなら
+            if (IsCompleted)
+            {
+                // 直ちに継続関数を叩いて終了
+                continuation();
+                return;
+            }
+
+
+            // 継続関数を登録する
+            awaitableContext.RegisterContinuation(continuation);
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得します。
+        /// </summary>
+        /// <returns>IAwaitable<typeparamref name="TResult"/>.GetResult() の結果を返します</returns>
+        public TResult GetResult()
+        {
+            // 待機結果を取得して返す
+            return awaitableContext.GetResult();
+        }
+    }
+    #endregion
+
+
+
+    #region Awaiter継続関数ハンドラ構造体
     /// <summary>
     /// 比較的スタンダードな Awaiter の継続関数をハンドリングする構造体です。
     /// この構造体は、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
@@ -162,4 +353,5 @@ namespace IceMilkTea.Core
             handlers = newHandlers;
         }
     }
+    #endregion
 }
