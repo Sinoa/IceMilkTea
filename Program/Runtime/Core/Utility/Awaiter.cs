@@ -211,10 +211,10 @@ namespace IceMilkTea.Core
 
     #region Awaiter継続関数ハンドラ構造体
     /// <summary>
-    /// 比較的スタンダードな Awaiter の継続関数をハンドリングする構造体です。
-    /// この構造体は、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
+    /// 比較的スタンダードな Awaiter の継続関数をハンドリングするクラスです。
+    /// このクラスは、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
     /// </summary>
-    public struct AwaiterContinuationHandler
+    public class AwaiterContinuationHandler
     {
         /// <summary>
         /// 登録された Awaiter の継続関数と、その登録した時の同期コンテキストを保持する構造体です
@@ -235,7 +235,7 @@ namespace IceMilkTea.Core
 
 
         // 定数定義
-        private const int MinBufferSize = 8;
+        private const int DefaultBufferSize = 8;
 
 
 
@@ -248,6 +248,14 @@ namespace IceMilkTea.Core
         private Handler[] handlers;
         private int handleCount;
 
+
+
+        /// <summary>
+        /// AwaiterContinuationHandler のインスタンスを初期化します。
+        /// </summary>
+        public AwaiterContinuationHandler() : this(DefaultBufferSize)
+        {
+        }
 
 
         /// <summary>
@@ -269,30 +277,25 @@ namespace IceMilkTea.Core
         /// <param name="continuation">登録する継続関数</param>
         public void RegisterContinuation(Action continuation)
         {
-            // まだハンドラ配列が未生成なら
-            if (handlers == null)
+            // 配列をロック
+            lock (handlers)
             {
-                // 初期の最小容量で初期化
-                handlers = new Handler[MinBufferSize];
-                handleCount = 0;
+                // もしハンドラ配列の長さが登録ハンドル数に到達しているのなら
+                if (handlers.Length == handleCount)
+                {
+                    // 倍のサイズで新しい容量を確保する
+                    EnsureCapacity(handlers.Length * 2);
+                }
+
+
+                // 継続関数をハンドラ配列に追加する
+                handlers[handleCount++] = new Handler()
+                {
+                    // ハンドラ構造体の初期化（このタイミングで同期コンテキストを拾う）
+                    Context = AsyncOperationManager.SynchronizationContext,
+                    continuation = continuation,
+                };
             }
-
-
-            // もしハンドラ配列の長さが登録ハンドル数に到達しているのなら
-            if (handlers.Length == handleCount)
-            {
-                // 倍のサイズで新しい容量を確保する
-                EnsureCapacity(handlers.Length * 2);
-            }
-
-
-            // 継続関数をハンドラ配列に追加する
-            handlers[handleCount++] = new Handler()
-            {
-                // ハンドラ構造体の初期化（このタイミングで同期コンテキストを拾う）
-                Context = AsyncOperationManager.SynchronizationContext,
-                continuation = continuation,
-            };
         }
 
 
@@ -302,18 +305,22 @@ namespace IceMilkTea.Core
         /// </summary>
         public void SetSignal()
         {
-            // 登録されたハンドラの数分回る
-            for (int i = 0; i < handleCount; ++i)
+            // 配列をロック
+            lock (handlers)
             {
-                // 同期コンテキストに継続関数をポストして（実際はキャッシュされたSendOrPostCallbackを通す）参照を忘れる
-                handlers[i].Context.Post(cache, handlers[i].continuation);
-                handlers[i].Context = null;
-                handlers[i].continuation = null;
+                // 登録されたハンドラの数分回る
+                for (int i = 0; i < handleCount; ++i)
+                {
+                    // 同期コンテキストに継続関数をポストして（実際はキャッシュされたSendOrPostCallbackを通す）参照を忘れる
+                    handlers[i].Context.Post(cache, handlers[i].continuation);
+                    handlers[i].Context = null;
+                    handlers[i].continuation = null;
+                }
+
+
+                // ハンドラを空にする
+                handleCount = 0;
             }
-
-
-            // ハンドラを空にする
-            handleCount = 0;
         }
 
 
@@ -324,10 +331,10 @@ namespace IceMilkTea.Core
         private void EnsureCapacity(int newCapacity)
         {
             // 既定値より小さいなら
-            if (newCapacity < MinBufferSize)
+            if (newCapacity < DefaultBufferSize)
             {
                 // 規定値に強制的に設定する
-                newCapacity = MinBufferSize;
+                newCapacity = DefaultBufferSize;
             }
 
 
