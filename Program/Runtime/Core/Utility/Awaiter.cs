@@ -57,6 +57,13 @@ namespace IceMilkTea.Core
     public interface IAwaitable<TResult> : IAwaitable
     {
         /// <summary>
+        /// 待機をするための、値の返すことのできる汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> を取得します。
+        /// </summary>
+        /// <returns>汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> のインスタンスを返します</returns>
+        new ImtAwaiter<TResult> GetAwaiter();
+
+
+        /// <summary>
         /// 待機した結果を取得します。
         /// </summary>
         /// <returns>継続動作時に取得される結果を返します</returns>
@@ -216,6 +223,22 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// このオブジェクトの待機オブジェクトを取得します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
+            // 単純なAwaiterを返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
         /// 非シグナル状態の時の結果を取得します
         /// </summary>
         /// <returns>現在の結果の値を返します</returns>
@@ -240,7 +263,7 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// 待機ハンドラをシグナル状態にして、待機オブジェクトの待機を解除します。
-        /// また、 ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
+        /// また ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
         /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
         /// </summary>
         /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
@@ -269,6 +292,81 @@ namespace IceMilkTea.Core
 
             // 非シグナル状態にする
             IsCompleted = false;
+        }
+    }
+
+
+
+    /// <summary>
+    /// シグナル状態をマニュアルコントロールする待機可能な、値を返せる待機ハンドラクラスです。
+    /// </summary>
+    public class ImtAwaitableManualReset<TResult> : ImtAwaitableManualReset, IAwaitable<TResult>
+    {
+        // メンバ変数定義
+        private TResult result;
+
+
+
+        /// <summary>
+        /// ImtAwaitableManualReset<typeparamref name="TResult"/> のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialSignal">初期のシグナル状態</param>
+        public ImtAwaitableManualReset(bool initialSignal) : base(initialSignal)
+        {
+        }
+
+
+        /// <summary>
+        /// 待機した結果の値を、事前に設定します。
+        /// </summary>
+        /// <param name="result">準備する結果</param>
+        public void PrepareResult(TResult result)
+        {
+            // 結果を覚えておく
+            this.result = result;
+        }
+
+
+        /// <summary>
+        /// 待機結果を設定してから、待機ハンドラをシグナル状態にして、待機オブジェクトの待機を解除します。
+        /// また ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
+        /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
+        /// </summary>
+        /// <param name="result">待機した結果として設定する値</param>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <see cref="ResetSignal"/>
+        public void SetSignal(TResult result)
+        {
+            // 結果を設定して基本クラスのSetSignalを呼ぶ
+            this.result = result;
+            base.SetSignal();
+        }
+
+
+        /// <summary>
+        /// このオブジェクトの待機オブジェクトを取得します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
+            // 単純なAwaiterを返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// タスクの待機結果を取得します
+        /// </summary>
+        /// <returns>待機結果を返します</returns>
+        public TResult GetResult()
+        {
+            // 結果をそのまま返す
+            return result;
         }
     }
 
