@@ -257,6 +257,13 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 登録された継続関数の数
+        /// </summary>
+        public int HandlerCount => GetHandlerCount();
+
+
+
+        /// <summary>
         /// AwaiterContinuationHandler のインスタンスを既定サイズで初期化します。
         /// </summary>
         public AwaiterContinuationHandler() : this(capacity: 8)
@@ -272,6 +279,21 @@ namespace IceMilkTea.Core
         {
             // ハンドラキューの生成
             handlerQueue = new Queue<Handler>(capacity);
+        }
+
+
+        /// <summary>
+        /// 登録された継続関数の数を取得します
+        /// </summary>
+        /// <returns>登録された継続関数の数を返します</returns>
+        public int GetHandlerCount()
+        {
+            // キューをロック
+            lock (handlerQueue)
+            {
+                // 登録済みハンドラの数を返す
+                return handlerQueue.Count;
+            }
         }
 
 
@@ -762,15 +784,11 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private AwaiterContinuationHandler awaiterHandler;
         private Func<bool> isCompleted;
-        private bool autoReset;
-        private bool completeState;
         private Action<TEventDelegate> register;
         private Action<TEventDelegate> unregister;
-        private Func<Action<TResult>, TEventDelegate> eventFrom;
-        private Queue<TEventDelegate> eventHandlerCacheQueue;
-        private Action<TResult> eventHandler;
-        private Action manualContinuation;
-        private Action continuation;
+        private TEventDelegate handler;
+        private bool completeState;
+        private bool autoReset;
         private TResult result;
 
 
@@ -798,23 +816,20 @@ namespace IceMilkTea.Core
         /// <see cref="ResetCompleteState"/>
         public ImtAwaitableFromEvent(Func<bool> completed, bool autoReset, Func<Action<TResult>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
         {
-            // 待機オブジェクトハンドラの生成と初期化
-            eventHandlerCacheQueue = new Queue<TEventDelegate>();
+            // 待機オブジェクトハンドラの生成
             awaiterHandler = new AwaiterContinuationHandler();
-            this.autoReset = autoReset;
 
 
-            // ユーザー関数の登録
+            // ユーザー関数を覚えるのと、イベントハンドラを作る
             isCompleted = completed;
             register = eventRegister;
             unregister = eventUnregister;
-            eventFrom = convert;
+            handler = convert(OnEventHandle);
 
 
-            // 継続関数を代理で実行するための関数を覚えるのと初期完了状態を未完了にする
-            eventHandler = OnEventHandle;
-            manualContinuation = OnContinuationHandle;
+            // 待機状態の初期化と自動リセットの値を受け取る
             completeState = false;
+            this.autoReset = autoReset;
         }
 
 
@@ -856,18 +871,16 @@ namespace IceMilkTea.Core
         /// <param name="continuation">登録する継続関数</param>
         public void RegisterContinuation(Action continuation)
         {
-            // 待機オブジェクトハンドラのシグナルを設定する関数を、イベントハンドラに紐づけて、登録する
-            var handler = eventFrom(eventHandler);
-            register(handler);
+            // まだ継続関数が未登録状態なら
+            if (awaiterHandler.HandlerCount == 0)
+            {
+                // イベントハンドラを登録
+                register(handler);
+            }
 
 
-            // ハンドラをキューに入れる
-            eventHandlerCacheQueue.Enqueue(handler);
-
-
-            // 直接、継続関数を待機オブジェクトハンドラに設定しないで、継続代行関数を登録する
-            this.continuation = continuation;
-            awaiterHandler.RegisterContinuation(manualContinuation);
+            // 待機オブジェクトハンドラに継続関数を登録
+            awaiterHandler.RegisterContinuation(continuation);
         }
 
 
@@ -888,37 +901,20 @@ namespace IceMilkTea.Core
         /// <param name="result">イベント または コールバック からの結果</param>
         private void OnEventHandle(TResult result)
         {
-            // 完了状態を設定する
+            // 完了状態の設定と、結果の保存をする
             completeState = true;
-
-
-            // 結果を保存して、待機オブジェクトハンドラのシグナルを設定する
             this.result = result;
+
+
+            // 待機オブジェクトハンドラのシグナルを設定してイベントの解除
             awaiterHandler.SetSignal();
-        }
+            unregister(handler);
 
 
-        /// <summary>
-        /// 本来の継続関数を実行するための、継続代行関数です
-        /// </summary>
-        private void OnContinuationHandle()
-        {
-            // イベントハンドラキューが空になるまでループ
-            while (eventHandlerCacheQueue.Count > 0)
-            {
-                // 全てのハンドラを解除
-                unregister(eventHandlerCacheQueue.Dequeue());
-            }
-
-
-            // 本来の継続関数を叩く
-            continuation();
-
-
-            // 自動リセットがONなら
+            // もし自動リセットがONなら
             if (autoReset)
             {
-                // 自動で完了状態をリセットする
+                // リセットする
                 ResetCompleteState();
             }
         }
