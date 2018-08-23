@@ -781,7 +781,7 @@ namespace IceMilkTea.Core
 
 
 
-    #region Awaiter継続関数ハンドラ構造体
+    #region Awaiter継続関数ハンドラクラス
     /// <summary>
     /// 比較的スタンダードな Awaiter の継続関数をハンドリングするクラスです。
     /// このクラスは、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
