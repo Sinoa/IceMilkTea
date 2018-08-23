@@ -54,27 +54,13 @@ namespace IceMilkTea.Core
     /// 値を返す、待機可能なオブジェクトが実装する、インターフェイスを定義しています。
     /// </summary>
     /// <typeparam name="TResult">待機可能オブジェクトが返す値の型</typeparam>
-    public interface IAwaitable<TResult>
+    public interface IAwaitable<TResult> : IAwaitable
     {
         /// <summary>
-        /// タスクが完了している場合は true を、完了していない場合は false を取り出します。
-        /// </summary>
-        bool IsCompleted { get; }
-
-
-
-        /// <summary>
-        /// 待機をするための、汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> を取得します。
+        /// 待機をするための、値の返すことのできる汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> を取得します。
         /// </summary>
         /// <returns>汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> のインスタンスを返します</returns>
-        ImtAwaiter<TResult> GetAwaiter();
-
-
-        /// <summary>
-        /// Awaiter が待機を完了した時に継続動作するための、継続関数を登録します。
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        void RegisterContinuation(Action continuation);
+        new ImtAwaiter<TResult> GetAwaiter();
 
 
         /// <summary>
@@ -220,6 +206,48 @@ namespace IceMilkTea.Core
 
 
     /// <summary>
+    /// シグナル操作をして待機状態をコントロールすることの出来る、値を返す待機可能な抽象クラスです。
+    /// </summary>
+    /// <remarks>
+    /// 単純なシグナル操作による、待機制御を実現する場合には有用です。
+    /// </remarks>
+    public abstract class ImtAwaitableWaitHandle<TResult> : ImtAwaitableWaitHandle, IAwaitable<TResult>
+    {
+        /// <summary>
+        /// ImtAwaitableWaitHandle<typeparamref name="TResult"/> のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialSignal">初期のシグナル状態</param>
+        public ImtAwaitableWaitHandle(bool initialSignal) : base(initialSignal)
+        {
+        }
+
+
+        /// <summary>
+        /// このオブジェクトの待機オブジェクトを取得します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
+            // 単純なAwaiterを返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// 非シグナル状態の時の結果を取得します
+        /// </summary>
+        /// <returns>現在の結果の値を返します</returns>
+        public abstract TResult GetResult();
+    }
+
+
+
+    /// <summary>
     /// シグナル状態をマニュアルコントロールする待機可能な、待機ハンドラクラスです
     /// </summary>
     public class ImtAwaitableManualReset : ImtAwaitableWaitHandle
@@ -235,7 +263,7 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// 待機ハンドラをシグナル状態にして、待機オブジェクトの待機を解除します。
-        /// また、 ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
+        /// また ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
         /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
         /// </summary>
         /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
@@ -264,6 +292,81 @@ namespace IceMilkTea.Core
 
             // 非シグナル状態にする
             IsCompleted = false;
+        }
+    }
+
+
+
+    /// <summary>
+    /// シグナル状態をマニュアルコントロールする待機可能な、値を返せる待機ハンドラクラスです。
+    /// </summary>
+    public class ImtAwaitableManualReset<TResult> : ImtAwaitableManualReset, IAwaitable<TResult>
+    {
+        // メンバ変数定義
+        private TResult result;
+
+
+
+        /// <summary>
+        /// ImtAwaitableManualReset<typeparamref name="TResult"/> のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialSignal">初期のシグナル状態</param>
+        public ImtAwaitableManualReset(bool initialSignal) : base(initialSignal)
+        {
+        }
+
+
+        /// <summary>
+        /// 待機した結果の値を、事前に設定します。
+        /// </summary>
+        /// <param name="result">準備する結果</param>
+        public void PrepareResult(TResult result)
+        {
+            // 結果を覚えておく
+            this.result = result;
+        }
+
+
+        /// <summary>
+        /// 待機結果を設定してから、待機ハンドラをシグナル状態にして、待機オブジェクトの待機を解除します。
+        /// また ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
+        /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
+        /// </summary>
+        /// <param name="result">待機した結果として設定する値</param>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <see cref="ResetSignal"/>
+        public void SetSignal(TResult result)
+        {
+            // 結果を設定して基本クラスのSetSignalを呼ぶ
+            this.result = result;
+            base.SetSignal();
+        }
+
+
+        /// <summary>
+        /// このオブジェクトの待機オブジェクトを取得します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
+            // 単純なAwaiterを返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// タスクの待機結果を取得します
+        /// </summary>
+        /// <returns>待機結果を返します</returns>
+        public TResult GetResult()
+        {
+            // 結果をそのまま返す
+            return result;
         }
     }
 
@@ -313,6 +416,72 @@ namespace IceMilkTea.Core
 
             // 非シグナル状態にする
             IsCompleted = false;
+        }
+    }
+
+
+
+    /// <summary>
+    /// シグナル状態を自動コントロールする待機可能な、値を返せる待機ハンドラクラスです
+    /// </summary>
+    public class ImtAwaitableAutoReset<TResult> : ImtAwaitableAutoReset, IAwaitable<TResult>
+    {
+        // メンバ変数定義
+        private TResult result;
+
+
+
+        /// <summary>
+        /// 待機した結果の値を、事前に設定します。
+        /// </summary>
+        /// <param name="result">準備する結果</param>
+        public void PrepareResult(TResult result)
+        {
+            // 結果を覚えておく
+            this.result = result;
+        }
+
+
+        /// <summary>
+        /// 待機結果を設定してから、待機ハンドラをシグナル状態にして、待機オブジェクトの待機を解除します。
+        /// また ResetSignal() を呼び出さない限り、ずっと待機されない状態になります。
+        /// 再び、待機状態にさせるには ResetSignal() を呼び出して下さい。
+        /// </summary>
+        /// <param name="result">待機した結果として設定する値</param>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <see cref="ResetSignal"/>
+        public void SetSignal(TResult result)
+        {
+            // 結果を設定して基本クラスのSetSignalを呼ぶ
+            this.result = result;
+            base.SetSignal();
+        }
+
+
+        /// <summary>
+        /// このオブジェクトの待機オブジェクトを取得します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 解放済み例外の処理をしておく
+            ThrowIfDisposed();
+
+
+            // 単純なAwaiterを返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// タスクの待機結果を取得します
+        /// </summary>
+        /// <returns>待機結果を返します</returns>
+        public TResult GetResult()
+        {
+            // 結果をそのまま返す
+            return result;
         }
     }
     #endregion
@@ -678,7 +847,7 @@ namespace IceMilkTea.Core
 
 
 
-    #region Awaiter継続関数ハンドラ構造体
+    #region Awaiter継続関数ハンドラクラス
     /// <summary>
     /// 比較的スタンダードな Awaiter の継続関数をハンドリングするクラスです。
     /// このクラスは、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
@@ -812,6 +981,408 @@ namespace IceMilkTea.Core
                 // キューからハンドラをデキューして継続関数をポストする
                 handlerQueue.Dequeue().DoPost(cache);
             }
+        }
+    }
+    #endregion
+
+
+
+    #region Awaitable Utility
+    /// <summary>
+    /// IAwaitable なオブジェクトを待機する時のヘルパー実装を提供します
+    /// </summary>
+    public class ImtAwaitHelper
+    {
+        /// <summary>
+        /// 全ての待機オブジェクトを待機する、待機クラスです。
+        /// </summary>
+        private class AwaitableWhenAll : IAwaitable
+        {
+            // クラス変数宣言
+            private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+            // メンバ変数定義
+            private AwaiterContinuationHandler awaiterHandler;
+            private SynchronizationContext currentContext;
+            private ImtAwaitHelper helper;
+            private Action update;
+
+
+
+            /// <summary>
+            /// タスクが完了したかどうか
+            /// </summary>
+            public bool IsCompleted { get; private set; }
+
+
+
+            /// <summary>
+            /// AwaitableWhenAll のインスタンスを初期化します
+            /// </summary>
+            /// <param name="helper">このインスタンスを保持する ImtAwaitHelper</param>
+            public AwaitableWhenAll(ImtAwaitHelper helper)
+            {
+                // もろもろ初期化
+                awaiterHandler = new AwaiterContinuationHandler();
+                currentContext = AsyncOperationManager.SynchronizationContext;
+                this.helper = helper;
+                update = Update;
+                IsCompleted = true;
+            }
+
+
+            /// <summary>
+            /// 内部の状態更新をします。
+            /// </summary>
+            public void Update()
+            {
+                // まだ未完了
+                IsCompleted = false;
+
+
+                // そもそもリストが空なら
+                if (helper.awaitableList.Count == 0)
+                {
+                    // 完了状態にして、待機中のオブジェクトの待機を解除
+                    IsCompleted = true;
+                    awaiterHandler.SetSignal();
+                    return;
+                }
+
+
+                // ヘルパーが持っている待機オブジェクトの数分ループ
+                bool isAllFinish = true;
+                foreach (var awaitable in helper.awaitableList)
+                {
+                    // もし未完了状態なら
+                    if (!awaitable.IsCompleted)
+                    {
+                        // 全て完了フラグをへし折ってループから抜ける
+                        isAllFinish = false;
+                        break;
+                    }
+                }
+
+
+                // もし全ての待機オブジェクトが完了状態なら
+                if (isAllFinish)
+                {
+                    // もうリストを空にする
+                    helper.awaitableList.Clear();
+
+
+                    // 完了状態にして、待機中のオブジェクトの待機を解除
+                    IsCompleted = true;
+                    awaiterHandler.SetSignal();
+                    return;
+                }
+
+
+                // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
+                // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
+                currentContext.Post(cache, update);
+            }
+
+
+            /// <summary>
+            /// この待機可能クラスの待機オブジェクトを取得します
+            /// </summary>
+            /// <returns>待機オブジェクトを返します</returns>
+            public ImtAwaiter GetAwaiter()
+            {
+                // 待機オブジェクトを生成して返す
+                return new ImtAwaiter(this);
+            }
+
+
+            /// <summary>
+            /// 待機オブジェクトからの継続関数を登録します
+            /// </summary>
+            /// <param name="continuation">登録する継続関数</param>
+            public void RegisterContinuation(Action continuation)
+            {
+                // 待機ハンドラに継続関数を登録する
+                awaiterHandler.RegisterContinuation(continuation);
+            }
+        }
+
+
+
+        /// <summary>
+        /// いずれかの待機オブジェクトを待機する、待機クラスです
+        /// </summary>
+        private class AwaitableWhenAny : IAwaitable<IAwaitable>
+        {
+            // クラス変数宣言
+            private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+            // メンバ変数定義
+            private AwaiterContinuationHandler awaiterHandler;
+            private SynchronizationContext currentContext;
+            private ImtAwaitHelper helper;
+            private Action update;
+            private IAwaitable firstFinishAwaitable;
+
+
+
+            /// <summary>
+            /// タスクが完了したかどうか
+            /// </summary>
+            public bool IsCompleted { get; private set; }
+
+
+
+            /// <summary>
+            /// AwaitableWhenAny のインスタンスを初期化します
+            /// </summary>
+            /// <param name="helper">このインスタンスを保持する ImtAwaitHelper</param>
+            public AwaitableWhenAny(ImtAwaitHelper helper)
+            {
+                // もろもろ初期化
+                awaiterHandler = new AwaiterContinuationHandler();
+                currentContext = AsyncOperationManager.SynchronizationContext;
+                this.helper = helper;
+                update = Update;
+                IsCompleted = true;
+            }
+
+
+            /// <summary>
+            /// 内部の状態更新をします。
+            /// </summary>
+            public void Update()
+            {
+                // まだ未完了
+                IsCompleted = false;
+
+
+                // そもそもリストが空なら
+                if (helper.awaitableList.Count == 0)
+                {
+                    // 完了状態にして、待機中のオブジェクトの待機を解除
+                    IsCompleted = true;
+                    awaiterHandler.SetSignal();
+                    return;
+                }
+
+
+                // ヘルパーが持っている待機オブジェクトの数分ループ
+                firstFinishAwaitable = null;
+                foreach (var awaitable in helper.awaitableList)
+                {
+                    // もし完了状態なら
+                    if (awaitable.IsCompleted)
+                    {
+                        // 最初に完了した待機オブジェクトとして覚えて抜ける
+                        firstFinishAwaitable = awaitable;
+                        break;
+                    }
+                }
+
+
+                // もし完了オブジェクトが見つからなかったら
+                if (firstFinishAwaitable == null)
+                {
+                    // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
+                    // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
+                    currentContext.Post(cache, update);
+                    return;
+                }
+
+
+                // リストから完了オブジェクトを削除
+                helper.awaitableList.Remove(firstFinishAwaitable);
+
+
+                // 完了タスクを１つ目を見つけたので、シグナルを送る
+                awaiterHandler.SetSignal();
+
+
+                // もしリストが空になったのなら
+                if (helper.awaitableList.Count == 0)
+                {
+                    // 完了状態にして終了
+                    IsCompleted = true;
+                    return;
+                }
+
+
+                // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
+                // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
+                currentContext.Post(cache, update);
+            }
+
+
+            /// <summary>
+            /// この待機可能クラスの待機オブジェクトを取得します
+            /// </summary>
+            /// <returns>待機オブジェクトを返します</returns>
+            public ImtAwaiter<IAwaitable> GetAwaiter()
+            {
+                // 待機オブジェクトを生成して返す
+                return new ImtAwaiter<IAwaitable>(this);
+            }
+
+
+            /// <summary>
+            /// この待機可能クラスの待機オブジェクトを取得します
+            /// </summary>
+            /// <returns>待機オブジェクトを返します</returns>
+            ImtAwaiter IAwaitable.GetAwaiter()
+            {
+                // 待機オブジェクトを生成して返す
+                return new ImtAwaiter(this);
+            }
+
+
+            /// <summary>
+            /// タスクの結果を取得します
+            /// </summary>
+            /// <returns>タスクの結果を返します</returns>
+            public IAwaitable GetResult()
+            {
+                // 最初に完了した待機オブジェクトを返す
+                return firstFinishAwaitable;
+            }
+
+
+            /// <summary>
+            /// 待機オブジェクトからの継続関数を登録します
+            /// </summary>
+            /// <param name="continuation">登録する継続関数</param>
+            public void RegisterContinuation(Action continuation)
+            {
+                // 待機ハンドラに継続関数を登録する
+                awaiterHandler.RegisterContinuation(continuation);
+            }
+        }
+
+
+
+        // メンバ変数定義
+        private AwaitableWhenAll whenAllOperator;
+        private AwaitableWhenAny whenAnyOperator;
+        private List<IAwaitable> awaitableList;
+
+
+
+        /// <summary>
+        /// ImtAwaitHelper のインスタンスを初期化します
+        /// </summary>
+        public ImtAwaitHelper()
+        {
+            // 各種待機オブジェクトの生成をする
+            whenAllOperator = new AwaitableWhenAll(this);
+            whenAnyOperator = new AwaitableWhenAny(this);
+            awaitableList = new List<IAwaitable>();
+        }
+
+
+        /// <summary>
+        /// 待機ヘルパに待機オブジェクトを追加します。
+        /// 既に追加済みの待機オブジェクトは無視されます。
+        /// </summary>
+        /// <param name="awaitable">追加する待機オブジェクト</param>
+        public void AddAwaitable(IAwaitable awaitable)
+        {
+            // 既に追加済みなら
+            if (awaitableList.Contains(awaitable))
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // 待機オブジェクトを追加する
+            awaitableList.Add(awaitable);
+        }
+
+
+        /// <summary>
+        /// 追加された待機オブジェクトの全てが、完了するまで待機する、待機オブジェクトを提供します。
+        /// </summary>
+        /// <returns>追加された待機オブジェクトの全てを待機する、待機オブジェクトを返します</returns>
+        public IAwaitable WhenAll()
+        {
+            // 何も追加しない引数で WhenAll を叩く
+            return WhenAll(null);
+        }
+
+
+        /// <summary>
+        /// 追加された待機オブジェクトと、引数に指定された待機オブジェクト配列の中を更に追加して
+        /// 全てが完了するまで待機する、待機オブジェクトを提供します。
+        /// </summary>
+        /// <param name="awaitables">追加する待機オブジェクトの配列。追加しない場合は null の指定が可能です</param>
+        /// <returns>追加された待機オブジェクトの全てを待機する、待機オブジェクトを返します</returns>
+        public IAwaitable WhenAll(IAwaitable[] awaitables)
+        {
+            // もし配列の指定があるなら
+            if (awaitables != null)
+            {
+                // 配列の中を全て回る
+                foreach (var awaitable in awaitables)
+                {
+                    // 追加する
+                    AddAwaitable(awaitable);
+                }
+            }
+
+
+            // WhenAll制御が完了状態なら
+            if (whenAllOperator.IsCompleted == true)
+            {
+                // 更新を開始する
+                whenAllOperator.Update();
+            }
+
+
+            // WhenAll待機オブジェクトを返す
+            return whenAllOperator;
+        }
+
+
+        /// <summary>
+        /// 追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを提供します。
+        /// </summary>
+        /// <returns>追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを返します</returns>
+        public IAwaitable<IAwaitable> WhenAny()
+        {
+            // 何も追加しない引数で WhenAny を叩く
+            return WhenAny(null);
+        }
+
+
+        /// <summary>
+        /// 追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを提供します。
+        /// また、引数で指定された待機オブジェクトの配列内も追加します。
+        /// </summary>
+        /// <param name="awaitables">追加する待機オブジェクトの配列。追加しない場合は null の指定が可能です</param>
+        /// <returns>追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを返します</returns>
+        public IAwaitable<IAwaitable> WhenAny(IAwaitable[] awaitables)
+        {
+            // もし配列の指定があるなら
+            if (awaitables != null)
+            {
+                // 配列の中を全て回る
+                foreach (var awaitable in awaitables)
+                {
+                    // 追加する
+                    AddAwaitable(awaitable);
+                }
+            }
+
+
+            // WhenAny制御が完了状態なら
+            if (whenAnyOperator.IsCompleted == true)
+            {
+                // 更新を開始する
+                whenAnyOperator.Update();
+            }
+
+
+            // WheAny待機オブジェクトを返す
+            return whenAnyOperator;
         }
     }
     #endregion
