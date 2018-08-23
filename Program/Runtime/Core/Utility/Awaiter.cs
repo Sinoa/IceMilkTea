@@ -266,7 +266,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// AwaiterContinuationHandler のインスタンスを既定サイズで初期化します。
         /// </summary>
-        public AwaiterContinuationHandler() : this(capacity: 8)
+        public AwaiterContinuationHandler() : this(capacity: 32)
         {
         }
 

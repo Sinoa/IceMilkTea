@@ -662,9 +662,8 @@ namespace IceMilkTea.Core
         {
             // 自分が起動したスレッドのIDを覚えつつ
             // ポストされたメッセージを溜めるキューのインスタンスを生成
-            // （ステート内でのみのメッセージなので容量は既定値のまま）
             myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
-            messageQueue = new Queue<Message>();
+            messageQueue = new Queue<Message>(32);
 
 
             // フェイルバック先の同期コンテキストを拾っておく
