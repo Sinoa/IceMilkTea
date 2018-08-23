@@ -54,29 +54,8 @@ namespace IceMilkTea.Core
     /// 値を返す、待機可能なオブジェクトが実装する、インターフェイスを定義しています。
     /// </summary>
     /// <typeparam name="TResult">待機可能オブジェクトが返す値の型</typeparam>
-    public interface IAwaitable<TResult>
+    public interface IAwaitable<TResult> : IAwaitable
     {
-        /// <summary>
-        /// タスクが完了している場合は true を、完了していない場合は false を取り出します。
-        /// </summary>
-        bool IsCompleted { get; }
-
-
-
-        /// <summary>
-        /// 待機をするための、汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> を取得します。
-        /// </summary>
-        /// <returns>汎用待機オブジェクト ImtAwaiter<typeparamref name="TResult"/> のインスタンスを返します</returns>
-        ImtAwaiter<TResult> GetAwaiter();
-
-
-        /// <summary>
-        /// Awaiter が待機を完了した時に継続動作するための、継続関数を登録します。
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        void RegisterContinuation(Action continuation);
-
-
         /// <summary>
         /// 待機した結果を取得します。
         /// </summary>
@@ -215,6 +194,32 @@ namespace IceMilkTea.Core
                 throw new ObjectDisposedException("待機ハンドルは解放済みです");
             }
         }
+    }
+
+
+
+    /// <summary>
+    /// シグナル操作をして待機状態をコントロールすることの出来る、値を返す待機可能な抽象クラスです。
+    /// </summary>
+    /// <remarks>
+    /// 単純なシグナル操作による、待機制御を実現する場合には有用です。
+    /// </remarks>
+    public abstract class ImtAwaitableWaitHandle<TResult> : ImtAwaitableWaitHandle, IAwaitable<TResult>
+    {
+        /// <summary>
+        /// ImtAwaitableWaitHandle<typeparamref name="TResult"/> のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialSignal">初期のシグナル状態</param>
+        public ImtAwaitableWaitHandle(bool initialSignal) : base(initialSignal)
+        {
+        }
+
+
+        /// <summary>
+        /// 非シグナル状態の時の結果を取得します
+        /// </summary>
+        /// <returns>現在の結果の値を返します</returns>
+        public abstract TResult GetResult();
     }
 
 
