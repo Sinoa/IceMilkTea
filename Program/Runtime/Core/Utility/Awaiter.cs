@@ -756,7 +756,8 @@ namespace IceMilkTea.Core
     /// イベント機構、コールバック機構のコードを、待機可能なコードに変換する待機可能なクラスです。
     /// </summary>
     /// <typeparam name="TEventDelegate">イベント または コールバック で使用する関数のシグネチャを示す型</typeparam>
-    public class ImtAwaitableFromEvent<TEventDelegate> : IAwaitable
+    /// <typeparam name="TResult">イベント または コールバック または オブジェクト状態 で得られた結果の型</typeparam>
+    public class ImtAwaitableFromEvent<TEventDelegate, TResult> : IAwaitable<TResult>
     {
         // メンバ変数定義
         private AwaiterContinuationHandler awaiterHandler;
@@ -764,10 +765,12 @@ namespace IceMilkTea.Core
         private bool completeState;
         private Action<TEventDelegate> register;
         private Action<TEventDelegate> unregister;
-        private Func<Action, TEventDelegate> eventFrom;
-        private TEventDelegate eventHandler;
+        private Func<Action<TResult>, TEventDelegate> eventFrom;
+        private TEventDelegate eventHandlerCache;
+        private Action<TResult> eventHandler;
         private Action manualContinuation;
         private Action continuation;
+        private TResult result;
 
 
 
@@ -790,7 +793,7 @@ namespace IceMilkTea.Core
         /// <param name="eventRegister">実際のイベントに登録するための関数</param>
         /// <param name="eventUnregister">実際のイベントから登録を解除するための関数</param>
         /// <see cref="ResetCompleteState"/>
-        public ImtAwaitableFromEvent(Func<bool> completed, Func<Action, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
+        public ImtAwaitableFromEvent(Func<bool> completed, Func<Action<TResult>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
         {
             // 待機オブジェクトハンドラの生成
             awaiterHandler = new AwaiterContinuationHandler();
@@ -804,6 +807,7 @@ namespace IceMilkTea.Core
 
 
             // 継続関数を代理で実行するための関数を覚えるのと初期完了状態を未完了にする
+            eventHandler = OnEventHandle;
             manualContinuation = OnContinuationHandle;
             completeState = false;
         }
@@ -823,7 +827,18 @@ namespace IceMilkTea.Core
         /// この待機可能クラスの、待機オブジェクトを取得します。
         /// </summary>
         /// <returns>待機オブジェクトを返します</returns>
-        public ImtAwaiter GetAwaiter()
+        public ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 待機オブジェクトを返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// この待機可能クラスの、待機オブジェクトを取得します。
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        ImtAwaiter IAwaitable.GetAwaiter()
         {
             // 待機オブジェクトを返す
             return new ImtAwaiter(this);
@@ -837,8 +852,8 @@ namespace IceMilkTea.Core
         public void RegisterContinuation(Action continuation)
         {
             // 待機オブジェクトハンドラのシグナルを設定する関数を、イベントハンドラに紐づけて、登録する
-            eventHandler = eventFrom(awaiterHandler.SetSignal);
-            register(eventHandler);
+            eventHandlerCache = eventFrom(eventHandler);
+            register(eventHandlerCache);
 
 
             // 直接、継続関数を待機オブジェクトハンドラに設定しないで、継続代行関数を登録する
@@ -848,13 +863,61 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// イベント または コールバック で得られた結果を取得します
+        /// </summary>
+        /// <returns>イベント または コールバック で得られた結果を返します</returns>
+        public TResult GetResult()
+        {
+            // 得た結果を返す
+            return result;
+        }
+
+
+        /// <summary>
+        /// イベント または コールバック のハンドリングを行います。
+        /// </summary>
+        /// <param name="result">イベント または コールバック からの結果</param>
+        private void OnEventHandle(TResult result)
+        {
+            // 結果を保存して、待機オブジェクトハンドラのシグナルを設定する
+            this.result = result;
+            awaiterHandler.SetSignal();
+        }
+
+
+        /// <summary>
         /// 本来の継続関数を実行するための、継続代行関数です
         /// </summary>
         private void OnContinuationHandle()
         {
             // イベントハンドラのイベントを解除して、本来の継続関数を叩く
-            unregister(eventHandler);
+            unregister(eventHandlerCache);
             continuation();
+        }
+    }
+
+
+
+    /// <summary>
+    /// イベント機構、コールバック機構のコードを、待機可能なコードに変換する待機可能なクラスです。
+    /// </summary>
+    /// <typeparam name="TEventDelegate">イベント または コールバック で使用する関数のシグネチャを示す型</typeparam>
+    public class ImtAwaitableFromEvent<TEventDelegate> : ImtAwaitableFromEvent<TEventDelegate, object>
+    {
+        /// <summary>
+        /// ImtAwaitableFromEvent のインスタンスを初期化します。
+        /// </summary>
+        /// <remarks>
+        /// completed を null に指定子た場合は、待機オブジェクトの完了状態が内部で保持するようになりますが、改めて
+        /// 待機し直す場合は、状態をリセットする必要がありますので、その場合は ResetCompleteState() 関数を呼び出してください。
+        /// </remarks>
+        /// <param name="completed">待機オブジェクトが、タスクの完了を扱うための関数。内部の完了状態を利用する場合は null の指定が可能です。</param>
+        /// <param name="convert">待機オブジェクト内部の継続関数を、イベントハンドラから呼び出せるようにするための変換関数</param>
+        /// <param name="eventRegister">実際のイベントに登録するための関数</param>
+        /// <param name="eventUnregister">実際のイベントから登録を解除するための関数</param>
+        /// <see cref="ResetCompleteState"/>
+        public ImtAwaitableFromEvent(Func<bool> completed, Func<Action<object>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister) : base(completed, convert, eventRegister, eventUnregister)
+        {
         }
     }
     #endregion
