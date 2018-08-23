@@ -21,6 +21,129 @@ using System.Threading;
 
 namespace IceMilkTea.Core
 {
+    #region Awaiter構造体
+    /// <summary>
+    /// 値を返さない、汎用的な待機構造体です。
+    /// </summary>
+    public struct ImtAwaiter : INotifyCompletion
+    {
+        // メンバ変数定義
+        private IAwaitable awaitableContext;
+
+
+
+        /// <summary>
+        /// IAwaitable.IsCompleted の値を取り出します
+        /// </summary>
+        public bool IsCompleted => awaitableContext.IsCompleted;
+
+
+
+        /// <summary>
+        /// ImtAwaiter のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">この待機オブジェクトを保持する IAwaitable</param>
+        public ImtAwaiter(IAwaitable context)
+        {
+            // 保持する担当を覚える
+            awaitableContext = context;
+        }
+
+
+        /// <summary>
+        /// タスクが完了した時のハンドリングを行います。
+        /// </summary>
+        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // 既にタスクが完了しているのなら
+            if (IsCompleted)
+            {
+                // 直ちに継続関数を叩いて終了
+                continuation();
+                return;
+            }
+
+
+            // 継続関数を登録する
+            awaitableContext.RegisterContinuation(continuation);
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得しますが、この構造体は常に結果は操作しません。
+        /// </summary>
+        public void GetResult()
+        {
+            // No handling...
+        }
+    }
+
+
+
+    /// <summary>
+    /// 値を返す、汎用的な待機構造体です。
+    /// </summary>
+    /// <typeparam name="TResult">待機可能オブジェクトが返す値の型</typeparam>
+    public struct ImtAwaiter<TResult> : INotifyCompletion
+    {
+        // メンバ変数定義
+        private IAwaitable<TResult> awaitableContext;
+
+
+
+        /// <summary>
+        /// IAwaitable<typeparamref name="TResult"/>.IsCompleted の値を取り出します
+        /// </summary>
+        public bool IsCompleted => awaitableContext.IsCompleted;
+
+
+
+        /// <summary>
+        /// ImtAwaiter のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">この待機オブジェクトを保持する IAwaitable<typeparamref name="TResult"/></param>
+        public ImtAwaiter(IAwaitable<TResult> context)
+        {
+            // 保持する担当を覚える
+            awaitableContext = context;
+        }
+
+
+        /// <summary>
+        /// タスクが完了した時のハンドリングを行います。
+        /// </summary>
+        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // 既にタスクが完了しているのなら
+            if (IsCompleted)
+            {
+                // 直ちに継続関数を叩いて終了
+                continuation();
+                return;
+            }
+
+
+            // 継続関数を登録する
+            awaitableContext.RegisterContinuation(continuation);
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得します。
+        /// </summary>
+        /// <returns>IAwaitable<typeparamref name="TResult"/>.GetResult() の結果を返します</returns>
+        public TResult GetResult()
+        {
+            // 待機結果を取得して返す
+            return awaitableContext.GetResult();
+        }
+    }
+    #endregion
+
+
+
     #region Awaitableインターフェイス
     /// <summary>
     /// 値を返さない、待機可能なオブジェクトが実装する、インターフェイスを定義しています。
@@ -68,6 +191,146 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <returns>継続動作時に取得される結果を返します</returns>
         TResult GetResult();
+    }
+    #endregion
+
+
+
+    #region Awaiter継続関数ハンドラクラス
+    /// <summary>
+    /// 比較的スタンダードな Awaiter の継続関数をハンドリングするクラスです。
+    /// このクラスは、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
+    /// </summary>
+    public class AwaiterContinuationHandler
+    {
+        /// <summary>
+        /// 登録された Awaiter の継続関数と、その登録した時の同期コンテキストを保持する構造体です
+        /// </summary>
+        private struct Handler
+        {
+            /// <summary>
+            /// 継続関数登録時の同期コンテキスト
+            /// </summary>
+            private SynchronizationContext context;
+
+            /// <summary>
+            /// 登録された継続関数
+            /// </summary>
+            private Action continuation;
+
+
+
+            /// <summary>
+            /// Handler のインスタンスを初期化します
+            /// </summary>
+            /// <param name="context">利用する同期コンテキスト</param>
+            /// <param name="continuation">同期コンテキストにPostする継続関数</param>
+            public Handler(SynchronizationContext context, Action continuation)
+            {
+                // 初期化
+                this.context = context;
+                this.continuation = continuation;
+            }
+
+
+            /// <summary>
+            /// 同期コンテキストに継続関数をPostします
+            /// </summary>
+            /// <param name="callback">同期コンテキストにPostするためのコールバック関数</param>
+            public void DoPost(SendOrPostCallback callback)
+            {
+                // 同期コンテキストに継続関数をポスト素r
+                context.Post(callback, continuation);
+            }
+        }
+
+
+
+        // 読み取り専用構造体変数宣言
+        private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+
+
+        // メンバ変数定義
+        private Queue<Handler> handlerQueue;
+
+
+
+        /// <summary>
+        /// AwaiterContinuationHandler のインスタンスを既定サイズで初期化します。
+        /// </summary>
+        public AwaiterContinuationHandler() : this(capacity: 8)
+        {
+        }
+
+
+        /// <summary>
+        /// AwaiterContinuationHandler のインスタンスを指定された容量で初期化します。
+        /// </summary>
+        /// <param name="capacity">登録する継続関数の初期容量</param>
+        public AwaiterContinuationHandler(int capacity)
+        {
+            // ハンドラキューの生成
+            handlerQueue = new Queue<Handler>(capacity);
+        }
+
+
+        /// <summary>
+        /// Awaiter の継続関数を登録します。
+        /// 登録した継続関数は SetSignal() または SetOneShotSignal() 関数にて継続を行うことが可能です。
+        /// </summary>
+        /// <param name="continuation">登録する継続関数</param>
+        public void RegisterContinuation(Action continuation)
+        {
+            // キューをロック
+            lock (handlerQueue)
+            {
+                // 継続関数をハンドラキューに追加する
+                handlerQueue.Enqueue(new Handler(AsyncOperationManager.SynchronizationContext, continuation));
+            }
+        }
+
+
+        /// <summary>
+        /// 登録された継続関数を、登録時の同期コンテキストを通じて呼び出されるようにします。
+        /// また、一度シグナルした継続処理の参照は消失するため、再度 Awaite するには、改めて継続関数を登録する必要があります。
+        /// </summary>
+        public void SetSignal()
+        {
+            // キューをロック
+            lock (handlerQueue)
+            {
+                // キューが空になるまでループ
+                while (handlerQueue.Count > 0)
+                {
+                    // キューからハンドラをデキューして継続関数をポストする
+                    handlerQueue.Dequeue().DoPost(cache);
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// 登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
+        /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
+        /// </summary>
+        public void SetOneShotSignal()
+        {
+            // キューをロック
+            lock (handlerQueue)
+            {
+                // キューは既に空であれば
+                if (handlerQueue.Count == 0)
+                {
+                    // 終了
+                    return;
+                }
+
+
+                // キューからハンドラをデキューして継続関数をポストする
+                handlerQueue.Dequeue().DoPost(cache);
+            }
+        }
     }
     #endregion
 
@@ -488,129 +751,6 @@ namespace IceMilkTea.Core
 
 
 
-    #region Awaiter構造体
-    /// <summary>
-    /// 値を返さない、汎用的な待機構造体です。
-    /// </summary>
-    public struct ImtAwaiter : INotifyCompletion
-    {
-        // メンバ変数定義
-        private IAwaitable awaitableContext;
-
-
-
-        /// <summary>
-        /// IAwaitable.IsCompleted の値を取り出します
-        /// </summary>
-        public bool IsCompleted => awaitableContext.IsCompleted;
-
-
-
-        /// <summary>
-        /// ImtAwaiter のインスタンスを初期化します
-        /// </summary>
-        /// <param name="context">この待機オブジェクトを保持する IAwaitable</param>
-        public ImtAwaiter(IAwaitable context)
-        {
-            // 保持する担当を覚える
-            awaitableContext = context;
-        }
-
-
-        /// <summary>
-        /// タスクが完了した時のハンドリングを行います。
-        /// </summary>
-        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
-        public void OnCompleted(Action continuation)
-        {
-            // 既にタスクが完了しているのなら
-            if (IsCompleted)
-            {
-                // 直ちに継続関数を叩いて終了
-                continuation();
-                return;
-            }
-
-
-            // 継続関数を登録する
-            awaitableContext.RegisterContinuation(continuation);
-        }
-
-
-        /// <summary>
-        /// タスクの結果を取得しますが、この構造体は常に結果は操作しません。
-        /// </summary>
-        public void GetResult()
-        {
-            // No handling...
-        }
-    }
-
-
-
-    /// <summary>
-    /// 値を返す、汎用的な待機構造体です。
-    /// </summary>
-    /// <typeparam name="TResult">待機可能オブジェクトが返す値の型</typeparam>
-    public struct ImtAwaiter<TResult> : INotifyCompletion
-    {
-        // メンバ変数定義
-        private IAwaitable<TResult> awaitableContext;
-
-
-
-        /// <summary>
-        /// IAwaitable<typeparamref name="TResult"/>.IsCompleted の値を取り出します
-        /// </summary>
-        public bool IsCompleted => awaitableContext.IsCompleted;
-
-
-
-        /// <summary>
-        /// ImtAwaiter のインスタンスを初期化します
-        /// </summary>
-        /// <param name="context">この待機オブジェクトを保持する IAwaitable<typeparamref name="TResult"/></param>
-        public ImtAwaiter(IAwaitable<TResult> context)
-        {
-            // 保持する担当を覚える
-            awaitableContext = context;
-        }
-
-
-        /// <summary>
-        /// タスクが完了した時のハンドリングを行います。
-        /// </summary>
-        /// <param name="continuation">タスクを継続動作させるための継続関数</param>
-        public void OnCompleted(Action continuation)
-        {
-            // 既にタスクが完了しているのなら
-            if (IsCompleted)
-            {
-                // 直ちに継続関数を叩いて終了
-                continuation();
-                return;
-            }
-
-
-            // 継続関数を登録する
-            awaitableContext.RegisterContinuation(continuation);
-        }
-
-
-        /// <summary>
-        /// タスクの結果を取得します。
-        /// </summary>
-        /// <returns>IAwaitable<typeparamref name="TResult"/>.GetResult() の結果を返します</returns>
-        public TResult GetResult()
-        {
-            // 待機結果を取得して返す
-            return awaitableContext.GetResult();
-        }
-    }
-    #endregion
-
-
-
     #region EventToAwaiter構造体
     /// <summary>
     /// イベント実装のコードを、待機可能なコードに変換する構造体です
@@ -841,146 +981,6 @@ namespace IceMilkTea.Core
             // イベントの解除を行い、同期コンテキストに継続関数をポストする
             unregister(eventHandler);
             context.Post(cache, continuation);
-        }
-    }
-    #endregion
-
-
-
-    #region Awaiter継続関数ハンドラクラス
-    /// <summary>
-    /// 比較的スタンダードな Awaiter の継続関数をハンドリングするクラスです。
-    /// このクラスは、多数の Awaiter の継続関数を登録することが可能で、継続関数を登録とシグナル設定をするだけで動作します。
-    /// </summary>
-    public class AwaiterContinuationHandler
-    {
-        /// <summary>
-        /// 登録された Awaiter の継続関数と、その登録した時の同期コンテキストを保持する構造体です
-        /// </summary>
-        private struct Handler
-        {
-            /// <summary>
-            /// 継続関数登録時の同期コンテキスト
-            /// </summary>
-            private SynchronizationContext context;
-
-            /// <summary>
-            /// 登録された継続関数
-            /// </summary>
-            private Action continuation;
-
-
-
-            /// <summary>
-            /// Handler のインスタンスを初期化します
-            /// </summary>
-            /// <param name="context">利用する同期コンテキスト</param>
-            /// <param name="continuation">同期コンテキストにPostする継続関数</param>
-            public Handler(SynchronizationContext context, Action continuation)
-            {
-                // 初期化
-                this.context = context;
-                this.continuation = continuation;
-            }
-
-
-            /// <summary>
-            /// 同期コンテキストに継続関数をPostします
-            /// </summary>
-            /// <param name="callback">同期コンテキストにPostするためのコールバック関数</param>
-            public void DoPost(SendOrPostCallback callback)
-            {
-                // 同期コンテキストに継続関数をポスト素r
-                context.Post(callback, continuation);
-            }
-        }
-
-
-
-        // 読み取り専用構造体変数宣言
-        private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
-
-
-        // メンバ変数定義
-        private Queue<Handler> handlerQueue;
-
-
-
-        /// <summary>
-        /// AwaiterContinuationHandler のインスタンスを既定サイズで初期化します。
-        /// </summary>
-        public AwaiterContinuationHandler() : this(capacity: 8)
-        {
-        }
-
-
-        /// <summary>
-        /// AwaiterContinuationHandler のインスタンスを指定された容量で初期化します。
-        /// </summary>
-        /// <param name="capacity">登録する継続関数の初期容量</param>
-        public AwaiterContinuationHandler(int capacity)
-        {
-            // ハンドラキューの生成
-            handlerQueue = new Queue<Handler>(capacity);
-        }
-
-
-        /// <summary>
-        /// Awaiter の継続関数を登録します。
-        /// 登録した継続関数は SetSignal() または SetOneShotSignal() 関数にて継続を行うことが可能です。
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        public void RegisterContinuation(Action continuation)
-        {
-            // キューをロック
-            lock (handlerQueue)
-            {
-                // 継続関数をハンドラキューに追加する
-                handlerQueue.Enqueue(new Handler(AsyncOperationManager.SynchronizationContext, continuation));
-            }
-        }
-
-
-        /// <summary>
-        /// 登録された継続関数を、登録時の同期コンテキストを通じて呼び出されるようにします。
-        /// また、一度シグナルした継続処理の参照は消失するため、再度 Awaite するには、改めて継続関数を登録する必要があります。
-        /// </summary>
-        public void SetSignal()
-        {
-            // キューをロック
-            lock (handlerQueue)
-            {
-                // キューが空になるまでループ
-                while (handlerQueue.Count > 0)
-                {
-                    // キューからハンドラをデキューして継続関数をポストする
-                    handlerQueue.Dequeue().DoPost(cache);
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// 登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
-        /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
-        /// </summary>
-        public void SetOneShotSignal()
-        {
-            // キューをロック
-            lock (handlerQueue)
-            {
-                // キューは既に空であれば
-                if (handlerQueue.Count == 0)
-                {
-                    // 終了
-                    return;
-                }
-
-
-                // キューからハンドラをデキューして継続関数をポストする
-                handlerQueue.Dequeue().DoPost(cache);
-            }
         }
     }
     #endregion
