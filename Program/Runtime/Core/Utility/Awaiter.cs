@@ -767,7 +767,7 @@ namespace IceMilkTea.Core
         private Action<TEventDelegate> register;
         private Action<TEventDelegate> unregister;
         private Func<Action<TResult>, TEventDelegate> eventFrom;
-        private TEventDelegate eventHandlerCache;
+        private Queue<TEventDelegate> eventHandlerCacheQueue;
         private Action<TResult> eventHandler;
         private Action manualContinuation;
         private Action continuation;
@@ -799,6 +799,7 @@ namespace IceMilkTea.Core
         public ImtAwaitableFromEvent(Func<bool> completed, bool autoReset, Func<Action<TResult>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
         {
             // 待機オブジェクトハンドラの生成と初期化
+            eventHandlerCacheQueue = new Queue<TEventDelegate>();
             awaiterHandler = new AwaiterContinuationHandler();
             this.autoReset = autoReset;
 
@@ -856,8 +857,12 @@ namespace IceMilkTea.Core
         public void RegisterContinuation(Action continuation)
         {
             // 待機オブジェクトハンドラのシグナルを設定する関数を、イベントハンドラに紐づけて、登録する
-            eventHandlerCache = eventFrom(eventHandler);
-            register(eventHandlerCache);
+            var handler = eventFrom(eventHandler);
+            register(handler);
+
+
+            // ハンドラをキューに入れる
+            eventHandlerCacheQueue.Enqueue(handler);
 
 
             // 直接、継続関数を待機オブジェクトハンドラに設定しないで、継続代行関数を登録する
@@ -898,8 +903,15 @@ namespace IceMilkTea.Core
         /// </summary>
         private void OnContinuationHandle()
         {
-            // イベントハンドラのイベントを解除して、本来の継続関数を叩く
-            unregister(eventHandlerCache);
+            // イベントハンドラキューが空になるまでループ
+            while (eventHandlerCacheQueue.Count > 0)
+            {
+                // 全てのハンドラを解除
+                unregister(eventHandlerCacheQueue.Dequeue());
+            }
+
+
+            // 本来の継続関数を叩く
             continuation();
 
 
