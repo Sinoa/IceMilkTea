@@ -762,6 +762,7 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private AwaiterContinuationHandler awaiterHandler;
         private Func<bool> isCompleted;
+        private bool autoReset;
         private bool completeState;
         private Action<TEventDelegate> register;
         private Action<TEventDelegate> unregister;
@@ -787,16 +788,19 @@ namespace IceMilkTea.Core
         /// <remarks>
         /// completed を null に指定子た場合は、待機オブジェクトの完了状態が内部で保持するようになりますが、改めて
         /// 待機し直す場合は、状態をリセットする必要がありますので、その場合は ResetCompleteState() 関数を呼び出してください。
+        /// または autoReset パラメータに true を設定すれば継続処理直後に自動的に解除されます。
         /// </remarks>
-        /// <param name="completed">待機オブジェクトが、タスクの完了を扱うための関数。内部の完了状態を利用する場合は null の指定が可能です。</param>
+        /// <param name="completed">待機オブジェクトが、タスクの完了を扱うための関数。内部の完了状態を利用する場合は null の指定が可能です</param>
+        /// <param name="autoReset">内部の完了状態を利用する場合に、イベント完了後に自動的にリセットするかどうか</param>
         /// <param name="convert">待機オブジェクト内部の継続関数を、イベントハンドラから呼び出せるようにするための変換関数</param>
         /// <param name="eventRegister">実際のイベントに登録するための関数</param>
         /// <param name="eventUnregister">実際のイベントから登録を解除するための関数</param>
         /// <see cref="ResetCompleteState"/>
-        public ImtAwaitableFromEvent(Func<bool> completed, Func<Action<TResult>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
+        public ImtAwaitableFromEvent(Func<bool> completed, bool autoReset, Func<Action<TResult>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
         {
-            // 待機オブジェクトハンドラの生成
+            // 待機オブジェクトハンドラの生成と初期化
             awaiterHandler = new AwaiterContinuationHandler();
+            this.autoReset = autoReset;
 
 
             // ユーザー関数の登録
@@ -879,6 +883,10 @@ namespace IceMilkTea.Core
         /// <param name="result">イベント または コールバック からの結果</param>
         private void OnEventHandle(TResult result)
         {
+            // 完了状態を設定する
+            completeState = true;
+
+
             // 結果を保存して、待機オブジェクトハンドラのシグナルを設定する
             this.result = result;
             awaiterHandler.SetSignal();
@@ -893,6 +901,14 @@ namespace IceMilkTea.Core
             // イベントハンドラのイベントを解除して、本来の継続関数を叩く
             unregister(eventHandlerCache);
             continuation();
+
+
+            // 自動リセットがONなら
+            if (autoReset)
+            {
+                // 自動で完了状態をリセットする
+                ResetCompleteState();
+            }
         }
     }
 
@@ -912,11 +928,12 @@ namespace IceMilkTea.Core
         /// 待機し直す場合は、状態をリセットする必要がありますので、その場合は ResetCompleteState() 関数を呼び出してください。
         /// </remarks>
         /// <param name="completed">待機オブジェクトが、タスクの完了を扱うための関数。内部の完了状態を利用する場合は null の指定が可能です。</param>
+        /// <param name="autoReset">内部の完了状態を利用する場合に、イベント完了後に自動的にリセットするかどうか</param>
         /// <param name="convert">待機オブジェクト内部の継続関数を、イベントハンドラから呼び出せるようにするための変換関数</param>
         /// <param name="eventRegister">実際のイベントに登録するための関数</param>
         /// <param name="eventUnregister">実際のイベントから登録を解除するための関数</param>
         /// <see cref="ResetCompleteState"/>
-        public ImtAwaitableFromEvent(Func<bool> completed, Func<Action<object>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister) : base(completed, convert, eventRegister, eventUnregister)
+        public ImtAwaitableFromEvent(Func<bool> completed, bool autoReset, Func<Action<object>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister) : base(completed, autoReset, convert, eventRegister, eventUnregister)
         {
         }
     }
