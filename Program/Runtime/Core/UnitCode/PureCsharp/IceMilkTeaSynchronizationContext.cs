@@ -162,6 +162,14 @@ namespace IceMilkTea.Core
             }
 
 
+            // もし現在の同期コンテキストが自身なら
+            if (AsyncOperationManager.SynchronizationContext == this)
+            {
+                // 同期コンテキストを、インスタンス生成時に覚えたコンテキストに戻す
+                AsyncOperationManager.SynchronizationContext = previousContext;
+            }
+
+
             // メッセージキューをロック
             lock (messageQueue)
             {
@@ -171,14 +179,6 @@ namespace IceMilkTea.Core
                     // 一つ前の同期コンテキストにフェイルオーバーする
                     messageQueue.Dequeue().Failover(previousContext);
                 }
-            }
-
-
-            // もし現在の同期コンテキストが自身なら
-            if (AsyncOperationManager.SynchronizationContext == this)
-            {
-                // 同期コンテキストを、インスタンス生成時に覚えたコンテキストに戻す
-                AsyncOperationManager.SynchronizationContext = previousContext;
             }
 
 
@@ -273,8 +273,12 @@ namespace IceMilkTea.Core
             // メッセージキューをロック
             lock (messageQueue)
             {
-                // 全てのメッセージを処理するまでループ
-                while (messageQueue.Count > 0)
+                // メッセージ処理中にポストされても次回になるよう、今回処理するべきメッセージ件数の取得
+                var processCount = messageQueue.Count;
+
+
+                // 今回処理するべきメッセージの件数分だけループ
+                for (int i = 0; i < processCount; ++i)
                 {
                     // メッセージを呼ぶ
                     messageQueue.Dequeue().Invoke();
