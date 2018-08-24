@@ -57,7 +57,7 @@ namespace IceMilkTea.Core
     public class AsyncOperationAwaitable : IAwaitable
     {
         // メンバ変数定義
-        private AwaiterContinuationHandler awaitHandler;
+        private AwaiterContinuationHandler awaiterHandler;
         private AsyncOperation operation;
         private IProgress<float> progress;
         private SynchronizationContext context;
@@ -89,7 +89,7 @@ namespace IceMilkTea.Core
 
 
             // 待機オブジェクトハンドラの生成
-            awaitHandler = new AwaiterContinuationHandler();
+            awaiterHandler = new AwaiterContinuationHandler();
 
 
             // 引数を受け取る
@@ -122,7 +122,7 @@ namespace IceMilkTea.Core
         {
             // AsyncOperationの完了イベントを登録して継続関数を登録する
             operation.completed += OnComplete;
-            awaitHandler.RegisterContinuation(continuation);
+            awaiterHandler.RegisterContinuation(continuation);
 
 
             // 同期コンテキストに定期更新用関数を送る
@@ -138,7 +138,7 @@ namespace IceMilkTea.Core
         {
             // 完了イベントの登録を解除して、継続関数のシグナルを設定する
             operation.completed -= OnComplete;
-            awaitHandler.SetSignal();
+            awaiterHandler.SetSignal();
         }
 
 
