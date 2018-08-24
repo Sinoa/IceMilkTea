@@ -121,7 +121,7 @@ namespace IceMilkTea.Core
         public void RegisterContinuation(Action continuation)
         {
             // AsyncOperationの完了イベントを登録して継続関数を登録する
-            operation.completed += OnComplete;
+            operation.completed += OnCompleted;
             awaiterHandler.RegisterContinuation(continuation);
 
 
@@ -134,10 +134,10 @@ namespace IceMilkTea.Core
         /// AsyncOperation の完了イベントをハンドリングします
         /// </summary>
         /// <param name="operation">イベントを呼び出したAsyncOperation</param>
-        private void OnComplete(AsyncOperation operation)
+        private void OnCompleted(AsyncOperation operation)
         {
             // 完了イベントの登録を解除して、継続関数のシグナルを設定する
-            operation.completed -= OnComplete;
+            operation.completed -= OnCompleted;
             awaiterHandler.SetSignal();
         }
 
