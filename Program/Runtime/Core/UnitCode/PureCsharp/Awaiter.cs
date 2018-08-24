@@ -236,18 +236,12 @@ namespace IceMilkTea.Core
             /// <summary>
             /// 同期コンテキストに継続関数をPostします
             /// </summary>
-            /// <param name="callback">同期コンテキストにPostするためのコールバック関数</param>
-            public void DoPost(SendOrPostCallback callback)
+            public void DoPost()
             {
                 // 同期コンテキストに継続関数をポスト素r
-                context.Post(callback, continuation);
+                context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, continuation);
             }
         }
-
-
-
-        // 読み取り専用構造体変数宣言
-        private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
 
 
 
@@ -326,7 +320,7 @@ namespace IceMilkTea.Core
                 while (handlerQueue.Count > 0)
                 {
                     // キューからハンドラをデキューして継続関数をポストする
-                    handlerQueue.Dequeue().DoPost(cache);
+                    handlerQueue.Dequeue().DoPost();
                 }
             }
         }
@@ -350,7 +344,7 @@ namespace IceMilkTea.Core
 
 
                 // キューからハンドラをデキューして継続関数をポストする
-                handlerQueue.Dequeue().DoPost(cache);
+                handlerQueue.Dequeue().DoPost();
             }
         }
     }
@@ -960,9 +954,6 @@ namespace IceMilkTea.Core
         /// </summary>
         private class AwaitableWhenAll : IAwaitable
         {
-            // クラス変数宣言
-            private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
             // メンバ変数定義
             private AwaiterContinuationHandler awaiterHandler;
             private SynchronizationContext currentContext;
@@ -1042,7 +1033,7 @@ namespace IceMilkTea.Core
 
                 // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
                 // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
-                currentContext.Post(cache, update);
+                currentContext.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
             }
 
 
@@ -1075,9 +1066,6 @@ namespace IceMilkTea.Core
         /// </summary>
         private class AwaitableWhenAny : IAwaitable<IAwaitable>
         {
-            // クラス変数宣言
-            private static readonly SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
             // メンバ変数定義
             private AwaiterContinuationHandler awaiterHandler;
             private SynchronizationContext currentContext;
@@ -1147,7 +1135,7 @@ namespace IceMilkTea.Core
                 {
                     // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
                     // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
-                    currentContext.Post(cache, update);
+                    currentContext.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
                     return;
                 }
 
@@ -1171,7 +1159,7 @@ namespace IceMilkTea.Core
 
                 // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
                 // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
-                currentContext.Post(cache, update);
+                currentContext.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
             }
 
 
@@ -1346,6 +1334,22 @@ namespace IceMilkTea.Core
             // WheAny待機オブジェクトを返す
             return whenAnyOperator;
         }
+    }
+    #endregion
+
+
+
+    #region 同期コンテキストヘルパ
+    /// <summary>
+    /// 同期コンテキストのよく利用する操作を提供するクラスです。
+    /// </summary>
+    public class ImtSynchronizationContextHelper
+    {
+        /// <summary>
+        /// Action を引数に取る、キャッシュ化された SendOrPostCallback です。
+        /// 単純な Action を同期コンテキストに Post する場合は、利用することをおすすめします。
+        /// </summary>
+        public static SendOrPostCallback CachedSendOrPostCallback { get; } = new SendOrPostCallback(_ => ((Action)_)());
     }
     #endregion
 }
