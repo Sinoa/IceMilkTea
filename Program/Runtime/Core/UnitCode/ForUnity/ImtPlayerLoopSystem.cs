@@ -421,8 +421,16 @@ namespace IceMilkTea.Core
         /// <returns>最初に見つけたループシステムを返しますが、見つけられなかった場合はnullを返します</returns>
         public ImtPlayerLoopSystem FindLoopSystem<T>(bool recursiveSearch)
         {
-            // 自身のサブループシステムに該当の型があるか調べるが、見つけられなく、かつ再帰検索でないのなら
+            // 自身のサブループシステムに該当の型があるか調べて、見つけたら
             var result = subLoopSystemList.Find(loopSystem => loopSystem.type == typeof(T));
+            if (result != null)
+            {
+                // 結果を返す
+                return result;
+            }
+
+
+            // 見つけられなく、かつ再帰検索でないのなら
             if (result == null && !recursiveSearch)
             {
                 // 諦めてnullを返す
