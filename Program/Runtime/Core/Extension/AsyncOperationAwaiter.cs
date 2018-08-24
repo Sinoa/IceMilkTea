@@ -23,7 +23,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// AsyncOperation クラスの拡張関数実装用クラスです
     /// </summary>
-    public static class AsyncOperationExtension
+    public static partial class AsyncOperationExtension
     {
         /// <summary>
         /// AsyncOperation の待機可能なオブジェクトを取得します
