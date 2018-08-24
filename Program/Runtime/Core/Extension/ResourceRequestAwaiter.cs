@@ -23,7 +23,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// ResourceRequest クラスの拡張関数実装用クラスです
     /// </summary>
-    public static class ResourceRequestExtension
+    public static partial class ResourceRequestExtension
     {
         /// <summary>
         /// ResourceRequest の待機可能なオブジェクトを取得します

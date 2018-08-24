@@ -147,10 +147,6 @@ namespace IceMilkTea.Core
         /// </summary>
         private void Update()
         {
-            // 進捗の通知をする
-            progress?.Report(operation.progress);
-
-
             // タスクが完了しているのなら
             if (IsCompleted)
             {
@@ -159,7 +155,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // まだ更新関数を送る
+            // 進捗の通知をして、更新関数を送る
+            progress?.Report(operation.progress);
             PostUpdate();
         }
 
