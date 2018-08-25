@@ -23,7 +23,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// UnityWebRequestAsyncOperation クラスの拡張関数実装用のクラスです
     /// </summary>
-    public static class UnityWebRequestAsyncOperationExtension
+    public static partial class UnityWebRequestAsyncOperationExtension
     {
         /// <summary>
         /// UnityWebRequestAsyncOperation クラスの待機オブジェクトを取得します
