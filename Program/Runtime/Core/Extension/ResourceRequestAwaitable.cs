@@ -14,7 +14,6 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Threading;
 using UnityEngine;
 
 namespace IceMilkTea.Core
@@ -57,21 +56,18 @@ namespace IceMilkTea.Core
     /// ResourceRequest を待機可能にした待機可能クラスです。
     /// </summary>
     /// <typeparam name="TResult">ResourceRequest のロード結果の型</typeparam>
-    public class ResourceRequestAwaitable<TResult> : IAwaitable<TResult> where TResult : UnityEngine.Object
+    public class ResourceRequestAwaitable<TResult> : ImtAwaitableSynchronizationUpdateBehaviour<TResult> where TResult : UnityEngine.Object
     {
         // メンバ変数定義
-        private AwaiterContinuationHandler awaiterHandler;
         private ResourceRequest request;
         private IProgress<float> progress;
-        private SynchronizationContext context;
-        private Action update;
 
 
 
         /// <summary>
         /// ResourceRequest が完了しているかどうか
         /// </summary>
-        public bool IsCompleted => request.isDone;
+        public override bool IsCompleted => request.isDone;
 
 
 
@@ -91,39 +87,39 @@ namespace IceMilkTea.Core
             }
 
 
-            // 待機オブジェクトハンドラの生成
-            awaiterHandler = new AwaiterContinuationHandler();
-
-
             // 引数を受け取る
             this.request = request;
             this.progress = progress;
-
-
-            // 定期更新用同期コンテキストの取得と、更新関数を覚える
-            context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            update = Update;
         }
 
 
         /// <summary>
-        /// この待機可能クラスの待機オブジェクトを取得します
+        /// 動作を開始します
         /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        public ImtAwaiter<TResult> GetAwaiter()
+        protected override void Start()
         {
-            // 待機オブジェクトを生成して返す
-            return new ImtAwaiter<TResult>(this);
+            // 完了イベントを登録する
+            request.completed += OnCompleted;
         }
 
 
         /// <summary>
-        /// この待機可能クラスの待機オブジェクトを取得します
+        /// 進捗監視をするための状態を更新します
         /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        ImtAwaiter IAwaitable.GetAwaiter()
+        /// <returns></returns>
+        protected override bool Update()
         {
-            return new ImtAwaiter(this);
+            // タスクが完了しているなら
+            if (IsCompleted)
+            {
+                // 更新はもうしない
+                return false;
+            }
+
+
+            // 進捗通知をして更新を継続する
+            progress?.Report(request.progress);
+            return true;
         }
 
 
@@ -131,26 +127,10 @@ namespace IceMilkTea.Core
         /// ロード結果を取得します
         /// </summary>
         /// <returns>ロード結果を返します</returns>
-        public TResult GetResult()
+        public override TResult GetResult()
         {
             // そのまま結果を帰す
             return (TResult)request.asset;
-        }
-
-
-        /// <summary>
-        /// 待機オブジェクトの継続関数を登録します
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        public void RegisterContinuation(Action continuation)
-        {
-            // 完了イベントを登録して、継続関数も登録
-            request.completed += OnCompleted;
-            awaiterHandler.RegisterContinuation(continuation);
-
-
-            // 更新関数を送る
-            PostUpdate();
         }
 
 
@@ -162,36 +142,7 @@ namespace IceMilkTea.Core
         {
             // イベントを解除して、シグナルを設定する
             request.completed -= OnCompleted;
-            awaiterHandler.SetSignal();
-        }
-
-
-        /// <summary>
-        /// ResourceRequest の進捗を監視するための状態を更新します
-        /// </summary>
-        private void Update()
-        {
-            // もしタスクが完了しているなら
-            if (IsCompleted)
-            {
-                // もう終わり
-                return;
-            }
-
-
-            // 進捗を通知して、再び更新関数をポストする
-            progress?.Report(request.progress);
-            PostUpdate();
-        }
-
-
-        /// <summary>
-        /// 更新関数を同期コンテキストにポストします
-        /// </summary>
-        private void PostUpdate()
-        {
-            // 更新関数をポストする
-            context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+            AwaiterHandler.SetSignal();
         }
     }
 }

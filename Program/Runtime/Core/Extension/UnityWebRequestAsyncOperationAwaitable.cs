@@ -14,7 +14,6 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Threading;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -33,7 +32,7 @@ namespace IceMilkTea.Core
         public static UnityWebRequestAsyncOperationAwaitable ToAwaitable(this UnityWebRequestAsyncOperation operation)
         {
             // インスタンスを生成して返す
-            return new UnityWebRequestAsyncOperationAwaitable(operation, null);
+            return ToAwaitable(operation, null);
         }
 
 
@@ -55,21 +54,18 @@ namespace IceMilkTea.Core
     /// <summary>
     /// UnityWebRequestAsyncOperation を待機可能にした待機可能クラスです。
     /// </summary>
-    public class UnityWebRequestAsyncOperationAwaitable : IAwaitable<UnityWebRequest>
+    public class UnityWebRequestAsyncOperationAwaitable : ImtAwaitableSynchronizationUpdateBehaviour<UnityWebRequest>
     {
         // メンバ変数定義
-        private AwaiterContinuationHandler awaiterHandler;
         private UnityWebRequestAsyncOperation operation;
         private IProgress<float> progress;
-        private SynchronizationContext context;
-        private Action update;
 
 
 
         /// <summary>
         /// UnityWebRequestAsyncOperation のタスクが完了したかどうか
         /// </summary>
-        public bool IsCompleted => operation.isDone;
+        public override bool IsCompleted => operation.isDone;
 
 
 
@@ -88,40 +84,39 @@ namespace IceMilkTea.Core
             }
 
 
-            // 待機オブジェクトハンドラを生成
-            awaiterHandler = new AwaiterContinuationHandler();
-
-
             // パラメータを受け取る
             this.operation = operation;
             this.progress = progress;
-
-
-            // 定期更新用同期コンテキストの取得と、更新関数の用意
-            context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            update = Update;
         }
 
 
         /// <summary>
-        /// この待機可能クラスの待機オブジェクトを取得します。
+        /// 動作を開始します
         /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        public ImtAwaiter<UnityWebRequest> GetAwaiter()
+        protected override void Start()
         {
-            // 待機オブジェクトを生成して返す
-            return new ImtAwaiter<UnityWebRequest>(this);
+            // 完了イベントを登録する
+            operation.completed += OnCompleted;
         }
 
 
         /// <summary>
-        /// この待機可能クラスの待機オブジェクトを取得します。
+        /// 進捗監視をするための状態を更新します
         /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        ImtAwaiter IAwaitable.GetAwaiter()
+        /// <returns></returns>
+        protected override bool Update()
         {
-            // 待機オブジェクトを生成して返す
-            return new ImtAwaiter(this);
+            // タスクが完了しているなら
+            if (IsCompleted)
+            {
+                // 更新はもうしない
+                return false;
+            }
+
+
+            // 進捗通知をして更新を継続する
+            progress?.Report(operation.progress);
+            return true;
         }
 
 
@@ -129,26 +124,10 @@ namespace IceMilkTea.Core
         /// UnityWebRequestAsyncOperation の待機した結果を取得します
         /// </summary>
         /// <returns>待機した結果を返します</returns>
-        public UnityWebRequest GetResult()
+        public override UnityWebRequest GetResult()
         {
             // 結果を返す
             return operation.webRequest;
-        }
-
-
-        /// <summary>
-        /// 待機オブジェクトの継続関数を登録します
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        public void RegisterContinuation(Action continuation)
-        {
-            // UnityWebRequestAsyncOperation の完了イベントを登録して、継続関数を登録
-            operation.completed += OnCompleted;
-            awaiterHandler.RegisterContinuation(continuation);
-
-
-            // 更新関数を送る
-            PostUpdate();
         }
 
 
@@ -160,36 +139,7 @@ namespace IceMilkTea.Core
         {
             // 完了イベントを解除して、待機オブジェクトのシグナルを設定する
             operation.completed -= OnCompleted;
-            awaiterHandler.SetSignal();
-        }
-
-
-        /// <summary>
-        /// UnityWebRequestAsyncOperation の進捗を監視するための内部状態を更新します
-        /// </summary>
-        private void Update()
-        {
-            // すでにタスクが完了しているなら
-            if (IsCompleted)
-            {
-                // 何もせず終了
-                return;
-            }
-
-
-            // 進捗を通知して更新関数を送る
-            progress?.Report(operation.progress);
-            PostUpdate();
-        }
-
-
-        /// <summary>
-        /// 同期コンテキストに更新関数をポストします
-        /// </summary>
-        private void PostUpdate()
-        {
-            // 更新関数をポストする
-            context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+            AwaiterHandler.SetSignal();
         }
     }
 }
