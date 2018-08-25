@@ -989,18 +989,48 @@ namespace IceMilkTea.Core
         /// また、内部の更新関数のスケジューリングも行います。
         /// </summary>
         /// <param name="continuation">登録する継続関数</param>
-        public void RegisterContinuation(Action continuation)
+        public virtual void RegisterContinuation(Action continuation)
         {
-            // 継続関数を登録して更新関数をスケジュールする
+            // 継続関数を登録する
+            int currentHandleCount = AwaiterHandler.HandlerCount;
             AwaiterHandler.RegisterContinuation(continuation);
-            ScheduleUpdate();
+
+
+            // また継続関数が未登録状態なら
+            if (currentHandleCount == 0)
+            {
+                // 開始関数を叩いて、更新関数をスケジュールする
+                Start();
+                ScheduleUpdate();
+            }
         }
 
 
         /// <summary>
         /// 更新関数をスケジュールします。
+        /// また、スケジュールはこの待機可能クラスが、待機可能状態の時の最初に await された場合のみに動作します。
         /// </summary>
         protected abstract void ScheduleUpdate();
+
+
+        /// <summary>
+        /// 初めて待機状態が開始された時の処理を行います。
+        /// </summary>
+        protected virtual void Start()
+        {
+        }
+
+
+        /// <summary>
+        /// 状態の更新を行います。
+        /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
+        /// </summary>
+        /// <returns>更新を継続する場合は true を、停止する場合は false を返します</returns>
+        protected virtual bool Update()
+        {
+            // 既定は直ちに終了する
+            return false;
+        }
     }
 
 
@@ -1026,16 +1056,10 @@ namespace IceMilkTea.Core
         private void InternalUpdate()
         {
             // 実際の更新関数から継続の返却がされる間はループ
-            while (Update()) ;
+            while (Update())
+            {
+            }
         }
-
-
-        /// <summary>
-        /// 状態の更新を行います。
-        /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
-        /// </summary>
-        /// <returns>更新を継続する場合は true を、停止する場合は false を返します</returns>
-        protected abstract bool Update();
     }
 
 
@@ -1110,14 +1134,6 @@ namespace IceMilkTea.Core
                 context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
             }
         }
-
-
-        /// <summary>
-        /// 状態の更新を行います。
-        /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
-        /// </summary>
-        /// <returns>更新を継続する場合は true を、停止する場合は false を返します</returns>
-        protected abstract bool Update();
     }
 
 
