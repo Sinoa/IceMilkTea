@@ -1026,12 +1026,7 @@ namespace IceMilkTea.Core
         private void InternalUpdate()
         {
             // 実際の更新関数から継続の返却がされる間はループ
-            bool isContinue = true;
-            while (isContinue)
-            {
-                // 更新関数を実行して継続状態を返却してもらう
-                Update(out isContinue);
-            }
+            while (Update()) ;
         }
 
 
@@ -1039,8 +1034,8 @@ namespace IceMilkTea.Core
         /// 状態の更新を行います。
         /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
         /// </summary>
-        /// <param name="isContinue">更新を継続する場合は true を、停止する場合は false を設定してください</param>
-        protected abstract void Update(out bool isContinue);
+        /// <returns>更新を継続する場合は true を、停止する場合は false を返します</returns>
+        protected abstract bool Update();
     }
 
 
@@ -1108,13 +1103,8 @@ namespace IceMilkTea.Core
         /// </summary>
         private void InternalUpdate()
         {
-            // 更新関数を叩いて、継続するかどうかの返却を受け取る
-            bool isContinue;
-            Update(out isContinue);
-
-
-            // もし継続するなら
-            if (isContinue)
+            // 更新関数を叩いて、継続を希望されているのなら
+            if (Update())
             {
                 // 再び同期コンテキストに、内部更新関数をポストする
                 context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
@@ -1126,8 +1116,8 @@ namespace IceMilkTea.Core
         /// 状態の更新を行います。
         /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
         /// </summary>
-        /// <param name="isContinue">更新を継続する場合は true を、停止する場合は false を設定してください</param>
-        protected abstract void Update(out bool isContinue);
+        /// <returns>更新を継続する場合は true を、停止する場合は false を返します</returns>
+        protected abstract bool Update();
     }
 
 
