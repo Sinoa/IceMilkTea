@@ -1249,6 +1249,31 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 待機ヘルパに待機オブジェクトを追加します。
+        /// 既に追加済みの待機オブジェクトは無視されます。
+        /// </summary>
+        /// <param name="awaitable">追加する待機オブジェクトの IList</param>
+        /// <exception cref="ArgumentNullException">awaitables が null です</exception>
+        public void AddRange(IList<IAwaitable> awaitables)
+        {
+            // awaitablesがnullなら
+            if (awaitables == null)
+            {
+                // 何を追加するんですか
+                throw new ArgumentNullException(nameof(awaitables));
+            }
+
+
+            // リスト内をすべて回る
+            foreach (var awaitable in awaitables)
+            {
+                // 追加する
+                AddAwaitable(awaitable);
+            }
+        }
+
+
+        /// <summary>
         /// 追加された待機オブジェクトの全てが、完了するまで待機する、待機オブジェクトを提供します。
         /// </summary>
         /// <returns>追加された待機オブジェクトの全てを待機する、待機オブジェクトを返します</returns>
@@ -1265,7 +1290,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="awaitables">追加する待機オブジェクトの配列。追加しない場合は null の指定が可能です</param>
         /// <returns>追加された待機オブジェクトの全てを待機する、待機オブジェクトを返します</returns>
-        public IAwaitable WhenAll(IAwaitable[] awaitables)
+        public IAwaitable WhenAll(IList<IAwaitable> awaitables)
         {
             // もし配列の指定があるなら
             if (awaitables != null)
@@ -1309,7 +1334,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="awaitables">追加する待機オブジェクトの配列。追加しない場合は null の指定が可能です</param>
         /// <returns>追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを返します</returns>
-        public IAwaitable<IAwaitable> WhenAny(IAwaitable[] awaitables)
+        public IAwaitable<IAwaitable> WhenAny(IList<IAwaitable> awaitables)
         {
             // もし配列の指定があるなら
             if (awaitables != null)
@@ -1350,6 +1375,39 @@ namespace IceMilkTea.Core
         /// 単純な Action を同期コンテキストに Post する場合は、利用することをおすすめします。
         /// </summary>
         public static SendOrPostCallback CachedSendOrPostCallback { get; } = new SendOrPostCallback(_ => ((Action)_)());
+    }
+    #endregion
+
+
+
+    #region Extensions
+    /// <summary>
+    /// AwaitableやAwaiterなどの拡張関数実装用クラスです
+    /// </summary>
+    public static class AwaitableAwaiterExtensions
+    {
+        /// <summary>
+        /// 複数の IAwaitable を、すべて待機するための待機可能なインスタンスを生成します。
+        /// </summary>
+        /// <param name="awaitables">待機する複数の IAwaitable</param>
+        /// <returns>生成された、すべての IAwaitable を待機する待機可能なインスタンスを返します</returns>
+        public static IAwaitable WhenAll(this IList<IAwaitable> awaitables)
+        {
+            // WhenAllとして返す
+            return new ImtAwaitHelper().WhenAll(awaitables);
+        }
+
+
+        /// <summary>
+        /// 複数の IAwaitable の、いずれかを待機するための待機可能なインスタンスを生成します。
+        /// </summary>
+        /// <param name="awaitables">待機する複数の IAwaitable</param>
+        /// <returns>生成された、いずれかの IAwaitable を待機する待機可能なインスタンスを返します</returns>
+        public static IAwaitable<IAwaitable> WhenAny(this IList<IAwaitable> awaitables)
+        {
+            // WhenAnyとして返す
+            return new ImtAwaitHelper().WhenAny(awaitables);
+        }
     }
     #endregion
 }
