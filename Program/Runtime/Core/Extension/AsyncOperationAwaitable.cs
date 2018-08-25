@@ -14,7 +14,6 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Threading;
 using UnityEngine;
 
 namespace IceMilkTea.Core
@@ -32,7 +31,7 @@ namespace IceMilkTea.Core
         public static AsyncOperationAwaitable ToAwaitable(this AsyncOperation operation)
         {
             // AsyncOperationの待機可能クラスのインスタンスを生成して返す
-            return new AsyncOperationAwaitable(operation, null);
+            return ToAwaitable(operation, null);
         }
 
 
@@ -54,21 +53,18 @@ namespace IceMilkTea.Core
     /// <summary>
     /// AsyncOperation を待機可能にした待機可能クラスです。
     /// </summary>
-    public class AsyncOperationAwaitable : IAwaitable
+    public class AsyncOperationAwaitable : ImtAwaitableSynchronizationUpdateBehaviour
     {
         // メンバ変数定義
-        private AwaiterContinuationHandler awaiterHandler;
         private AsyncOperation operation;
         private IProgress<float> progress;
-        private SynchronizationContext context;
-        private Action update;
 
 
 
         /// <summary>
         /// AsyncOperation のタスクが完了したかどうか
         /// </summary>
-        public bool IsCompleted => operation.isDone;
+        public override bool IsCompleted => operation.isDone;
 
 
 
@@ -88,86 +84,51 @@ namespace IceMilkTea.Core
             }
 
 
-            // 待機オブジェクトハンドラの生成
-            awaiterHandler = new AwaiterContinuationHandler();
-
-
             // 引数を受け取る
             this.operation = operation;
             this.progress = progress;
-
-
-            // 定期更新用同期コンテキストの取得と更新関数の取得
-            context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            update = Update;
         }
 
 
         /// <summary>
-        /// この待機可能クラスの待機オブジェクトを取得します
+        /// 動作を開始します
         /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        public ImtAwaiter GetAwaiter()
+        protected override void Start()
         {
-            // 待機オブジェクトを生成して返す
-            return new ImtAwaiter(this);
-        }
-
-
-        /// <summary>
-        /// 待機オブジェクトの継続関数を登録します
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        public void RegisterContinuation(Action continuation)
-        {
-            // AsyncOperationの完了イベントを登録して継続関数を登録する
+            // 完了イベントを登録する
             operation.completed += OnCompleted;
-            awaiterHandler.RegisterContinuation(continuation);
-
-
-            // 同期コンテキストに定期更新用関数を送る
-            PostUpdate();
         }
 
 
         /// <summary>
-        /// AsyncOperation の完了イベントをハンドリングします
+        /// 進捗監視をするための状態を更新します
         /// </summary>
-        /// <param name="operation">イベントを呼び出したAsyncOperation</param>
-        private void OnCompleted(AsyncOperation operation)
+        /// <returns></returns>
+        protected override bool Update()
         {
-            // 完了イベントの登録を解除して、継続関数のシグナルを設定する
-            operation.completed -= OnCompleted;
-            awaiterHandler.SetSignal();
-        }
-
-
-        /// <summary>
-        /// AsyncOperation の進捗を監視するための、状態更新を行います
-        /// </summary>
-        private void Update()
-        {
-            // タスクが完了しているのなら
+            // タスクが完了しているなら
             if (IsCompleted)
             {
-                // もう、更新はしない
-                return;
+                // 更新はもうしない
+                return false;
             }
 
 
-            // 進捗の通知をして、更新関数を送る
+            // 進捗通知をして更新を継続する
             progress?.Report(operation.progress);
-            PostUpdate();
+            return true;
         }
 
 
         /// <summary>
-        /// 更新関数を同期コンテキストにポストします
+        /// 完了イベントをハンドリングします
         /// </summary>
-        private void PostUpdate()
+        /// <param name="operation">イベントを通知したオブジェクト</param>
+        private void OnCompleted(AsyncOperation operation)
         {
-            // 更新関数を送る
-            context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+            // 完了イベントを解除して、待機オブジェクトハンドラのシグナルを設定する
+            this.operation.completed -= OnCompleted;
+            AwaiterHandler.SetSignal();
         }
     }
 }
