@@ -943,6 +943,221 @@ namespace IceMilkTea.Core
 
 
 
+    #region AwaitableUpdateBehaviour
+    /// <summary>
+    /// 自己更新機能を持った、待機可能な抽象クラスです。
+    /// </summary>
+    public abstract class ImtAwaitableUpdateBehaviour : IAwaitable
+    {
+        /// <summary>
+        /// タスクが完了したかどうか。
+        /// ただし Update の動作とは一切関係ありません。
+        /// </summary>
+        public abstract bool IsCompleted { get; }
+
+
+        /// <summary>
+        /// 待機オブジェクトハンドラ
+        /// </summary>
+        protected AwaiterContinuationHandler AwaiterHandler { get; private set; }
+
+
+
+        /// <summary>
+        /// ImtAwaitableUpdateBehaviour のインスタンスを初期化します
+        /// </summary>
+        public ImtAwaitableUpdateBehaviour()
+        {
+            // 待機オブジェクトハンドラを生成
+            AwaiterHandler = new AwaiterContinuationHandler();
+        }
+
+
+        /// <summary>
+        /// この待機可能クラスの、待機オブジェクトを取得します
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        public ImtAwaiter GetAwaiter()
+        {
+            // 待機オブジェクトを生成して返す
+            return new ImtAwaiter(this);
+        }
+
+
+        /// <summary>
+        /// 待機オブジェクトの継続関数を登録します。
+        /// また、内部の更新関数のスケジューリングも行います。
+        /// </summary>
+        /// <param name="continuation">登録する継続関数</param>
+        public void RegisterContinuation(Action continuation)
+        {
+            // 継続関数を登録して更新関数をスケジュールする
+            AwaiterHandler.RegisterContinuation(continuation);
+            ScheduleUpdate();
+        }
+
+
+        /// <summary>
+        /// 更新関数をスケジュールします。
+        /// </summary>
+        protected abstract void ScheduleUpdate();
+    }
+
+
+
+    /// <summary>
+    /// スレッドプールを使った自己更新機能を提供する、待機可能な抽象クラスです。
+    /// </summary>
+    public abstract class ImtAwaitableThreadPoolUpdateBehaviour : ImtAwaitableUpdateBehaviour
+    {
+        /// <summary>
+        /// 更新関数をスケジュールします。
+        /// </summary>
+        protected override void ScheduleUpdate()
+        {
+            // スレッドプールに内部の更新関数を送る
+            ThreadPool.QueueUserWorkItem(_ => InternalUpdate());
+        }
+
+
+        /// <summary>
+        /// 実際の更新関数をコントロールする更新関数です
+        /// </summary>
+        private void InternalUpdate()
+        {
+            // 実際の更新関数から継続の返却がされる間はループ
+            bool isContinue = true;
+            while (isContinue)
+            {
+                // 更新関数を実行して継続状態を返却してもらう
+                Update(out isContinue);
+            }
+        }
+
+
+        /// <summary>
+        /// 状態の更新を行います。
+        /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
+        /// </summary>
+        /// <param name="isContinue">更新を継続する場合は true を、停止する場合は false を設定してください</param>
+        protected abstract void Update(out bool isContinue);
+    }
+
+
+
+    /// <summary>
+    /// スレッドプールを使った自己更新機能を提供する、値の返却が可能で待機可能な抽象クラスです。
+    /// </summary>
+    /// <typeparam name="TResult">待機した結果の型</typeparam>
+    public abstract class ImtAwaitableThreadPoolUpdateBehaviour<TResult> : ImtAwaitableThreadPoolUpdateBehaviour, IAwaitable<TResult>
+    {
+        /// <summary>
+        /// 待機した結果を取得します。
+        /// </summary>
+        /// <returns>待機した結果を返します</returns>
+        public abstract TResult GetResult();
+
+
+        /// <summary>
+        /// この待機可能クラスの、待機オブジェクトを取得します。
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 待機オブジェクトを生成して返す
+            return new ImtAwaiter<TResult>(this);
+        }
+    }
+
+
+
+    /// <summary>
+    /// 同期コンテキストを使った自己更新機能を提供する、待機可能な抽象クラスです。
+    /// </summary>
+    public abstract class ImtAwaitableSynchronizationUpdateBehaviour : ImtAwaitableUpdateBehaviour
+    {
+        // メンバ変数定義
+        private SynchronizationContext context;
+        private Action update;
+
+
+
+        /// <summary>
+        /// ImtAwaitableSynchronizationUpdateBehaviour のインスタンスを初期化します
+        /// </summary>
+        public ImtAwaitableSynchronizationUpdateBehaviour()
+        {
+            // 同期コンテキストを拾って、内部の更新関数を覚える
+            context = AsyncOperationManager.SynchronizationContext;
+            update = InternalUpdate;
+        }
+
+
+        /// <summary>
+        /// 更新関数をスケジュールします。
+        /// </summary>
+        protected override void ScheduleUpdate()
+        {
+            // 同期コンテキストに、内部更新関数をポストする
+            context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+        }
+
+
+        /// <summary>
+        /// 実際の更新関数をコントロールする更新関数です。
+        /// </summary>
+        private void InternalUpdate()
+        {
+            // 更新関数を叩いて、継続するかどうかの返却を受け取る
+            bool isContinue;
+            Update(out isContinue);
+
+
+            // もし継続するなら
+            if (isContinue)
+            {
+                // 再び同期コンテキストに、内部更新関数をポストする
+                context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+            }
+        }
+
+
+        /// <summary>
+        /// 状態の更新を行います。
+        /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
+        /// </summary>
+        /// <param name="isContinue">更新を継続する場合は true を、停止する場合は false を設定してください</param>
+        protected abstract void Update(out bool isContinue);
+    }
+
+
+
+    /// <summary>
+    /// 同期コンテキストを使った自己更新機能を提供する、値の返却が可能で待機可能な抽象クラスです。
+    /// </summary>
+    public abstract class ImtAwaitableSynchronizationUpdateBehaviour<TResult> : ImtAwaitableSynchronizationUpdateBehaviour, IAwaitable<TResult>
+    {
+        /// <summary>
+        /// 待機した結果を取得します。
+        /// </summary>
+        /// <returns>待機した結果を返します</returns>
+        public abstract TResult GetResult();
+
+
+        /// <summary>
+        /// この待機可能クラスの、待機オブジェクトを取得します。
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 待機オブジェクトを生成して返す
+            return new ImtAwaiter<TResult>(this);
+        }
+    }
+    #endregion
+
+
+
     #region Awaitable Utility
     /// <summary>
     /// IAwaitable なオブジェクトを待機する時のヘルパー実装を提供します
