@@ -414,6 +414,16 @@ namespace IceMilkTea.Core
             // 待機オブジェクトハンドラに継続関数を登録する
             AwaiterHandler.RegisterContinuation(continuation);
         }
+
+
+        /// <summary>
+        /// 登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
+        /// </summary>
+        protected virtual void SetSignal()
+        {
+            // 待機オブジェクトハンドラのシグナルを設定する
+            AwaiterHandler.SetSignal();
+        }
     }
 
 
