@@ -851,10 +851,9 @@ namespace IceMilkTea.Core
     /// </summary>
     /// <typeparam name="TEventDelegate">イベント または コールバック で使用する関数のシグネチャを示す型</typeparam>
     /// <typeparam name="TResult">イベント または コールバック または オブジェクト状態 で得られた結果の型</typeparam>
-    public class ImtAwaitableFromEvent<TEventDelegate, TResult> : IAwaitable<TResult>
+    public class ImtAwaitableFromEvent<TEventDelegate, TResult> : ImtAwaitable<TResult>
     {
         // メンバ変数定義
-        private AwaiterContinuationHandler awaiterHandler;
         private Func<bool> isCompleted;
         private Action<TEventDelegate> register;
         private Action<TEventDelegate> unregister;
@@ -868,7 +867,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
-        public bool IsCompleted => isCompleted != null ? isCompleted() : completeState;
+        public override bool IsCompleted => isCompleted != null ? isCompleted() : completeState;
 
 
 
@@ -888,10 +887,6 @@ namespace IceMilkTea.Core
         /// <see cref="ResetCompleteState"/>
         public ImtAwaitableFromEvent(Func<bool> completed, bool autoReset, Func<Action<TResult>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister)
         {
-            // 待機オブジェクトハンドラの生成
-            awaiterHandler = new AwaiterContinuationHandler();
-
-
             // ユーザー関数を覚えるのと、イベントハンドラを作る
             isCompleted = completed;
             register = eventRegister;
@@ -902,6 +897,10 @@ namespace IceMilkTea.Core
             // 待機状態の初期化と自動リセットの値を受け取る
             completeState = false;
             this.autoReset = autoReset;
+
+
+            // イベントハンドラの登録
+            register(handler);
         }
 
 
@@ -910,49 +909,17 @@ namespace IceMilkTea.Core
         /// </summary>
         public void ResetCompleteState()
         {
-            // 状態をリセット
-            completeState = false;
-        }
-
-
-        /// <summary>
-        /// この待機可能クラスの、待機オブジェクトを取得します。
-        /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        public ImtAwaiter<TResult> GetAwaiter()
-        {
-            // 待機オブジェクトを返す
-            return new ImtAwaiter<TResult>(this);
-        }
-
-
-        /// <summary>
-        /// この待機可能クラスの、待機オブジェクトを取得します。
-        /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        ImtAwaiter IAwaitable.GetAwaiter()
-        {
-            // 待機オブジェクトを返す
-            return new ImtAwaiter(this);
-        }
-
-
-        /// <summary>
-        /// 待機オブジェクトの継続関数を登録します
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        public void RegisterContinuation(Action continuation)
-        {
-            // まだ継続関数が未登録状態なら
-            if (awaiterHandler.HandlerCount == 0)
+            // もし既に非シグナル状態なら
+            if (!completeState)
             {
-                // イベントハンドラを登録
-                register(handler);
+                // 既にリセット済み状態のため終了
+                return;
             }
 
 
-            // 待機オブジェクトハンドラに継続関数を登録
-            awaiterHandler.RegisterContinuation(continuation);
+            // 状態をリセットしてハンドラを登録する
+            completeState = false;
+            register(handler);
         }
 
 
@@ -960,7 +927,7 @@ namespace IceMilkTea.Core
         /// イベント または コールバック で得られた結果を取得します
         /// </summary>
         /// <returns>イベント または コールバック で得られた結果を返します</returns>
-        public TResult GetResult()
+        public override TResult GetResult()
         {
             // 得た結果を返す
             return result;
@@ -973,14 +940,17 @@ namespace IceMilkTea.Core
         /// <param name="result">イベント または コールバック からの結果</param>
         private void OnEventHandle(TResult result)
         {
+            // イベントハンドラの解除
+            unregister(handler);
+
+
             // 完了状態の設定と、結果の保存をする
             completeState = true;
             this.result = result;
 
 
-            // 待機オブジェクトハンドラのシグナルを設定してイベントの解除
-            awaiterHandler.SetSignal();
-            unregister(handler);
+            // 待機オブジェクトハンドラのシグナルを設定
+            SetSignal();
 
 
             // もし自動リセットがONなら
