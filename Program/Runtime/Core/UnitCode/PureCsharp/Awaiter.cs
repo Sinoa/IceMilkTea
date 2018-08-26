@@ -1176,6 +1176,7 @@ namespace IceMilkTea.Core
 
 
     #region AwaitableUpdateBehaviour
+    // TODO : もはやこれは只のオレオレTaskだな？（将来的に程よいTaskを検討）
     /// <summary>
     /// 自己更新が可能な、待機可能クラスです。
     /// </summary>
@@ -1307,6 +1308,7 @@ namespace IceMilkTea.Core
 
 
     #region Task
+    // TODO : もはやこれは只のオレオレTaskだな？（将来的に程よいTaskを検討）
     /// <summary>
     /// 非同期で動作するタスクを提供する待機可能クラスです
     /// </summary>
