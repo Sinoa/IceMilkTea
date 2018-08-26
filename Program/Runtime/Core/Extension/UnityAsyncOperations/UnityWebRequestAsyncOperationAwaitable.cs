@@ -54,7 +54,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// UnityWebRequestAsyncOperation を待機可能にした待機可能クラスです。
     /// </summary>
-    public class UnityWebRequestAsyncOperationAwaitable : ImtAwaitableSynchronizationUpdateBehaviour<UnityWebRequest>
+    public class UnityWebRequestAsyncOperationAwaitable : ImtAwaitableUpdateBehaviour<UnityWebRequest>
     {
         // メンバ変数定義
         private UnityWebRequestAsyncOperation operation;
@@ -93,7 +93,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 動作を開始します
         /// </summary>
-        protected override void Start()
+        protected internal override void Start()
         {
             // 完了イベントを登録する
             operation.completed += OnCompleted;
@@ -104,7 +104,7 @@ namespace IceMilkTea.Core
         /// 進捗監視をするための状態を更新します
         /// </summary>
         /// <returns></returns>
-        protected override bool Update()
+        protected internal override bool Update()
         {
             // タスクが完了しているなら
             if (IsCompleted)
@@ -139,7 +139,7 @@ namespace IceMilkTea.Core
         {
             // 完了イベントを解除して、待機オブジェクトのシグナルを設定する
             operation.completed -= OnCompleted;
-            AwaiterHandler.SetSignal();
+            SetSignal();
         }
     }
 }

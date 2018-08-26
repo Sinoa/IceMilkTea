@@ -56,7 +56,7 @@ namespace IceMilkTea.Core
     /// ResourceRequest を待機可能にした待機可能クラスです。
     /// </summary>
     /// <typeparam name="TResult">ResourceRequest のロード結果の型</typeparam>
-    public class ResourceRequestAwaitable<TResult> : ImtAwaitableSynchronizationUpdateBehaviour<TResult> where TResult : UnityEngine.Object
+    public class ResourceRequestAwaitable<TResult> : ImtAwaitableUpdateBehaviour<TResult> where TResult : UnityEngine.Object
     {
         // メンバ変数定義
         private ResourceRequest request;
@@ -96,7 +96,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 動作を開始します
         /// </summary>
-        protected override void Start()
+        protected internal override void Start()
         {
             // 完了イベントを登録する
             request.completed += OnCompleted;
@@ -107,7 +107,7 @@ namespace IceMilkTea.Core
         /// 進捗監視をするための状態を更新します
         /// </summary>
         /// <returns></returns>
-        protected override bool Update()
+        protected internal override bool Update()
         {
             // タスクが完了しているなら
             if (IsCompleted)
@@ -142,7 +142,7 @@ namespace IceMilkTea.Core
         {
             // イベントを解除して、シグナルを設定する
             request.completed -= OnCompleted;
-            AwaiterHandler.SetSignal();
+            SetSignal();
         }
     }
 }

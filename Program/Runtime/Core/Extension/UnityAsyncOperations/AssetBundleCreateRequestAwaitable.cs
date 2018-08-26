@@ -53,7 +53,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// AssetBundleCreateRequest を待機可能にした待機可能クラスです
     /// </summary>
-    public class AssetBundleCreateRequestAwaitable : ImtAwaitableSynchronizationUpdateBehaviour<AssetBundle>
+    public class AssetBundleCreateRequestAwaitable : ImtAwaitableUpdateBehaviour<AssetBundle>
     {
         // メンバ変数定義
         private AssetBundleCreateRequest request;
@@ -93,7 +93,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 動作の開始を行います
         /// </summary>
-        protected override void Start()
+        protected internal override void Start()
         {
             // 完了イベントを登録する
             request.completed += OnCompleted;
@@ -104,7 +104,7 @@ namespace IceMilkTea.Core
         /// 進捗監視を行うための状態更新を行います
         /// </summary>
         /// <returns>動作を継続する場合は true を、停止する場合は false を返します</returns>
-        protected override bool Update()
+        protected internal override bool Update()
         {
             // タスクが完了している場合は
             if (IsCompleted)
@@ -128,7 +128,7 @@ namespace IceMilkTea.Core
         {
             // 完了イベントを解除して、待機オブジェクトのシグナルを設定する
             request.completed -= OnCompleted;
-            AwaiterHandler.SetSignal();
+            SetSignal();
         }
 
 
