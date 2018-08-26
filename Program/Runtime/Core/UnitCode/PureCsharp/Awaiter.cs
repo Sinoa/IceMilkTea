@@ -595,48 +595,6 @@ namespace IceMilkTea.Core
 
 
     /// <summary>
-    /// シグナル操作をして待機状態をコントロールすることの出来る、値を返す待機可能な抽象クラスです。
-    /// </summary>
-    /// <remarks>
-    /// 単純なシグナル操作による、待機制御を実現する場合には有用です。
-    /// </remarks>
-    public abstract class ImtAwaitableWaitHandle<TResult> : ImtAwaitableWaitHandle, IAwaitable<TResult>
-    {
-        /// <summary>
-        /// ImtAwaitableWaitHandle<typeparamref name="TResult"/> のインスタンスを初期化します
-        /// </summary>
-        /// <param name="initialSignal">初期のシグナル状態</param>
-        public ImtAwaitableWaitHandle(bool initialSignal) : base(initialSignal)
-        {
-        }
-
-
-        /// <summary>
-        /// このオブジェクトの待機オブジェクトを取得します
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">待機ハンドルは解放済みです</exception>
-        /// <returns>待機オブジェクトを返します</returns>
-        public new ImtAwaiter<TResult> GetAwaiter()
-        {
-            // 解放済み例外の処理をしておく
-            ThrowIfDisposed();
-
-
-            // 単純なAwaiterを返す
-            return new ImtAwaiter<TResult>(this);
-        }
-
-
-        /// <summary>
-        /// 非シグナル状態の時の結果を取得します
-        /// </summary>
-        /// <returns>現在の結果の値を返します</returns>
-        public abstract TResult GetResult();
-    }
-
-
-
-    /// <summary>
     /// シグナル状態をマニュアルコントロールする待機可能な、待機ハンドラクラスです
     /// </summary>
     public class ImtAwaitableManualReset : ImtAwaitableWaitHandle
