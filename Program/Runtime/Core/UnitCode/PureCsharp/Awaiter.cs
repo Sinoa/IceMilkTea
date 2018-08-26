@@ -1232,16 +1232,16 @@ namespace IceMilkTea.Core
         /// </summary>
         protected new virtual void SetSignal()
         {
+            // 通常の SetSignal を叩く
+            base.SetSignal();
+
+
             // もしエラーが発生していたのなら
             if (internalError != null)
             {
                 // エラーハンドリングを行う
                 OnError();
             }
-
-
-            // 通常の SetSignal を叩く
-            base.SetSignal();
         }
     }
 
