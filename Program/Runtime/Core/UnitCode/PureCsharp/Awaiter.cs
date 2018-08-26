@@ -991,32 +991,6 @@ namespace IceMilkTea.Core
             }
         }
     }
-
-
-
-    /// <summary>
-    /// イベント機構、コールバック機構のコードを、待機可能なコードに変換する待機可能なクラスです。
-    /// </summary>
-    /// <typeparam name="TEventDelegate">イベント または コールバック で使用する関数のシグネチャを示す型</typeparam>
-    public class ImtAwaitableFromEvent<TEventDelegate> : ImtAwaitableFromEvent<TEventDelegate, object>
-    {
-        /// <summary>
-        /// ImtAwaitableFromEvent のインスタンスを初期化します。
-        /// </summary>
-        /// <remarks>
-        /// completed を null に指定子た場合は、待機オブジェクトの完了状態が内部で保持するようになりますが、改めて
-        /// 待機し直す場合は、状態をリセットする必要がありますので、その場合は ResetCompleteState() 関数を呼び出してください。
-        /// </remarks>
-        /// <param name="completed">待機オブジェクトが、タスクの完了を扱うための関数。内部の完了状態を利用する場合は null の指定が可能です。</param>
-        /// <param name="autoReset">内部の完了状態を利用する場合に、イベント完了後に自動的にリセットするかどうか</param>
-        /// <param name="convert">待機オブジェクト内部の継続関数を、イベントハンドラから呼び出せるようにするための変換関数</param>
-        /// <param name="eventRegister">実際のイベントに登録するための関数</param>
-        /// <param name="eventUnregister">実際のイベントから登録を解除するための関数</param>
-        /// <see cref="ResetCompleteState"/>
-        public ImtAwaitableFromEvent(Func<bool> completed, bool autoReset, Func<Action<object>, TEventDelegate> convert, Action<TEventDelegate> eventRegister, Action<TEventDelegate> eventUnregister) : base(completed, autoReset, convert, eventRegister, eventUnregister)
-        {
-        }
-    }
     #endregion
 
 
