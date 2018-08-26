@@ -963,7 +963,7 @@ namespace IceMilkTea.Core
 
 
 
-    #region AwaitableUpdateBehaviour
+    #region AwaitableUpdateBehaviourScheduler
     // TODO : もはやこれは只のオレオレTaskだな？（将来的に程よいTaskを検討）
     /// <summary>
     /// ImtAwaitableUpdateBehaviour の実行環境をスケジュールするスケジューラクラスです
@@ -1187,9 +1187,11 @@ namespace IceMilkTea.Core
             return new SynchronizationContextUpdateBehaviourScheduler();
         }
     }
+    #endregion
 
 
 
+    #region AwaitableUpdateBehaviour
     /// <summary>
     /// 自己更新が可能な、待機可能クラスです。
     /// </summary>
@@ -1316,9 +1318,11 @@ namespace IceMilkTea.Core
             return new ImtAwaiter<TResult>(this);
         }
     }
+    #endregion
 
 
 
+    #region Task
     /// <summary>
     /// 非同期で動作するタスクを提供する待機可能クラスです
     /// </summary>
