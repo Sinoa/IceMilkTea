@@ -65,7 +65,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// UnityWebRequestAsyncOperation のタスクが完了したかどうか
         /// </summary>
-        public override bool IsCompleted => operation.isDone;
+        public override bool IsCompleted { get { return operation.isDone; } protected set { } }
 
 
 

@@ -357,7 +357,7 @@ namespace IceMilkTea.Core
     /// 値の返却をしない、待機可能なクラスを実装するための基本抽象クラスです。
     /// 汎用的な、値の返却をしない待機可能クラスを実装をする場合には、このクラスを継承して下さい。
     /// </summary>
-    public abstract class ImtAwaitable : IAwaitable
+    public abstract class ImtAwaitable : IAwaitable, IDisposable
     {
         // メンバ変数定義
         private AwaiterContinuationHandler awaiterHandler;
@@ -367,7 +367,13 @@ namespace IceMilkTea.Core
         /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
-        public abstract bool IsCompleted { get; }
+        public abstract bool IsCompleted { get; protected set; }
+
+
+        /// <summary>
+        /// このオブジェクトが解放済みかどうか
+        /// </summary>
+        public bool Disposed { get; private set; }
 
 
 
@@ -393,11 +399,61 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ImtAwaitable のファイナライザを実行します
+        /// </summary>
+        ~ImtAwaitable()
+        {
+            // ファイナライザからのDispose呼び出し
+            Dispose(false);
+        }
+
+
+        /// <summary>
+        /// リソースの解放を行います。
+        /// また、待機中のオブジェクトが存在する場合は、シグナルが直ちに設定されます。
+        /// </summary>
+        public void Dispose()
+        {
+            // DisposeからのDispose呼び出しをして、ファイナライズキューに入らないようにしてもらう
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+        /// <summary>
+        /// 実際のリソース解放を行います。
+        /// </summary>
+        /// <param name="disposing">Diisposeからの呼び出しの場合は true が、ファイナライザからの呼び出しの場合は false が設定されます</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            // 既に解放済みなら
+            if (Disposed)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // すべての待機オブジェクトにシグナルを送る
+            awaiterHandler.SetSignal();
+
+
+            // 解放済みマーク
+            Disposed = true;
+        }
+
+
+        /// <summary>
         /// この待機可能クラスの、待機オブジェクトを取得します
         /// </summary>
         /// <returns>待機オブジェクトを返します</returns>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
         public virtual ImtAwaiter GetAwaiter()
         {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
             // 新しい待機オブジェクトを生成して返す
             return new ImtAwaiter(this);
         }
@@ -407,8 +463,13 @@ namespace IceMilkTea.Core
         /// 待機オブジェクトからの継続関数を登録します
         /// </summary>
         /// <param name="continuation">登録する継続関数</param>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
         public virtual void RegisterContinuation(Action continuation)
         {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
             // 待機オブジェクトハンドラに継続関数を登録する
             awaiterHandler.RegisterContinuation(continuation);
         }
@@ -417,10 +478,30 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
         /// </summary>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
         protected virtual void SetSignal()
         {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
             // 待機オブジェクトハンドラのシグナルを設定する
             awaiterHandler.SetSignal();
+        }
+
+
+        /// <summary>
+        /// オブジェクトが解放済みの場合は、例外を送出します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
+        protected void ThrowIfDisposed()
+        {
+            // 既に破棄済みなら
+            if (Disposed)
+            {
+                // 例外を吐く
+                throw new ObjectDisposedException(null);
+            }
         }
     }
 
@@ -453,8 +534,13 @@ namespace IceMilkTea.Core
         /// この待機可能クラスの、待機オブジェクトを取得します
         /// </summary>
         /// <returns>待機オブジェクトを返します</returns>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
         public new ImtAwaiter<TResult> GetAwaiter()
         {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
             // 新しい待機オブジェクトを生成して返す
             return new ImtAwaiter<TResult>(this);
         }
@@ -865,7 +951,11 @@ namespace IceMilkTea.Core
         /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
-        public override bool IsCompleted => isCompleted != null ? isCompleted() : completeState;
+        public override bool IsCompleted
+        {
+            get { return isCompleted != null ? isCompleted() : completeState; }
+            protected set { completeState = value; }
+        }
 
 
 
@@ -893,7 +983,7 @@ namespace IceMilkTea.Core
 
 
             // 待機状態の初期化と自動リセットの値を受け取る
-            completeState = false;
+            IsCompleted = false;
             this.autoReset = autoReset;
 
 
@@ -908,7 +998,7 @@ namespace IceMilkTea.Core
         public void ResetCompleteState()
         {
             // もし既に非シグナル状態なら
-            if (!completeState)
+            if (!IsCompleted)
             {
                 // 既にリセット済み状態のため終了
                 return;
@@ -916,7 +1006,7 @@ namespace IceMilkTea.Core
 
 
             // 状態をリセットしてハンドラを登録する
-            completeState = false;
+            IsCompleted = false;
             register(handler);
         }
 
@@ -943,7 +1033,7 @@ namespace IceMilkTea.Core
 
 
             // 完了状態の設定と、結果の保存をする
-            completeState = true;
+            IsCompleted = true;
             this.result = result;
 
 
@@ -1331,14 +1421,13 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private Action<object> work;
         private object status;
-        private bool isFinish;
 
 
 
         /// <summary>
         /// タスクが完了したかどうか
         /// </summary>
-        public override bool IsCompleted => isFinish;
+        public override bool IsCompleted { get; protected set; }
 
 
 
@@ -1402,14 +1491,14 @@ namespace IceMilkTea.Core
             catch (Exception)
             {
                 // タスクを完了とシグナルの設定をしてエラー内容を覚える
-                isFinish = true;
+                IsCompleted = true;
                 SetSignal();
                 throw;
             }
             finally
             {
                 // タスクは完了した
-                isFinish = true;
+                IsCompleted = true;
             }
         }
 
@@ -1445,7 +1534,6 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private Func<object, TResult> work;
         private object status;
-        private bool isFinish;
         private TResult result;
 
 
@@ -1453,7 +1541,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// タスクが完了したかどうか
         /// </summary>
-        public override bool IsCompleted => isFinish;
+        public override bool IsCompleted { get; protected set; }
 
 
 
@@ -1517,14 +1605,14 @@ namespace IceMilkTea.Core
             catch (Exception)
             {
                 // タスクを完了とシグナルの設定をしてエラー内容を覚える
-                isFinish = true;
+                IsCompleted = true;
                 SetSignal();
                 throw;
             }
             finally
             {
                 // タスクは完了した
-                isFinish = true;
+                IsCompleted = true;
             }
         }
 

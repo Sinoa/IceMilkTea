@@ -64,7 +64,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// アセットバンドルの準備ができたかどうか
         /// </summary>
-        public override bool IsCompleted => request.isDone;
+        public override bool IsCompleted { get { return request.isDone; } protected set { } }
 
 
 
