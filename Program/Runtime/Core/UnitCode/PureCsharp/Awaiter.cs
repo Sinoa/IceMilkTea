@@ -886,6 +886,8 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// 内部の完了状態をリセットし、再び待機可能な状態にします。
+        /// しかし、コンストラクタで completed パラメータに渡している関数が
+        /// 非シグナル状態を返し続けてしまう場合はリセットが出来ません。
         /// </summary>
         public void ResetCompleteState()
         {
