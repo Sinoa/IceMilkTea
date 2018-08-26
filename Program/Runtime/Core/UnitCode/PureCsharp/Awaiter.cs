@@ -1050,7 +1050,8 @@ namespace IceMilkTea.Core
 
 
             // クラス変数宣言
-            private static readonly SendOrPostCallback cache = new SendOrPostCallback(me => InternalUpdate((UpdateTargetParameter)me));
+            private static readonly SendOrPostCallback wakeupCache = new SendOrPostCallback(target => InternalWakeup((UpdateTargetParameter)target));
+            private static readonly SendOrPostCallback updateCache = new SendOrPostCallback(target => InternalUpdate((UpdateTargetParameter)target));
             private SynchronizationContext currentContext;
 
 
@@ -1079,8 +1080,40 @@ namespace IceMilkTea.Core
                 };
 
 
-                // コンテキストにポストする
-                currentContext.Post(cache, parameter);
+                // コンテキストに起動関数をポストする
+                currentContext.Post(wakeupCache, parameter);
+            }
+
+
+            /// <summary>
+            /// ImtAwaitableUpdateBehaviour を起動するための内部起動関数です
+            /// </summary>
+            /// <param name="targetParameter">更新対象のパラメータ</param>
+            private static void InternalWakeup(UpdateTargetParameter targetParameter)
+            {
+                try
+                {
+                    // 開始処理を呼ぶ
+                    targetParameter.behaviour.Start();
+
+
+                    // もし継続を返却されたら
+                    if (targetParameter.behaviour.Update())
+                    {
+                        // 内部更新関数をポストする
+                        targetParameter.context.Post(updateCache, targetParameter);
+                    }
+
+
+                    // 停止処理を呼ぶ
+                    targetParameter.behaviour.Stop();
+                }
+                catch (Exception exception)
+                {
+                    // ImtAwaitableUpdateBehaviour にエラーをもたせて終了
+                    targetParameter.behaviour.internalError = new AggregateException(exception);
+                    return;
+                }
             }
 
 
@@ -1092,15 +1125,11 @@ namespace IceMilkTea.Core
             {
                 try
                 {
-                    // 開始処理を呼ぶ
-                    targetParameter.behaviour.Start();
-
-
-                    // 継続を返却される間はループ
-                    while (targetParameter.behaviour.Update())
+                    // もし継続を返却されたら
+                    if (targetParameter.behaviour.Update())
                     {
-                        // ひたすらポストする
-                        targetParameter.context.Post(cache, targetParameter);
+                        // 内部更新関数をポストする
+                        targetParameter.context.Post(updateCache, targetParameter);
                     }
 
 
