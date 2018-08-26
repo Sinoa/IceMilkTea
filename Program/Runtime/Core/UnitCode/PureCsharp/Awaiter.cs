@@ -1133,6 +1133,7 @@ namespace IceMilkTea.Core
 
         // クラス変数宣言
         private static readonly ImtAwaitableUpdateBehaviourScheduler threadPoolScheduler = new ThreadPoolUpdateBehaviourScheduler();
+        private static ImtAwaitableUpdateBehaviourScheduler currentScheduler;
 
 
 
@@ -1140,6 +1141,13 @@ namespace IceMilkTea.Core
         /// デフォルトスケジューラ
         /// </summary>
         public static ImtAwaitableUpdateBehaviourScheduler DefaultScheduler => GetCurrentSynchronizationContextScheduler();
+
+
+        /// <summary>
+        /// 現在設定されているスケジューラ または デフォルト。
+        /// このプロパティは SetScheduler() 関数によって設定された内容を返却しますが null になる場合は、デフォルトスケジューラを取り出します。
+        /// </summary>
+        public static ImtAwaitableUpdateBehaviourScheduler CurrentOrDefault => currentScheduler ?? DefaultScheduler;
 
 
 
@@ -1169,6 +1177,17 @@ namespace IceMilkTea.Core
         {
             // 同期コンテキストスケジューラを生成して返す
             return new SynchronizationContextUpdateBehaviourScheduler();
+        }
+
+
+        /// <summary>
+        /// 現在のスケジューラを、指定されたスケジューラで設定します。
+        /// </summary>
+        /// <param name="scheduler">設定するスケジューラを渡しますが null が設定された場合は、内部の既定スケジューラが使われるようになります</param>
+        public static void SetScheduler(ImtAwaitableUpdateBehaviourScheduler scheduler)
+        {
+            // 素直に受け取る
+            currentScheduler = scheduler;
         }
     }
     #endregion
