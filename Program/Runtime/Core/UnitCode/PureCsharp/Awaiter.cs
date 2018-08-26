@@ -1164,11 +1164,11 @@ namespace IceMilkTea.Core
 
 
 
-    #region Awaitable Utility
+    #region AwaitableUtility
     /// <summary>
     /// IAwaitable なオブジェクトを待機する時のヘルパー実装を提供します
     /// </summary>
-    public class ImtAwaitHelper
+    public class ImtAwaitableHelper
     {
         /// <summary>
         /// 全ての待機オブジェクトを待機する、待機クラスです。
@@ -1178,7 +1178,7 @@ namespace IceMilkTea.Core
             // メンバ変数定義
             private AwaiterContinuationHandler awaiterHandler;
             private SynchronizationContext currentContext;
-            private ImtAwaitHelper helper;
+            private ImtAwaitableHelper helper;
             private Action update;
 
 
@@ -1194,7 +1194,7 @@ namespace IceMilkTea.Core
             /// AwaitableWhenAll のインスタンスを初期化します
             /// </summary>
             /// <param name="helper">このインスタンスを保持する ImtAwaitHelper</param>
-            public AwaitableWhenAll(ImtAwaitHelper helper)
+            public AwaitableWhenAll(ImtAwaitableHelper helper)
             {
                 // もろもろ初期化
                 awaiterHandler = new AwaiterContinuationHandler();
@@ -1290,7 +1290,7 @@ namespace IceMilkTea.Core
             // メンバ変数定義
             private AwaiterContinuationHandler awaiterHandler;
             private SynchronizationContext currentContext;
-            private ImtAwaitHelper helper;
+            private ImtAwaitableHelper helper;
             private Action update;
             private IAwaitable firstFinishAwaitable;
 
@@ -1307,7 +1307,7 @@ namespace IceMilkTea.Core
             /// AwaitableWhenAny のインスタンスを初期化します
             /// </summary>
             /// <param name="helper">このインスタンスを保持する ImtAwaitHelper</param>
-            public AwaitableWhenAny(ImtAwaitHelper helper)
+            public AwaitableWhenAny(ImtAwaitableHelper helper)
             {
                 // もろもろ初期化
                 awaiterHandler = new AwaiterContinuationHandler();
@@ -1440,7 +1440,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// ImtAwaitHelper のインスタンスを初期化します
         /// </summary>
-        public ImtAwaitHelper()
+        public ImtAwaitableHelper()
         {
             // 各種待機オブジェクトの生成をする
             whenAllOperator = new AwaitableWhenAll(this);
@@ -1615,7 +1615,7 @@ namespace IceMilkTea.Core
         public static IAwaitable WhenAll(this IList<IAwaitable> awaitables)
         {
             // WhenAllとして返す
-            return new ImtAwaitHelper().WhenAll(awaitables);
+            return new ImtAwaitableHelper().WhenAll(awaitables);
         }
 
 
@@ -1627,7 +1627,7 @@ namespace IceMilkTea.Core
         public static IAwaitable<IAwaitable> WhenAny(this IList<IAwaitable> awaitables)
         {
             // WhenAnyとして返す
-            return new ImtAwaitHelper().WhenAny(awaitables);
+            return new ImtAwaitableHelper().WhenAny(awaitables);
         }
     }
     #endregion
