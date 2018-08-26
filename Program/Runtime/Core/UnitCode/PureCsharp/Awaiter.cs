@@ -1495,6 +1495,31 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 待機ヘルパに待機オブジェクトを追加します。
+        /// 既に追加済みの待機オブジェクトは無視されます。
+        /// </summary>
+        /// <param name="awaitable">追加する待機オブジェクトの IList</param>
+        /// <exception cref="ArgumentNullException">awaitables が null です</exception>
+        public void AddRange<TResult>(IList<IAwaitable<TResult>> awaitables)
+        {
+            // awaitablesがnullなら
+            if (awaitables == null)
+            {
+                // 何を追加するんですか
+                throw new ArgumentNullException(nameof(awaitables));
+            }
+
+
+            // リスト内をすべて回る
+            foreach (var awaitable in awaitables)
+            {
+                // 追加する
+                AddAwaitable(awaitable);
+            }
+        }
+
+
+        /// <summary>
         /// 追加された待機オブジェクトの全てが、完了するまで待機する、待機オブジェクトを提供します。
         /// </summary>
         /// <returns>追加された待機オブジェクトの全てを待機する、待機オブジェクトを返します</returns>
@@ -1516,12 +1541,38 @@ namespace IceMilkTea.Core
             // もし配列の指定があるなら
             if (awaitables != null)
             {
-                // 配列の中を全て回る
-                foreach (var awaitable in awaitables)
-                {
-                    // 追加する
-                    AddAwaitable(awaitable);
-                }
+                // 追加する
+                AddRange(awaitables);
+            }
+
+
+            // WhenAll制御が完了状態なら
+            if (whenAllOperator.IsCompleted == true)
+            {
+                // 更新を開始する
+                whenAllOperator.Update();
+            }
+
+
+            // WhenAll待機オブジェクトを返す
+            return whenAllOperator;
+        }
+
+
+        /// <summary>
+        /// 追加された待機オブジェクトと、引数に指定された待機オブジェクト配列の中を更に追加して
+        /// 全てが完了するまで待機する、待機オブジェクトを提供します。
+        /// </summary>
+        /// <typeparam name="TResult">待機可能クラスの返却する値の型</typeparam>
+        /// <param name="awaitables">追加する待機オブジェクトの配列。追加しない場合は null の指定が可能です</param>
+        /// <returns>追加された待機オブジェクトの全てを待機する、待機オブジェクトを返します</returns>
+        public IAwaitable WhenAll<TResult>(IList<IAwaitable<TResult>> awaitables)
+        {
+            // もし配列の指定があるなら
+            if (awaitables != null)
+            {
+                // 追加する
+                AddRange(awaitables);
             }
 
 
@@ -1560,12 +1611,38 @@ namespace IceMilkTea.Core
             // もし配列の指定があるなら
             if (awaitables != null)
             {
-                // 配列の中を全て回る
-                foreach (var awaitable in awaitables)
-                {
-                    // 追加する
-                    AddAwaitable(awaitable);
-                }
+                // 追加する
+                AddRange(awaitables);
+            }
+
+
+            // WhenAny制御が完了状態なら
+            if (whenAnyOperator.IsCompleted == true)
+            {
+                // 更新を開始する
+                whenAnyOperator.Update();
+            }
+
+
+            // WheAny待機オブジェクトを返す
+            return whenAnyOperator;
+        }
+
+
+        /// <summary>
+        /// 追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを提供します。
+        /// また、引数で指定された待機オブジェクトの配列内も追加します。
+        /// </summary>
+        /// <typeparam name="TResult">待機可能クラスの返却する値の型</typeparam>
+        /// <param name="awaitables">追加する待機オブジェクトの配列。追加しない場合は null の指定が可能です</param>
+        /// <returns>追加された待機オブジェクトのいずれかを、完了するまで待機する、待機オブジェクトを返します</returns>
+        public IAwaitable<IAwaitable> WhenAny<TResult>(IList<IAwaitable<TResult>> awaitables)
+        {
+            // もし配列の指定があるなら
+            if (awaitables != null)
+            {
+                // 追加する
+                AddRange(awaitables);
             }
 
 
@@ -1620,11 +1697,36 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 複数の IAwaitable を、すべて待機するための待機可能なインスタンスを生成します。
+        /// </summary>
+        /// <typeparam name="TResult">待機可能クラスの返却する値の型</typeparam>
+        /// <param name="awaitables">待機する複数の IAwaitable</param>
+        /// <returns>生成された、すべての IAwaitable を待機する待機可能なインスタンスを返します</returns>
+        public static IAwaitable WhenAll<TResult>(this IList<IAwaitable<TResult>> awaitables)
+        {
+            // WhenAllとして返す
+            return new ImtAwaitableHelper().WhenAll(awaitables);
+        }
+
+
+        /// <summary>
         /// 複数の IAwaitable の、いずれかを待機するための待機可能なインスタンスを生成します。
         /// </summary>
         /// <param name="awaitables">待機する複数の IAwaitable</param>
         /// <returns>生成された、いずれかの IAwaitable を待機する待機可能なインスタンスを返します</returns>
         public static IAwaitable<IAwaitable> WhenAny(this IList<IAwaitable> awaitables)
+        {
+            // WhenAnyとして返す
+            return new ImtAwaitableHelper().WhenAny(awaitables);
+        }
+
+
+        /// <summary>
+        /// 複数の IAwaitable の、いずれかを待機するための待機可能なインスタンスを生成します。
+        /// </summary>
+        /// <param name="awaitables">待機する複数の IAwaitable</param>
+        /// <returns>生成された、いずれかの IAwaitable を待機する待機可能なインスタンスを返します</returns>
+        public static IAwaitable<IAwaitable> WhenAny<TResult>(this IList<IAwaitable<TResult>> awaitables)
         {
             // WhenAnyとして返す
             return new ImtAwaitableHelper().WhenAny(awaitables);
