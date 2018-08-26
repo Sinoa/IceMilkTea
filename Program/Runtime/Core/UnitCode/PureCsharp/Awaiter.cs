@@ -359,10 +359,8 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class ImtAwaitable : IAwaitable
     {
-        /// <summary>
-        /// 待機した Awaiter の継続関数をハンドリングするハンドラ
-        /// </summary>
-        protected AwaiterContinuationHandler AwaiterHandler { get; private set; }
+        // メンバ変数定義
+        private AwaiterContinuationHandler awaiterHandler;
 
 
 
@@ -379,7 +377,7 @@ namespace IceMilkTea.Core
         public ImtAwaitable()
         {
             // 待機オブジェクトハンドラの生成
-            AwaiterHandler = new AwaiterContinuationHandler();
+            awaiterHandler = new AwaiterContinuationHandler();
         }
 
 
@@ -390,7 +388,7 @@ namespace IceMilkTea.Core
         public ImtAwaitable(int capacity)
         {
             // 待機オブジェクトハンドラの生成
-            AwaiterHandler = new AwaiterContinuationHandler(capacity);
+            awaiterHandler = new AwaiterContinuationHandler(capacity);
         }
 
 
@@ -412,7 +410,7 @@ namespace IceMilkTea.Core
         public virtual void RegisterContinuation(Action continuation)
         {
             // 待機オブジェクトハンドラに継続関数を登録する
-            AwaiterHandler.RegisterContinuation(continuation);
+            awaiterHandler.RegisterContinuation(continuation);
         }
 
 
@@ -422,7 +420,7 @@ namespace IceMilkTea.Core
         protected virtual void SetSignal()
         {
             // 待機オブジェクトハンドラのシグナルを設定する
-            AwaiterHandler.SetSignal();
+            awaiterHandler.SetSignal();
         }
     }
 
@@ -966,143 +964,323 @@ namespace IceMilkTea.Core
 
 
     #region AwaitableUpdateBehaviour
+    // TODO : もはやこれは只のオレオレTaskだな？（将来的に程よいTaskを検討）
     /// <summary>
-    /// 自己更新機能を持った、待機可能な抽象クラスです。
+    /// ImtAwaitableUpdateBehaviour の実行環境をスケジュールするスケジューラクラスです
     /// </summary>
-    public abstract class ImtAwaitableUpdateBehaviour : IAwaitable
+    public abstract class ImtAwaitableUpdateBehaviourScheduler
     {
         /// <summary>
-        /// タスクが完了したかどうか。
-        /// ただし Update の動作とは一切関係ありません。
+        /// スレッドプールを使った ImtAwaitableUpdateBehaviour のスケジュールを行うクラスです
         /// </summary>
-        public abstract bool IsCompleted { get; }
-
-
-        /// <summary>
-        /// 待機オブジェクトハンドラ
-        /// </summary>
-        protected AwaiterContinuationHandler AwaiterHandler { get; private set; }
-
-
-
-        /// <summary>
-        /// ImtAwaitableUpdateBehaviour のインスタンスを初期化します
-        /// </summary>
-        public ImtAwaitableUpdateBehaviour()
+        private class ThreadPoolUpdateBehaviourScheduler : ImtAwaitableUpdateBehaviourScheduler
         {
-            // 待機オブジェクトハンドラを生成
-            AwaiterHandler = new AwaiterContinuationHandler();
+            // クラス変数宣言
+            private static readonly WaitCallback cache = new WaitCallback(behaviour => InternalUpdate((ImtAwaitableUpdateBehaviour)behaviour));
+
+
+
+            /// <summary>
+            /// 指定された ImtAwaitableUpdateBehaviour をスレッドプール上にスケジュールします
+            /// </summary>
+            /// <param name="behaviour">スケジュールする ImtAwaitableUpdateBehaviour</param>
+            protected internal override void ScheduleBehaviour(ImtAwaitableUpdateBehaviour behaviour)
+            {
+                // スレッドプールに内部更新関数をスケジュールして引数に behaviour を渡す
+                ThreadPool.QueueUserWorkItem(cache, behaviour);
+            }
+
+
+            /// <summary>
+            /// ImtAwaitableUpdateBehaviour を更新するための内部状態更新関数です
+            /// </summary>
+            /// <param name="behaviour">更新対象の ImtAwaitableUpdateBehaviour</param>
+            private static void InternalUpdate(ImtAwaitableUpdateBehaviour behaviour)
+            {
+                try
+                {
+                    // 開始処理を呼ぶ
+                    behaviour.Start();
+
+
+                    // 継続を返却され続ける間ループ
+                    while (behaviour.Update())
+                    {
+                        // 休ませる
+                        Thread.Sleep(0);
+                    }
+
+
+                    // 停止処理を呼ぶ
+                    behaviour.Stop();
+                }
+                catch (Exception exception)
+                {
+                    // ImtAwaitableUpdateBehaviour にエラーをもたせて終了
+                    behaviour.internalError = new AggregateException(exception);
+                    return;
+                }
+            }
         }
+
+
+
+        /// <summary>
+        /// 同期コンテキストを使った ImtAwaitableUpdateBehaviour のスケジュールを行うクラスです
+        /// </summary>
+        private class SynchronizationContextUpdateBehaviourScheduler : ImtAwaitableUpdateBehaviourScheduler
+        {
+            /// <summary>
+            /// 同期コンテキストが処理するべきパラメータを保持するクラスです
+            /// </summary>
+            private class UpdateTargetParameter
+            {
+                /// <summary>
+                /// 担当している同期コンテキスト
+                /// </summary>
+                public SynchronizationContext context;
+
+
+                /// <summary>
+                /// 処理するべき ImtAwaitableUpdateBehaviour
+                /// </summary>
+                public ImtAwaitableUpdateBehaviour behaviour;
+            }
+
+
+
+            // クラス変数宣言
+            private static readonly SendOrPostCallback cache = new SendOrPostCallback(me => InternalUpdate((UpdateTargetParameter)me));
+            private SynchronizationContext currentContext;
+
+
+
+            /// <summary>
+            /// SynchronizationContextUpdateBehaviourScheduler のインスタンスを初期化します
+            /// </summary>
+            internal SynchronizationContextUpdateBehaviourScheduler()
+            {
+                // 現在の同期コンテキストを拾う
+                currentContext = AsyncOperationManager.SynchronizationContext;
+            }
+
+
+            /// <summary>
+            /// 指定された ImtAwaitableUpdateBehaviour を同期コンテキスト上にスケジュールします
+            /// </summary>
+            /// <param name="behaviour">スケジュールする ImtAwaitableUpdateBehaviour</param>
+            protected internal override void ScheduleBehaviour(ImtAwaitableUpdateBehaviour behaviour)
+            {
+                // 更新すべきパラメータの初期化をする
+                var parameter = new UpdateTargetParameter()
+                {
+                    context = currentContext,
+                    behaviour = behaviour,
+                };
+
+
+                // コンテキストにポストする
+                currentContext.Post(cache, parameter);
+            }
+
+
+            /// <summary>
+            /// ImtAwaitableUpdateBehaviour を更新するための内部状態更新関数です
+            /// </summary>
+            /// <param name="targetParameter">更新対象のパラメータ</param>
+            private static void InternalUpdate(UpdateTargetParameter targetParameter)
+            {
+                try
+                {
+                    // 開始処理を呼ぶ
+                    targetParameter.behaviour.Start();
+
+
+                    // 継続を返却される間はループ
+                    while (targetParameter.behaviour.Update())
+                    {
+                        // ひたすらポストする
+                        targetParameter.context.Post(cache, targetParameter);
+                    }
+
+
+                    // 停止処理を呼ぶ
+                    targetParameter.behaviour.Stop();
+                }
+                catch (Exception exception)
+                {
+                    // ImtAwaitableUpdateBehaviour にエラーをもたせて終了
+                    targetParameter.behaviour.internalError = new AggregateException(exception);
+                    return;
+                }
+            }
+        }
+
+
+
+        // クラス変数宣言
+        private static readonly ImtAwaitableUpdateBehaviourScheduler threadPoolScheduler = new ThreadPoolUpdateBehaviourScheduler();
+
+
+
+        /// <summary>
+        /// デフォルトスケジューラ
+        /// </summary>
+        public static ImtAwaitableUpdateBehaviourScheduler DefaultScheduler => GetCurrentSynchronizationContextScheduler();
+
+
+
+        /// <summary>
+        /// 指定された ImtAwaitableUpdateBehaviour をスケジュールします
+        /// </summary>
+        /// <param name="behaviour">スケジュールする ImtAwaitableUpdateBehaviour</param>
+        protected internal abstract void ScheduleBehaviour(ImtAwaitableUpdateBehaviour behaviour);
+
+
+        /// <summary>
+        /// スレッドプールを使ったスケジューラを取得します
+        /// </summary>
+        /// <returns>スレッドプールを使ったスケジューラのインスタンスを返します</returns>
+        public static ImtAwaitableUpdateBehaviourScheduler GetThreadPoolScheduler()
+        {
+            // 生成済みのスケジューラを渡す
+            return threadPoolScheduler;
+        }
+
+
+        /// <summary>
+        /// 現在の同期コンテキストを使ったスケジューラを取得します
+        /// </summary>
+        /// <returns>現在の同期コンテキストを使ったスケジューラのインスタンスを返します</returns>
+        public static ImtAwaitableUpdateBehaviourScheduler GetCurrentSynchronizationContextScheduler()
+        {
+            // 同期コンテキストスケジューラを生成して返す
+            return new SynchronizationContextUpdateBehaviourScheduler();
+        }
+    }
+
+
+
+    /// <summary>
+    /// 自己更新が可能な、待機可能クラスです。
+    /// </summary>
+    public abstract class ImtAwaitableUpdateBehaviour : ImtAwaitable
+    {
+        // メンバ変数定義
+        internal Exception internalError;
+
+
+
+        /// <summary>
+        /// ImtAwaitableUpdateBehaviour のインスタンスを既定のスケジューラを用いて初期化します
+        /// </summary>
+        public ImtAwaitableUpdateBehaviour() : this(ImtAwaitableUpdateBehaviourScheduler.DefaultScheduler)
+        {
+        }
+
+
+        /// <summary>
+        /// ImtAwaitableUpdateBehaviour のインスタンスを指定されたスケジューラを用いて初期化します
+        /// </summary>
+        /// <param name="scheduler">この ImtAwaitableUpdateBehaviour をスケジュールするスケジューラ</param>
+        public ImtAwaitableUpdateBehaviour(ImtAwaitableUpdateBehaviourScheduler scheduler)
+        {
+            // 自分をスケジュールしてもらう
+            scheduler.ScheduleBehaviour(this);
+        }
+
+
+        /// <summary>
+        /// 更新の開始処理を行います
+        /// </summary>
+        protected internal virtual void Start()
+        {
+        }
+
+
+        /// <summary>
+        /// 状態の更新処理を行います
+        /// </summary>
+        /// <returns>更新を継続する場合は true を、更新を停止する場合は false を返します</returns>
+        protected internal virtual bool Update()
+        {
+            // 既定動作は直ちに終了
+            return false;
+        }
+
+
+        /// <summary>
+        /// 更新の終了処理を行います
+        /// </summary>
+        protected internal virtual void Stop()
+        {
+        }
+
+
+        /// <summary>
+        /// 更新処理でエラーが発生した時のハンドリングを行います
+        /// </summary>
+        protected internal virtual void OnError()
+        {
+            // 既定動作は再スロー（元の例外は AggregateException に包まれている）
+            throw internalError;
+        }
+
+
+        /// <summary>
+        /// 登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
+        /// </summary>
+        protected new virtual void SetSignal()
+        {
+            // もしエラーが発生していたのなら
+            if (internalError != null)
+            {
+                // エラーハンドリングを行う
+                OnError();
+            }
+
+
+            // 通常の SetSignal を叩く
+            base.SetSignal();
+        }
+    }
+
+
+
+    /// <summary>
+    /// 自己更新が可能な、値を返す事ができる待機可能クラスです。
+    /// </summary>
+    /// <typeparam name="TResult">返す値の型</typeparam>
+    public abstract class ImtAwaitableUpdateBehaviour<TResult> : ImtAwaitableUpdateBehaviour, IAwaitable<TResult>
+    {
+        /// <summary>
+        /// ImtAwaitableUpdateBehaviour のインスタンスを既定のスケジューラを用いて初期化します
+        /// </summary>
+        public ImtAwaitableUpdateBehaviour() : base()
+        {
+        }
+
+
+        /// <summary>
+        /// ImtAwaitableUpdateBehaviour のインスタンスを指定されたスケジューラを用いて初期化します
+        /// </summary>
+        /// <param name="scheduler">この ImtAwaitableUpdateBehaviour をスケジュールするスケジューラ</param>
+        public ImtAwaitableUpdateBehaviour(ImtAwaitableUpdateBehaviourScheduler scheduler) : base(scheduler)
+        {
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得します
+        /// </summary>
+        /// <returns>タスクの結果を返します</returns>
+        public abstract TResult GetResult();
 
 
         /// <summary>
         /// この待機可能クラスの、待機オブジェクトを取得します
         /// </summary>
         /// <returns>待機オブジェクトを返します</returns>
-        public ImtAwaiter GetAwaiter()
-        {
-            // 待機オブジェクトを生成して返す
-            return new ImtAwaiter(this);
-        }
-
-
-        /// <summary>
-        /// 待機オブジェクトの継続関数を登録します。
-        /// また、内部の更新関数のスケジューリングも行います。
-        /// </summary>
-        /// <param name="continuation">登録する継続関数</param>
-        public virtual void RegisterContinuation(Action continuation)
-        {
-            // 継続関数を登録する
-            int currentHandleCount = AwaiterHandler.HandlerCount;
-            AwaiterHandler.RegisterContinuation(continuation);
-
-
-            // また継続関数が未登録状態なら
-            if (currentHandleCount == 0)
-            {
-                // 開始関数を叩いて、更新関数をスケジュールする
-                Start();
-                ScheduleUpdate();
-            }
-        }
-
-
-        /// <summary>
-        /// 更新関数をスケジュールします。
-        /// また、スケジュールはこの待機可能クラスが、待機可能状態の時の最初に await された場合のみに動作します。
-        /// </summary>
-        protected abstract void ScheduleUpdate();
-
-
-        /// <summary>
-        /// 初めて待機状態が開始された時の処理を行います。
-        /// </summary>
-        protected virtual void Start()
-        {
-        }
-
-
-        /// <summary>
-        /// 状態の更新を行います。
-        /// また、更新が停止されたとしても IsCompleted への影響は全くありません。
-        /// </summary>
-        /// <returns>更新を継続する場合は true を、停止する場合は false を返します</returns>
-        protected virtual bool Update()
-        {
-            // 既定は直ちに終了する
-            return false;
-        }
-    }
-
-
-
-    /// <summary>
-    /// スレッドプールを使った自己更新機能を提供する、待機可能な抽象クラスです。
-    /// </summary>
-    public abstract class ImtAwaitableThreadPoolUpdateBehaviour : ImtAwaitableUpdateBehaviour
-    {
-        /// <summary>
-        /// 更新関数をスケジュールします。
-        /// </summary>
-        protected override void ScheduleUpdate()
-        {
-            // スレッドプールに内部の更新関数を送る
-            ThreadPool.QueueUserWorkItem(_ => InternalUpdate());
-        }
-
-
-        /// <summary>
-        /// 実際の更新関数をコントロールする更新関数です
-        /// </summary>
-        private void InternalUpdate()
-        {
-            // 実際の更新関数から継続の返却がされる間はループ
-            while (Update())
-            {
-            }
-        }
-    }
-
-
-
-    /// <summary>
-    /// スレッドプールを使った自己更新機能を提供する、値の返却が可能で待機可能な抽象クラスです。
-    /// </summary>
-    /// <typeparam name="TResult">待機した結果の型</typeparam>
-    public abstract class ImtAwaitableThreadPoolUpdateBehaviour<TResult> : ImtAwaitableThreadPoolUpdateBehaviour, IAwaitable<TResult>
-    {
-        /// <summary>
-        /// 待機した結果を取得します。
-        /// </summary>
-        /// <returns>待機した結果を返します</returns>
-        public abstract TResult GetResult();
-
-
-        /// <summary>
-        /// この待機可能クラスの、待機オブジェクトを取得します。
-        /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
         public new ImtAwaiter<TResult> GetAwaiter()
         {
             // 待機オブジェクトを生成して返す
@@ -1113,73 +1291,240 @@ namespace IceMilkTea.Core
 
 
     /// <summary>
-    /// 同期コンテキストを使った自己更新機能を提供する、待機可能な抽象クラスです。
+    /// 非同期で動作するタスクを提供する待機可能クラスです
     /// </summary>
-    public abstract class ImtAwaitableSynchronizationUpdateBehaviour : ImtAwaitableUpdateBehaviour
+    public class ImtTask : ImtAwaitableUpdateBehaviour
     {
         // メンバ変数定義
-        private SynchronizationContext context;
-        private Action update;
+        private Action<object> work;
+        private object status;
+        private bool isFinish;
 
 
 
         /// <summary>
-        /// ImtAwaitableSynchronizationUpdateBehaviour のインスタンスを初期化します
+        /// タスクが完了したかどうか
         /// </summary>
-        public ImtAwaitableSynchronizationUpdateBehaviour()
+        public override bool IsCompleted => isFinish;
+
+
+
+        /// <summary>
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        public ImtTask(Action<object> work) : this(work, null)
         {
-            // 同期コンテキストを拾って、内部の更新関数を覚える
-            context = AsyncOperationManager.SynchronizationContext;
-            update = InternalUpdate;
         }
 
 
         /// <summary>
-        /// 更新関数をスケジュールします。
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
         /// </summary>
-        protected override void ScheduleUpdate()
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="status">work に渡す状態オブジェクト</param>
+        public ImtTask(Action<object> work, object status) : base()
         {
-            // 同期コンテキストに、内部更新関数をポストする
-            context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+            // 共通化された初期化を呼ぶ
+            Initialize(work, status);
         }
 
 
         /// <summary>
-        /// 実際の更新関数をコントロールする更新関数です。
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
         /// </summary>
-        private void InternalUpdate()
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="status">work に渡す状態オブジェクト</param>
+        /// <param name="scheduler">このタスクを実行する環境をスケジュールするスケジューラ</param>
+        public ImtTask(Action<object> work, object status, ImtAwaitableUpdateBehaviourScheduler scheduler) : base(scheduler)
         {
-            // 更新関数を叩いて、継続を希望されているのなら
-            if (Update())
+            // 共通化された初期化を呼ぶ
+            Initialize(work, status);
+        }
+
+
+        /// <summary>
+        /// 指定された作業関数と状態オブジェクトでインスタンスを初期化します
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="status">work に渡す状態オブジェクト</param>
+        private void Initialize(Action<object> work, object status)
+        {
+            // 初期化
+            this.work = work;
+            this.status = status;
+        }
+
+
+        /// <summary>
+        /// タスクの処理を行います
+        /// </summary>
+        protected internal override void Start()
+        {
+            try
             {
-                // 再び同期コンテキストに、内部更新関数をポストする
-                context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
+                // タスクを処理して状態を更新
+                work(status);
             }
+            catch (Exception)
+            {
+                // タスクを完了とシグナルの設定をしてエラー内容を覚える
+                isFinish = true;
+                SetSignal();
+                throw;
+            }
+            finally
+            {
+                // タスクは完了した
+                isFinish = true;
+            }
+        }
+
+
+        /// <summary>
+        /// 直ちに終了します
+        /// </summary>
+        /// <returns>常に false を返します</returns>
+        protected internal override bool Update()
+        {
+            // 継続せずすぐに終了
+            return false;
+        }
+
+
+        /// <summary>
+        /// 待機オブジェクトにシグナルを設定します
+        /// </summary>
+        protected internal override void Stop()
+        {
+            // シグナルを設定する
+            SetSignal();
         }
     }
 
 
 
     /// <summary>
-    /// 同期コンテキストを使った自己更新機能を提供する、値の返却が可能で待機可能な抽象クラスです。
+    /// 非同期で動作するタスクを提供する、値の返却が可能な待機可能クラスです
     /// </summary>
-    public abstract class ImtAwaitableSynchronizationUpdateBehaviour<TResult> : ImtAwaitableSynchronizationUpdateBehaviour, IAwaitable<TResult>
+    public class ImtTask<TResult> : ImtAwaitableUpdateBehaviour<TResult>
     {
-        /// <summary>
-        /// 待機した結果を取得します。
-        /// </summary>
-        /// <returns>待機した結果を返します</returns>
-        public abstract TResult GetResult();
+        // メンバ変数定義
+        private Func<object, TResult> work;
+        private object status;
+        private bool isFinish;
+        private TResult result;
 
 
+
         /// <summary>
-        /// この待機可能クラスの、待機オブジェクトを取得します。
+        /// タスクが完了したかどうか
         /// </summary>
-        /// <returns>待機オブジェクトを返します</returns>
-        public new ImtAwaiter<TResult> GetAwaiter()
+        public override bool IsCompleted => isFinish;
+
+
+
+        /// <summary>
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        public ImtTask(Func<object, TResult> work) : this(work, null)
         {
-            // 待機オブジェクトを生成して返す
-            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="status">work に渡す状態オブジェクト</param>
+        public ImtTask(Func<object, TResult> work, object status) : base()
+        {
+            // 共通化された初期化を呼ぶ
+            Initialize(work, status);
+        }
+
+
+        /// <summary>
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="status">work に渡す状態オブジェクト</param>
+        /// <param name="scheduler">このタスクを実行する環境をスケジュールするスケジューラ</param>
+        public ImtTask(Func<object, TResult> work, object status, ImtAwaitableUpdateBehaviourScheduler scheduler) : base(scheduler)
+        {
+            // 共通化された初期化を呼ぶ
+            Initialize(work, status);
+        }
+
+
+        /// <summary>
+        /// 指定された作業関数と状態オブジェクトでインスタンスを初期化します
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="status">work に渡す状態オブジェクト</param>
+        private void Initialize(Func<object, TResult> work, object status)
+        {
+            // 初期化
+            this.work = work;
+            this.status = status;
+        }
+
+
+        /// <summary>
+        /// タスクの処理を行います
+        /// </summary>
+        protected internal override void Start()
+        {
+            try
+            {
+                // タスクを処理して状態を更新
+                result = work(status);
+            }
+            catch (Exception)
+            {
+                // タスクを完了とシグナルの設定をしてエラー内容を覚える
+                isFinish = true;
+                SetSignal();
+                throw;
+            }
+            finally
+            {
+                // タスクは完了した
+                isFinish = true;
+            }
+        }
+
+
+        /// <summary>
+        /// 直ちに終了します
+        /// </summary>
+        /// <returns>常に false を返します</returns>
+        protected internal override bool Update()
+        {
+            // 継続せずすぐに終了
+            return false;
+        }
+
+
+        /// <summary>
+        /// 待機オブジェクトにシグナルを設定します
+        /// </summary>
+        protected internal override void Stop()
+        {
+            // シグナルを設定する
+            SetSignal();
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得します
+        /// </summary>
+        /// <returns>タスクの結果を返します</returns>
+        public override TResult GetResult()
+        {
+            // 結果を返す
+            return result;
         }
     }
     #endregion
