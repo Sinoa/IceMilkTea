@@ -367,7 +367,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
-        public abstract bool IsCompleted { get; protected set; }
+        public virtual bool IsCompleted { get; protected set; }
 
 
         /// <summary>
