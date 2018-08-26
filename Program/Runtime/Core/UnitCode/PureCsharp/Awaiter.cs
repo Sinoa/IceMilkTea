@@ -352,6 +352,116 @@ namespace IceMilkTea.Core
 
 
 
+    #region AwaitableBase
+    /// <summary>
+    /// 値の返却をしない、待機可能なクラスを実装するための基本抽象クラスです。
+    /// 汎用的な、値の返却をしない待機可能クラスを実装をする場合には、このクラスを継承して下さい。
+    /// </summary>
+    public abstract class ImtAwaitable : IAwaitable
+    {
+        /// <summary>
+        /// 待機した Awaiter の継続関数をハンドリングするハンドラ
+        /// </summary>
+        protected AwaiterContinuationHandler AwaiterHandler { get; private set; }
+
+
+
+        /// <summary>
+        /// タスクが完了しているかどうか
+        /// </summary>
+        public abstract bool IsCompleted { get; }
+
+
+
+        /// <summary>
+        /// ImtAwaitable のインスタンスを初期化します
+        /// </summary>
+        public ImtAwaitable()
+        {
+            // 待機オブジェクトハンドラの生成
+            AwaiterHandler = new AwaiterContinuationHandler();
+        }
+
+
+        /// <summary>
+        /// ImtAwaitable のインスタンスを初期化します
+        /// </summary>
+        /// <param name="capacity">待機オブジェクトハンドラの初期容量</param>
+        public ImtAwaitable(int capacity)
+        {
+            // 待機オブジェクトハンドラの生成
+            AwaiterHandler = new AwaiterContinuationHandler(capacity);
+        }
+
+
+        /// <summary>
+        /// この待機可能クラスの、待機オブジェクトを取得します
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        public virtual ImtAwaiter GetAwaiter()
+        {
+            // 新しい待機オブジェクトを生成して返す
+            return new ImtAwaiter(this);
+        }
+
+
+        /// <summary>
+        /// 待機オブジェクトからの継続関数を登録します
+        /// </summary>
+        /// <param name="continuation">登録する継続関数</param>
+        public virtual void RegisterContinuation(Action continuation)
+        {
+            // 待機オブジェクトハンドラに継続関数を登録する
+            AwaiterHandler.RegisterContinuation(continuation);
+        }
+    }
+
+
+
+    /// <summary>
+    /// 値の返却をする、待機可能なクラスを実装するための基本抽象クラスです。
+    /// 汎用的な、値の返却をする待機可能クラスを実装をする場合には、このクラスを継承して下さい。
+    /// </summary>
+    public abstract class ImtAwaitable<TResult> : ImtAwaitable, IAwaitable<TResult>
+    {
+        /// <summary>
+        /// ImtAwaitable のインスタンスを初期化します
+        /// </summary>
+        public ImtAwaitable() : base()
+        {
+        }
+
+
+        /// <summary>
+        /// ImtAwaitable のインスタンスを初期化します
+        /// </summary>
+        /// <param name="capacity">待機オブジェクトハンドラの初期容量</param>
+        public ImtAwaitable(int capacity) : base(capacity)
+        {
+        }
+
+
+        /// <summary>
+        /// この待機可能クラスの、待機オブジェクトを取得します
+        /// </summary>
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
+        {
+            // 新しい待機オブジェクトを生成して返す
+            return new ImtAwaiter<TResult>(this);
+        }
+
+
+        /// <summary>
+        /// この待機可能クラスの結果を取得します
+        /// </summary>
+        /// <returns>結果を返します</returns>
+        public abstract TResult GetResult();
+    }
+    #endregion
+
+
+
     #region AwaitableWaitHandle
     /// <summary>
     /// シグナル操作をして待機状態をコントロールすることの出来る、待機可能な抽象クラスです。
