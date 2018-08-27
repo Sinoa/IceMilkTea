@@ -555,6 +555,22 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 待機状態が完了するとともに、登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
+        protected internal virtual void SetSignalWithCompleted()
+        {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
+            // 完了状態にして、待機オブジェクトハンドラのシグナルを設定する
+            IsCompleted = true;
+            awaiterHandler.SetSignal();
+        }
+
+
+        /// <summary>
         /// 登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
         /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
         /// </summary>
@@ -566,6 +582,23 @@ namespace IceMilkTea.Core
 
 
             // 待機オブジェクトハンドラのシグナルを設定する
+            awaiterHandler.SetOneShotSignal();
+        }
+
+
+        /// <summary>
+        /// 待機状態が完了するとともに、登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
+        /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
+        protected virtual void SetOneShotSignalWithCompleted()
+        {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
+            // 完了状態にして、待機オブジェクトハンドラのシグナルを設定する
+            IsCompleted = true;
             awaiterHandler.SetOneShotSignal();
         }
 
