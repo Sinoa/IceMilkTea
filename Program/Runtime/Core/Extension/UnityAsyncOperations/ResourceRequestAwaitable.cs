@@ -32,7 +32,7 @@ namespace IceMilkTea.Core
         public static ResourceRequestAwaitable<TResult> ToAwaitable<TResult>(this ResourceRequest request) where TResult : UnityEngine.Object
         {
             // インスタンスを生成して返す
-            return new ResourceRequestAwaitable<TResult>(request, null);
+            return ToAwaitable<TResult>(request, null);
         }
 
 
@@ -46,7 +46,7 @@ namespace IceMilkTea.Core
         public static ResourceRequestAwaitable<TResult> ToAwaitable<TResult>(this ResourceRequest request, IProgress<float> progress) where TResult : UnityEngine.Object
         {
             // インスタンスを生成して返す
-            return new ResourceRequestAwaitable<TResult>(request, progress);
+            return new ResourceRequestAwaitable<TResult>(request, progress).Run<ResourceRequestAwaitable<TResult>>();
         }
     }
 
@@ -143,6 +143,12 @@ namespace IceMilkTea.Core
             // イベントを解除して、シグナルを設定する
             request.completed -= OnCompleted;
             SetSignal();
+        }
+
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
         }
     }
 }

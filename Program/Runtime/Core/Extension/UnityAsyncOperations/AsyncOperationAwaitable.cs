@@ -44,7 +44,7 @@ namespace IceMilkTea.Core
         public static AsyncOperationAwaitable ToAwaitable(this AsyncOperation operation, IProgress<float> progress)
         {
             // AsyncOperationの待機可能クラスのインスタンスを生成して返す
-            return new AsyncOperationAwaitable(operation, progress);
+            return new AsyncOperationAwaitable(operation, progress).Run<AsyncOperationAwaitable>();
         }
     }
 

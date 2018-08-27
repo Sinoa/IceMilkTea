@@ -44,7 +44,7 @@ namespace IceMilkTea.Core
         public static AssetBundleCreateRequestAwaitable ToAwaitable(this AssetBundleCreateRequest request, IProgress<float> progress)
         {
             // インスタンスを生成して返す
-            return new AssetBundleCreateRequestAwaitable(request, progress);
+            return new AssetBundleCreateRequestAwaitable(request, progress).Run<AssetBundleCreateRequestAwaitable>();
         }
     }
 

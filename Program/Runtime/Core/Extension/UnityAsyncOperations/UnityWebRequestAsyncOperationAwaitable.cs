@@ -45,7 +45,7 @@ namespace IceMilkTea.Core
         public static UnityWebRequestAsyncOperationAwaitable ToAwaitable(this UnityWebRequestAsyncOperation operation, IProgress<float> progress)
         {
             // インスタンスを生成して返す
-            return new UnityWebRequestAsyncOperationAwaitable(operation, progress);
+            return new UnityWebRequestAsyncOperationAwaitable(operation, progress).Run<UnityWebRequestAsyncOperationAwaitable>();
         }
     }
 

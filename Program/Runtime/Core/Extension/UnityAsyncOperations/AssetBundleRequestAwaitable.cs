@@ -46,7 +46,7 @@ namespace IceMilkTea.Core
         public static AssetBundleRequestAwaitable<TResult> ToAwaitable<TResult>(this AssetBundleRequest request, IProgress<float> progress) where TResult : UnityEngine.Object
         {
             // インスタンスを生成して返す
-            return new AssetBundleRequestAwaitable<TResult>(request, progress);
+            return new AssetBundleRequestAwaitable<TResult>(request, progress).Run<AssetBundleRequestAwaitable<TResult>>();
         }
     }
 
