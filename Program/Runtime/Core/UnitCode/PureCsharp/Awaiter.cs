@@ -1010,24 +1010,35 @@ namespace IceMilkTea.Core
         /// <param name="result">イベント または コールバック からの結果</param>
         private void OnEventHandle(TResult result)
         {
-            // イベントハンドラの解除
-            unregister(handler);
-
-
-            // 完了状態の設定と、結果の保存をする
-            IsCompleted = true;
-            this.result = result;
-
-
-            // 待機オブジェクトハンドラのシグナルを設定
-            SetSignal();
-
-
-            // もし自動リセットがONなら
-            if (autoReset)
+            try
             {
-                // リセットする
-                ResetCompleteState();
+                // イベントハンドラの解除
+                unregister(handler);
+
+
+                // 完了状態の設定と、結果の保存をする
+                IsCompleted = true;
+                this.result = result;
+
+
+                // 待機オブジェクトハンドラのシグナルを設定
+                SetSignal();
+
+
+                // もし自動リセットがONなら
+                if (autoReset)
+                {
+                    // リセットする
+                    ResetCompleteState();
+                }
+            }
+            catch (Exception exception)
+            {
+                // もしイベントハンドラ解除や、自動リセット時のリセット状態に
+                // 問題が発生したら無条件にエラー設定をして直ちにシグナルを設定する
+                SetException(exception);
+                SetSignal();
+                return;
             }
         }
     }
