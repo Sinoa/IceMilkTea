@@ -23,7 +23,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// AssetBundleCreateRequest クラスの拡張関数実装用クラスです
     /// </summary>
-    public static class AssetBundleCreateRequestExtension
+    public static partial class AssetBundleCreateRequestExtension
     {
         /// <summary>
         /// AssetBundleCreateRequest の待機オブジェクトを取得します

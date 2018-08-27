@@ -21,38 +21,28 @@ using UnityEngine;
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// AsyncOperation クラスの拡張関数実装用クラスです
+    /// ResourceRequest クラスの拡張関数実装用クラスです
     /// </summary>
-    public static class AsyncOperationExtension
+    public static partial class ResourceRequestExtension
     {
         /// <summary>
-        /// AsyncOperation の待機可能なオブジェクトを取得します
+        /// ResourceRequest の待機可能なオブジェクトを取得します
         /// </summary>
-        /// <param name="asyncOperation">待機する対象の AsyncOperation</param>
-        /// <returns>AsyncOperation の待機可能なオブジェクトを返します</returns>
-        public static AsyncOperationAwaiter GetAwaiter(this AsyncOperation asyncOperation)
+        /// <param name="resourceRequest">待機する対象の ResourceRequest</param>
+        /// <returns>ResourceRequest の待機可能なオブジェクトを返します</returns>
+        public static ResourceRequestAwaiter GetAwaiter(this ResourceRequest resourceRequest)
         {
-            // AsyncOperationのAwaiterのインスタンスを返す
-            return new AsyncOperationAwaiter(asyncOperation);
-        }
-
-
-        /// <summary>
-        /// AsyncOperationをFire And Forgetします。await可能だという警告を潰すことができます
-        /// </summary>
-        /// <param name="asyncOperation">Fire and Forgetする対象のAsyncOperation</param>
-        public static void Forget(this AsyncOperation asyncOperation)
-        {
-            // Fire And Forget
+            // ResourceRequestのAwaiterのインスタンスを返す
+            return new ResourceRequestAwaiter(resourceRequest);
         }
     }
 
 
 
     /// <summary>
-    /// Unity の AsyncOperation による非同期制御同期オブジェクトを async - await に対応させた Awaiter 構造体です
+    /// Unity の ResourceRequest による非同期制御同期オブジェクトを async - await に対応させた Awaiter 構造体です
     /// </summary>
-    public struct AsyncOperationAwaiter : INotifyCompletion
+    public struct ResourceRequestAwaiter : INotifyCompletion
     {
         // 構造体変数宣言
         private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
@@ -60,25 +50,25 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
-        private AsyncOperation asyncOperation;
+        private ResourceRequest resourceRequest;
 
 
 
         /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
-        public bool IsCompleted => asyncOperation.isDone;
+        public bool IsCompleted => resourceRequest.isDone;
 
 
 
         /// <summary>
-        /// AsyncOperationAwaiter オブジェクトの初期化を行います
+        /// ResourceRequestAwaiter オブジェクトの初期化を行います
         /// </summary>
-        /// <param name="operation">待機処理をする対象の AsyncOperation インスタンス</param>
-        public AsyncOperationAwaiter(AsyncOperation operation)
+        /// <param name="request">待機処理をする対象の ResourceRequest インスタンス</param>
+        public ResourceRequestAwaiter(ResourceRequest request)
         {
             // 覚える
-            asyncOperation = operation;
+            resourceRequest = request;
         }
 
 
@@ -97,17 +87,19 @@ namespace IceMilkTea.Core
             }
 
 
-            // 現在の同期コンテキストを取り出して、イベント時に呼び出してもらうようにする
+            // 現在の同期コンテキストを取り出して、同期コンテキストにPostするような非同期完了イベントを登録
             var context = SynchronizationContext.Current;
-            asyncOperation.completed += _ => context.Post(cache, continuation);
+            resourceRequest.completed += _ => context.Post(cache, continuation);
         }
 
 
         /// <summary>
-        /// タスクの完了を待機し、結果を同期的に取得する処理を実行します
+        /// 非同期結果を取得します
         /// </summary>
-        public void GetResult()
+        public UnityEngine.Object GetResult()
         {
+            // ロード結果を返す
+            return resourceRequest.asset;
         }
     }
 }

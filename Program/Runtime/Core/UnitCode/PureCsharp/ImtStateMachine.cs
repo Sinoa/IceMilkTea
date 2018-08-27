@@ -809,10 +809,14 @@ namespace IceMilkTea.Core
             // キューをロック
             lock (messageQueue)
             {
-                // キューが空になるまでループ
-                while (messageQueue.Count > 0)
+                // メッセージ処理中にポストされても次回になるよう、今回処理するべきメッセージ件数の取得
+                var processCount = messageQueue.Count;
+
+
+                // 今回処理するべきメッセージの件数分だけループ
+                for (int i = 0; i < processCount; ++i)
                 {
-                    // キューからメッセージを取り出してそのまま呼び出しを行う
+                    // メッセージを呼ぶ
                     messageQueue.Dequeue().Invoke();
                 }
             }
