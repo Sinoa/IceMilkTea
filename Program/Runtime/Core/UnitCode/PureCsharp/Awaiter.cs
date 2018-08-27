@@ -1641,20 +1641,10 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 全ての待機オブジェクトを待機する、待機クラスです。
         /// </summary>
-        private class AwaitableWhenAll : IAwaitable
+        private class AwaitableWhenAll : ImtAwaitableUpdateBehaviour
         {
             // メンバ変数定義
-            private AwaiterContinuationHandler awaiterHandler;
-            private SynchronizationContext currentContext;
             private ImtAwaitableHelper helper;
-            private Action update;
-
-
-
-            /// <summary>
-            /// タスクが完了したかどうか
-            /// </summary>
-            public bool IsCompleted { get; private set; }
 
 
 
@@ -1664,19 +1654,26 @@ namespace IceMilkTea.Core
             /// <param name="helper">このインスタンスを保持する ImtAwaitHelper</param>
             public AwaitableWhenAll(ImtAwaitableHelper helper)
             {
-                // もろもろ初期化
-                awaiterHandler = new AwaiterContinuationHandler();
-                currentContext = AsyncOperationManager.SynchronizationContext;
+                // ヘルパーを覚えて、初期状態は完了状態にしておく
                 this.helper = helper;
-                update = Update;
                 IsCompleted = true;
+            }
+
+
+            /// <summary>
+            /// 完了状態をリセットします
+            /// </summary>
+            public void Reset()
+            {
+                // 未完了状態にする
+                IsCompleted = false;
             }
 
 
             /// <summary>
             /// 内部の状態更新をします。
             /// </summary>
-            public void Update()
+            protected internal override bool Update()
             {
                 // まだ未完了
                 IsCompleted = false;
@@ -1687,8 +1684,8 @@ namespace IceMilkTea.Core
                 {
                     // 完了状態にして、待機中のオブジェクトの待機を解除
                     IsCompleted = true;
-                    awaiterHandler.SetSignal();
-                    return;
+                    SetSignal();
+                    return true;
                 }
 
 
@@ -1715,43 +1712,13 @@ namespace IceMilkTea.Core
 
                     // 完了状態にして、待機中のオブジェクトの待機を解除
                     IsCompleted = true;
-                    awaiterHandler.SetSignal();
-                    return;
+                    SetSignal();
+                    return false;
                 }
 
 
-                // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
-                // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
-                currentContext.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
-            }
-
-
-            /// <summary>
-            /// この待機可能クラスの待機オブジェクトを取得します
-            /// </summary>
-            /// <returns>待機オブジェクトを返します</returns>
-            public ImtAwaiter GetAwaiter()
-            {
-                // 待機オブジェクトを生成して返す
-                return new ImtAwaiter(this);
-            }
-
-
-            /// <summary>
-            /// 待機オブジェクトからの継続関数を登録します
-            /// </summary>
-            /// <param name="continuation">登録する継続関数</param>
-            public void RegisterContinuation(Action continuation)
-            {
-                // 待機ハンドラに継続関数を登録する
-                awaiterHandler.RegisterContinuation(continuation);
-            }
-
-
-            // TODO : コンパイルエラー対応（超雑過ぎて酷い、コミット後直ちに対応）
-            public ExceptionDispatchInfo GetError()
-            {
-                return null;
+                // まだ継続動作する
+                return true;
             }
         }
 
@@ -1760,21 +1727,11 @@ namespace IceMilkTea.Core
         /// <summary>
         /// いずれかの待機オブジェクトを待機する、待機クラスです
         /// </summary>
-        private class AwaitableWhenAny : IAwaitable<IAwaitable>
+        private class AwaitableWhenAny : ImtAwaitableUpdateBehaviour<IAwaitable>
         {
             // メンバ変数定義
-            private AwaiterContinuationHandler awaiterHandler;
-            private SynchronizationContext currentContext;
             private ImtAwaitableHelper helper;
-            private Action update;
             private IAwaitable firstFinishAwaitable;
-
-
-
-            /// <summary>
-            /// タスクが完了したかどうか
-            /// </summary>
-            public bool IsCompleted { get; private set; }
 
 
 
@@ -1784,19 +1741,26 @@ namespace IceMilkTea.Core
             /// <param name="helper">このインスタンスを保持する ImtAwaitHelper</param>
             public AwaitableWhenAny(ImtAwaitableHelper helper)
             {
-                // もろもろ初期化
-                awaiterHandler = new AwaiterContinuationHandler();
-                currentContext = AsyncOperationManager.SynchronizationContext;
+                // ヘルパーを覚えて、初期状態は完了状態にしておく
                 this.helper = helper;
-                update = Update;
                 IsCompleted = true;
+            }
+
+
+            /// <summary>
+            /// 完了状態をリセットします
+            /// </summary>
+            public void Reset()
+            {
+                // 未完了状態にする
+                IsCompleted = false;
             }
 
 
             /// <summary>
             /// 内部の状態更新をします。
             /// </summary>
-            public void Update()
+            protected internal override bool Update()
             {
                 // まだ未完了
                 IsCompleted = false;
@@ -1807,8 +1771,8 @@ namespace IceMilkTea.Core
                 {
                     // 完了状態にして、待機中のオブジェクトの待機を解除
                     IsCompleted = true;
-                    awaiterHandler.SetSignal();
-                    return;
+                    SetSignal();
+                    return false;
                 }
 
 
@@ -1829,10 +1793,8 @@ namespace IceMilkTea.Core
                 // もし完了オブジェクトが見つからなかったら
                 if (firstFinishAwaitable == null)
                 {
-                    // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
-                    // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
-                    currentContext.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
-                    return;
+                    // 継続動作する
+                    return true;
                 }
 
 
@@ -1841,7 +1803,7 @@ namespace IceMilkTea.Core
 
 
                 // 完了タスクを１つ目を見つけたので、シグナルを送る
-                awaiterHandler.SetSignal();
+                SetSignal();
 
 
                 // もしリストが空になったのなら
@@ -1849,35 +1811,12 @@ namespace IceMilkTea.Core
                 {
                     // 完了状態にして終了
                     IsCompleted = true;
-                    return;
+                    return false;
                 }
 
 
-                // まだ未完了なら、同期コンテキストに再び自分を呼び出してもらうようにポストする
-                // TODO : 本来ならスケジューラなどを実装してスケジューリングされるようにしたほうが良いが、今は雑に同期コンテキストにループのようなことをしてもらう
-                currentContext.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, update);
-            }
-
-
-            /// <summary>
-            /// この待機可能クラスの待機オブジェクトを取得します
-            /// </summary>
-            /// <returns>待機オブジェクトを返します</returns>
-            public ImtAwaiter<IAwaitable> GetAwaiter()
-            {
-                // 待機オブジェクトを生成して返す
-                return new ImtAwaiter<IAwaitable>(this);
-            }
-
-
-            /// <summary>
-            /// この待機可能クラスの待機オブジェクトを取得します
-            /// </summary>
-            /// <returns>待機オブジェクトを返します</returns>
-            ImtAwaiter IAwaitable.GetAwaiter()
-            {
-                // 待機オブジェクトを生成して返す
-                return new ImtAwaiter(this);
+                // 継続して更新する
+                return true;
             }
 
 
@@ -1885,28 +1824,10 @@ namespace IceMilkTea.Core
             /// タスクの結果を取得します
             /// </summary>
             /// <returns>タスクの結果を返します</returns>
-            public IAwaitable GetResult()
+            public override IAwaitable GetResult()
             {
                 // 最初に完了した待機オブジェクトを返す
                 return firstFinishAwaitable;
-            }
-
-
-            /// <summary>
-            /// 待機オブジェクトからの継続関数を登録します
-            /// </summary>
-            /// <param name="continuation">登録する継続関数</param>
-            public void RegisterContinuation(Action continuation)
-            {
-                // 待機ハンドラに継続関数を登録する
-                awaiterHandler.RegisterContinuation(continuation);
-            }
-
-
-            // TODO : コンパイルエラー対応（超雑過ぎて酷い、コミット後直ちに対応）
-            public ExceptionDispatchInfo GetError()
-            {
-                return null;
             }
         }
 
@@ -2028,16 +1949,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // WhenAll制御が完了状態なら
-            if (whenAllOperator.IsCompleted == true)
-            {
-                // 更新を開始する
-                whenAllOperator.Update();
-            }
-
-
-            // WhenAll待機オブジェクトを返す
-            return whenAllOperator;
+            // WhenAllを実行する
+            return DoWhenAll();
         }
 
 
@@ -2058,11 +1971,23 @@ namespace IceMilkTea.Core
             }
 
 
-            // WhenAll制御が完了状態なら
-            if (whenAllOperator.IsCompleted == true)
+            // WhenAllを実行する
+            return DoWhenAll();
+        }
+
+
+        /// <summary>
+        /// WhenAllを起動します
+        /// </summary>
+        /// <returns>WhenAllの待機可能クラスのインスタンスを返します</returns>
+        private IAwaitable DoWhenAll()
+        {
+            // WhenAll制御が未起動状態なら
+            if (!whenAllOperator.IsRunning)
             {
-                // 更新を開始する
-                whenAllOperator.Update();
+                // 起動する
+                whenAllOperator.Reset();
+                whenAllOperator.Run();
             }
 
 
@@ -2098,16 +2023,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // WhenAny制御が完了状態なら
-            if (whenAnyOperator.IsCompleted == true)
-            {
-                // 更新を開始する
-                whenAnyOperator.Update();
-            }
-
-
-            // WheAny待機オブジェクトを返す
-            return whenAnyOperator;
+            // WhenAnyを実行する
+            return DoWhenAny();
         }
 
 
@@ -2128,11 +2045,23 @@ namespace IceMilkTea.Core
             }
 
 
-            // WhenAny制御が完了状態なら
-            if (whenAnyOperator.IsCompleted == true)
+            // WhenAnyを実行する
+            return DoWhenAny();
+        }
+
+
+        /// <summary>
+        /// WhenAnyを起動します
+        /// </summary>
+        /// <returns>WhenAnyの待機可能クラスのインスタンスを返します</returns>
+        private IAwaitable<IAwaitable> DoWhenAny()
+        {
+            // WhenAny制御が未起動状態なら
+            if (!whenAnyOperator.IsRunning)
             {
-                // 更新を開始する
-                whenAnyOperator.Update();
+                // 起動する
+                whenAnyOperator.Reset();
+                whenAnyOperator.Run();
             }
 
 
