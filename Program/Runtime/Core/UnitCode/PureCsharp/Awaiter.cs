@@ -1095,12 +1095,13 @@ namespace IceMilkTea.Core
 
 
                     // 停止処理を呼ぶ
-                    behaviour.Stop();
+                    behaviour.InternalStop();
                 }
                 catch (Exception exception)
                 {
-                    // ImtAwaitableUpdateBehaviour にエラーをもたせて終了
-                    behaviour.internalError = new AggregateException(exception);
+                    // エラーが発生したことを設定してシグナルを強制的に設定する
+                    behaviour.SetException(exception);
+                    behaviour.SetSignal();
                     return;
                 }
             }
@@ -1174,27 +1175,33 @@ namespace IceMilkTea.Core
             /// <param name="targetParameter">更新対象のパラメータ</param>
             private static void InternalWakeup(UpdateTargetParameter targetParameter)
             {
+                // 更新待機オブジェクトとコンテキストの取得
+                var behaviour = targetParameter.behaviour;
+                var context = targetParameter.context;
+
+
                 try
                 {
                     // 開始処理を呼ぶ
-                    targetParameter.behaviour.Start();
+                    behaviour.Start();
 
 
                     // もし継続を返却されたら
-                    if (targetParameter.behaviour.Update())
+                    if (behaviour.Update())
                     {
                         // 内部更新関数をポストする
-                        targetParameter.context.Post(updateCache, targetParameter);
+                        context.Post(updateCache, targetParameter);
                     }
 
 
                     // 停止処理を呼ぶ
-                    targetParameter.behaviour.Stop();
+                    behaviour.InternalStop();
                 }
                 catch (Exception exception)
                 {
-                    // ImtAwaitableUpdateBehaviour にエラーをもたせて終了
-                    targetParameter.behaviour.internalError = new AggregateException(exception);
+                    // エラーが発生したことを設定してシグナルを強制的に設定する
+                    behaviour.SetException(exception);
+                    behaviour.SetSignal();
                     return;
                 }
             }
@@ -1206,23 +1213,29 @@ namespace IceMilkTea.Core
             /// <param name="targetParameter">更新対象のパラメータ</param>
             private static void InternalUpdate(UpdateTargetParameter targetParameter)
             {
+                // 更新待機オブジェクトとコンテキストの取得
+                var behaviour = targetParameter.behaviour;
+                var context = targetParameter.context;
+
+
                 try
                 {
                     // もし継続を返却されたら
-                    if (targetParameter.behaviour.Update())
+                    if (behaviour.Update())
                     {
-                        // 内部更新関数をポストする
-                        targetParameter.context.Post(updateCache, targetParameter);
+                        // ふたたび更新関数をポストする
+                        context.Post(updateCache, targetParameter);
                     }
 
 
                     // 停止処理を呼ぶ
-                    targetParameter.behaviour.Stop();
+                    behaviour.InternalStop();
                 }
                 catch (Exception exception)
                 {
-                    // ImtAwaitableUpdateBehaviour にエラーをもたせて終了
-                    targetParameter.behaviour.internalError = new AggregateException(exception);
+                    // エラーが発生したことを設定してシグナルを強制的に設定する
+                    behaviour.SetException(exception);
+                    behaviour.SetSignal();
                     return;
                 }
             }
@@ -1296,31 +1309,77 @@ namespace IceMilkTea.Core
     #region AwaitableUpdateBehaviour
     // TODO : もはやこれは只のオレオレTaskだな？（将来的に程よいTaskを検討）
     /// <summary>
-    /// 自己更新が可能な、待機可能クラスです。
+    /// 自己更新が可能な、更新待機可能クラスです。
     /// </summary>
     public abstract class ImtAwaitableUpdateBehaviour : ImtAwaitable
     {
-        // メンバ変数定義
-        internal Exception internalError;
+        /// <summary>
+        /// 更新処理が起動中かどうか。
+        /// この値は Awaitable の IsCompleted とは関係ありません
+        /// </summary>
+        public bool IsRunning { get; protected set; }
 
 
 
         /// <summary>
-        /// ImtAwaitableUpdateBehaviour のインスタンスを既定のスケジューラを用いて初期化します
+        /// 現在のスケジューラを用いて、状態更新を開始します。
         /// </summary>
-        public ImtAwaitableUpdateBehaviour() : this(ImtAwaitableUpdateBehaviourScheduler.DefaultScheduler)
+        /// <exception cref="InvalidOperationException">この更新待機クラスは起動中です</exception>
+        /// <returns>起動を開始した自身を返します</returns>
+        public ImtAwaitableUpdateBehaviour Run()
         {
+            // 現在設定されているスケジューラを用いてスケジュールする
+            return Run(ImtAwaitableUpdateBehaviourScheduler.CurrentOrDefault);
         }
 
 
         /// <summary>
-        /// ImtAwaitableUpdateBehaviour のインスタンスを指定されたスケジューラを用いて初期化します
+        /// 指定されたスケジューラにて、状態更新を開始します。
         /// </summary>
-        /// <param name="scheduler">この ImtAwaitableUpdateBehaviour をスケジュールするスケジューラ</param>
-        public ImtAwaitableUpdateBehaviour(ImtAwaitableUpdateBehaviourScheduler scheduler)
+        /// <param name="scheduler">この、更新待機クラスが実行される環境を提供するスケジューラ</param>
+        /// <exception cref="InvalidOperationException">この更新待機クラスは起動中です</exception>
+        /// <returns>起動を開始した自身を返します</returns>
+        public ImtAwaitableUpdateBehaviour Run(ImtAwaitableUpdateBehaviourScheduler scheduler)
         {
-            // 自分をスケジュールしてもらう
+            // 既に起動中なら
+            if (IsRunning)
+            {
+                // もう起動済みです
+                throw new InvalidOperationException($"この更新待機クラスは起動中です");
+            }
+
+
+            // スケジューリングしてもらって起動状態にして自身を返す
             scheduler.ScheduleBehaviour(this);
+            IsRunning = true;
+            return this;
+        }
+
+
+        /// <summary>
+        /// 現在のスケジューラを用いて、状態更新を開始します。
+        /// </summary>
+        /// <typeparam name="T">実際に起動する更新待機クラスの型</typeparam>
+        /// <exception cref="InvalidOperationException">この更新待機クラスは起動中です</exception>
+        /// <returns>起動を開始した自身を返します</returns>
+        public T Run<T>() where T : ImtAwaitableUpdateBehaviour
+        {
+            // 通常の起動関数を叩く
+            return (T)Run();
+        }
+
+
+        /// <summary>
+        /// 指定されたスケジューラにて、状態更新を開始します。
+        /// </summary>
+        /// <typeparam name="T">実際に起動する更新待機クラスの型</typeparam>
+        /// <param name="scheduler">この、更新待機クラスが実行される環境を提供するスケジューラ</param>
+        /// <exception cref="InvalidOperationException">この更新待機クラスは起動中です</exception>
+        /// <returns>起動を開始した自身を返します</returns>
+        public T Run<T>(ImtAwaitableUpdateBehaviourScheduler scheduler) where T : ImtAwaitableUpdateBehaviour
+        {
+            // 通常の起動関数を叩く
+            return (T)Run(scheduler);
         }
 
 
@@ -1346,36 +1405,19 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 更新の終了処理を行います
         /// </summary>
-        protected internal virtual void Stop()
+        protected virtual void Stop()
         {
         }
 
 
         /// <summary>
-        /// 更新処理でエラーが発生した時のハンドリングを行います
+        /// 更新の終了処理を実行します
         /// </summary>
-        protected internal virtual void OnError()
+        internal void InternalStop()
         {
-            // 既定動作は再スロー（元の例外は AggregateException に包まれている）
-            throw internalError;
-        }
-
-
-        /// <summary>
-        /// 登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
-        /// </summary>
-        protected new virtual void SetSignal()
-        {
-            // 通常の SetSignal を叩く
-            base.SetSignal();
-
-
-            // もしエラーが発生していたのなら
-            if (internalError != null)
-            {
-                // エラーハンドリングを行う
-                OnError();
-            }
+            // 停止関数をたたいて停止状態にする
+            Stop();
+            IsRunning = false;
         }
     }
 
@@ -1387,23 +1429,6 @@ namespace IceMilkTea.Core
     /// <typeparam name="TResult">返す値の型</typeparam>
     public abstract class ImtAwaitableUpdateBehaviour<TResult> : ImtAwaitableUpdateBehaviour, IAwaitable<TResult>
     {
-        /// <summary>
-        /// ImtAwaitableUpdateBehaviour のインスタンスを既定のスケジューラを用いて初期化します
-        /// </summary>
-        public ImtAwaitableUpdateBehaviour() : base()
-        {
-        }
-
-
-        /// <summary>
-        /// ImtAwaitableUpdateBehaviour のインスタンスを指定されたスケジューラを用いて初期化します
-        /// </summary>
-        /// <param name="scheduler">この ImtAwaitableUpdateBehaviour をスケジュールするスケジューラ</param>
-        public ImtAwaitableUpdateBehaviour(ImtAwaitableUpdateBehaviourScheduler scheduler) : base(scheduler)
-        {
-        }
-
-
         /// <summary>
         /// タスクの結果を取得します
         /// </summary>
@@ -1433,15 +1458,8 @@ namespace IceMilkTea.Core
     public class ImtTask : ImtAwaitableUpdateBehaviour
     {
         // メンバ変数定義
-        private Action<object> work;
-        private object status;
-
-
-
-        /// <summary>
-        /// タスクが完了したかどうか
-        /// </summary>
-        public override bool IsCompleted { get; protected set; }
+        protected Delegate work;
+        protected object status;
 
 
 
@@ -1449,7 +1467,8 @@ namespace IceMilkTea.Core
         /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
         /// </summary>
         /// <param name="work">作業を行う関数の内容</param>
-        public ImtTask(Action<object> work) : this(work, null)
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        public ImtTask(Action<object> work) : this((Delegate)work, null)
         {
         }
 
@@ -1459,34 +1478,29 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="work">作業を行う関数の内容</param>
         /// <param name="status">work に渡す状態オブジェクト</param>
-        public ImtTask(Action<object> work, object status) : base()
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        public ImtTask(Action<object> work, object status) : this((Delegate)work, status)
         {
-            // 共通化された初期化を呼ぶ
-            Initialize(work, status);
         }
 
 
         /// <summary>
         /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
         /// </summary>
-        /// <param name="work">作業を行う関数の内容</param>
+        /// <param name="work">作業を行う関数</param>
         /// <param name="status">work に渡す状態オブジェクト</param>
-        /// <param name="scheduler">このタスクを実行する環境をスケジュールするスケジューラ</param>
-        public ImtTask(Action<object> work, object status, ImtAwaitableUpdateBehaviourScheduler scheduler) : base(scheduler)
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        internal ImtTask(Delegate work, object status)
         {
-            // 共通化された初期化を呼ぶ
-            Initialize(work, status);
-        }
+            // 呼び出すべき作業関数がnullなら
+            if (work == null)
+            {
+                // 何をすればよいのですか
+                throw new ArgumentNullException(nameof(work));
+            }
 
 
-        /// <summary>
-        /// 指定された作業関数と状態オブジェクトでインスタンスを初期化します
-        /// </summary>
-        /// <param name="work">作業を行う関数の内容</param>
-        /// <param name="status">work に渡す状態オブジェクト</param>
-        private void Initialize(Action<object> work, object status)
-        {
-            // 初期化
+            // 呼び出すべき作業関数と状態を設定
             this.work = work;
             this.status = status;
         }
@@ -1497,41 +1511,15 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void Start()
         {
-            try
-            {
-                // タスクを処理して状態を更新
-                work(status);
-            }
-            catch (Exception)
-            {
-                // タスクを完了とシグナルの設定をしてエラー内容を覚える
-                IsCompleted = true;
-                SetSignal();
-                throw;
-            }
-            finally
-            {
-                // タスクは完了した
-                IsCompleted = true;
-            }
-        }
-
-
-        /// <summary>
-        /// 直ちに終了します
-        /// </summary>
-        /// <returns>常に false を返します</returns>
-        protected internal override bool Update()
-        {
-            // 継続せずすぐに終了
-            return false;
+            // タスクを処理して状態を更新
+            ((Action<object>)work)(status);
         }
 
 
         /// <summary>
         /// 待機オブジェクトにシグナルを設定します
         /// </summary>
-        protected internal override void Stop()
+        protected override void Stop()
         {
             // シグナルを設定する
             SetSignal();
@@ -1543,27 +1531,19 @@ namespace IceMilkTea.Core
     /// <summary>
     /// 非同期で動作するタスクを提供する、値の返却が可能な待機可能クラスです
     /// </summary>
-    public class ImtTask<TResult> : ImtAwaitableUpdateBehaviour<TResult>
+    public class ImtTask<TResult> : ImtTask, IAwaitable<TResult>
     {
         // メンバ変数定義
-        private Func<object, TResult> work;
-        private object status;
         private TResult result;
 
 
 
         /// <summary>
-        /// タスクが完了したかどうか
-        /// </summary>
-        public override bool IsCompleted { get; protected set; }
-
-
-
-        /// <summary>
         /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
         /// </summary>
         /// <param name="work">作業を行う関数の内容</param>
-        public ImtTask(Func<object, TResult> work) : this(work, null)
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        public ImtTask(Func<object, TResult> work) : base(work, null)
         {
         }
 
@@ -1573,36 +1553,34 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="work">作業を行う関数の内容</param>
         /// <param name="status">work に渡す状態オブジェクト</param>
-        public ImtTask(Func<object, TResult> work, object status) : base()
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        public ImtTask(Func<object, TResult> work, object status) : base(work, status)
         {
-            // 共通化された初期化を呼ぶ
-            Initialize(work, status);
         }
 
 
         /// <summary>
-        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
+        /// 現在のスケジューラを用いて、タスクを開始します。
         /// </summary>
-        /// <param name="work">作業を行う関数の内容</param>
-        /// <param name="status">work に渡す状態オブジェクト</param>
-        /// <param name="scheduler">このタスクを実行する環境をスケジュールするスケジューラ</param>
-        public ImtTask(Func<object, TResult> work, object status, ImtAwaitableUpdateBehaviourScheduler scheduler) : base(scheduler)
+        /// <exception cref="InvalidOperationException">このタスクは起動中です</exception>
+        /// <returns>起動を開始した自身を返します</returns>
+        public new ImtTask<TResult> Run()
         {
-            // 共通化された初期化を呼ぶ
-            Initialize(work, status);
+            // 現在設定されているスケジューラを用いてスケジュールする
+            return Run<ImtTask<TResult>>(ImtAwaitableUpdateBehaviourScheduler.CurrentOrDefault);
         }
 
 
         /// <summary>
-        /// 指定された作業関数と状態オブジェクトでインスタンスを初期化します
+        /// 指定されたスケジューラにて、タスクを開始します。
         /// </summary>
-        /// <param name="work">作業を行う関数の内容</param>
-        /// <param name="status">work に渡す状態オブジェクト</param>
-        private void Initialize(Func<object, TResult> work, object status)
+        /// <param name="scheduler">この、タスクが実行される環境を提供するスケジューラ</param>
+        /// <exception cref="InvalidOperationException">このタスクは起動中です</exception>
+        /// <returns>起動を開始した自身を返します</returns>
+        public new ImtTask<TResult> Run(ImtAwaitableUpdateBehaviourScheduler scheduler)
         {
-            // 初期化
-            this.work = work;
-            this.status = status;
+            // 指定されたスケジューラを用いてスケジュールする
+            return Run<ImtTask<TResult>>(scheduler);
         }
 
 
@@ -1611,44 +1589,19 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void Start()
         {
-            try
-            {
-                // タスクを処理して状態を更新
-                result = work(status);
-            }
-            catch (Exception)
-            {
-                // タスクを完了とシグナルの設定をしてエラー内容を覚える
-                IsCompleted = true;
-                SetSignal();
-                throw;
-            }
-            finally
-            {
-                // タスクは完了した
-                IsCompleted = true;
-            }
+            // 作業関数を呼ぶ
+            result = ((Func<object, TResult>)work)(status);
         }
 
 
         /// <summary>
-        /// 直ちに終了します
+        /// この待機クラスの、待機オブジェクトを取得します
         /// </summary>
-        /// <returns>常に false を返します</returns>
-        protected internal override bool Update()
+        /// <returns>待機オブジェクトを返します</returns>
+        public new ImtAwaiter<TResult> GetAwaiter()
         {
-            // 継続せずすぐに終了
-            return false;
-        }
-
-
-        /// <summary>
-        /// 待機オブジェクトにシグナルを設定します
-        /// </summary>
-        protected internal override void Stop()
-        {
-            // シグナルを設定する
-            SetSignal();
+            // 待機オブジェクトを生成して返す
+            return new ImtAwaiter<TResult>(this);
         }
 
 
@@ -1656,7 +1609,7 @@ namespace IceMilkTea.Core
         /// タスクの結果を取得します
         /// </summary>
         /// <returns>タスクの結果を返します</returns>
-        public override TResult GetResult()
+        public TResult GetResult()
         {
             // 結果を返す
             return result;
