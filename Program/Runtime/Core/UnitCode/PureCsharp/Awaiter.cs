@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace IceMilkTea.Core
@@ -29,6 +30,7 @@ namespace IceMilkTea.Core
     {
         // メンバ変数定義
         private IAwaitable awaitableContext;
+        private ExceptionDispatchInfo exceptionInfo;
 
 
 
@@ -45,8 +47,9 @@ namespace IceMilkTea.Core
         /// <param name="context">この待機オブジェクトを保持する IAwaitable</param>
         public ImtAwaiter(IAwaitable context)
         {
-            // 保持する担当を覚える
+            // 保持する担当を覚えて、もろもろ初期化
             awaitableContext = context;
+            exceptionInfo = null;
         }
 
 
@@ -56,17 +59,26 @@ namespace IceMilkTea.Core
         /// <param name="continuation">タスクを継続動作させるための継続関数</param>
         public void OnCompleted(Action continuation)
         {
-            // 既にタスクが完了しているのなら
-            if (IsCompleted)
+            try
             {
-                // 直ちに継続関数を叩いて終了
-                continuation();
-                return;
+                // 既にタスクが完了しているのなら
+                if (IsCompleted)
+                {
+                    // 直ちに継続関数を叩いて終了
+                    continuation();
+                    return;
+                }
+
+
+                // 継続関数を登録する
+                awaitableContext.RegisterContinuation(continuation);
             }
-
-
-            // 継続関数を登録する
-            awaitableContext.RegisterContinuation(continuation);
+            catch (Exception exception)
+            {
+                // 例外をキャプチャして覚えておいて、直ちに継続関数を叩く
+                exceptionInfo = ExceptionDispatchInfo.Capture(exception);
+                continuation();
+            }
         }
 
 
@@ -75,7 +87,21 @@ namespace IceMilkTea.Core
         /// </summary>
         public void GetResult()
         {
-            // No handling...
+            // もし例外情報を持っていたら
+            if (exceptionInfo != null)
+            {
+                // ここで例外を投げてメソッドビルダーに例外を任せる
+                exceptionInfo.Throw();
+            }
+
+
+            // 待機可能クラスが例外情報を持っているなら
+            var error = awaitableContext.GetError();
+            if (error != null)
+            {
+                // ここで吐き出す
+                error.Throw();
+            }
         }
     }
 
@@ -89,6 +115,7 @@ namespace IceMilkTea.Core
     {
         // メンバ変数定義
         private IAwaitable<TResult> awaitableContext;
+        private ExceptionDispatchInfo exceptionInfo;
 
 
 
@@ -105,8 +132,9 @@ namespace IceMilkTea.Core
         /// <param name="context">この待機オブジェクトを保持する IAwaitable<typeparamref name="TResult"/></param>
         public ImtAwaiter(IAwaitable<TResult> context)
         {
-            // 保持する担当を覚える
+            // 保持する担当を覚えて、もろもろ初期化
             awaitableContext = context;
+            exceptionInfo = null;
         }
 
 
@@ -116,17 +144,26 @@ namespace IceMilkTea.Core
         /// <param name="continuation">タスクを継続動作させるための継続関数</param>
         public void OnCompleted(Action continuation)
         {
-            // 既にタスクが完了しているのなら
-            if (IsCompleted)
+            try
             {
-                // 直ちに継続関数を叩いて終了
-                continuation();
-                return;
+                // 既にタスクが完了しているのなら
+                if (IsCompleted)
+                {
+                    // 直ちに継続関数を叩いて終了
+                    continuation();
+                    return;
+                }
+
+
+                // 継続関数を登録する
+                awaitableContext.RegisterContinuation(continuation);
             }
-
-
-            // 継続関数を登録する
-            awaitableContext.RegisterContinuation(continuation);
+            catch (Exception exception)
+            {
+                // 例外をキャプチャして覚えておいて、直ちに継続関数を叩く
+                exceptionInfo = ExceptionDispatchInfo.Capture(exception);
+                continuation();
+            }
         }
 
 
@@ -136,7 +173,25 @@ namespace IceMilkTea.Core
         /// <returns>IAwaitable<typeparamref name="TResult"/>.GetResult() の結果を返します</returns>
         public TResult GetResult()
         {
-            // 待機結果を取得して返す
+            // もし例外情報を持っていたら
+            if (exceptionInfo != null)
+            {
+                // ここで例外を投げてメソッドビルダーに例外を任せる
+                exceptionInfo.Throw();
+            }
+
+
+            // 待機可能クラスが例外情報を持っているなら
+            var error = awaitableContext.GetError();
+            if (error != null)
+            {
+                // ここで吐き出す
+                error.Throw();
+                return default(TResult);
+            }
+
+
+            // 待機結果を取得して返す（この関数が例外を出しても、メソッドビルダーに拾い上げられる）
             return awaitableContext.GetResult();
         }
     }
@@ -169,6 +224,13 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="continuation">登録する継続関数</param>
         void RegisterContinuation(Action continuation);
+
+
+        /// <summary>
+        /// Awaitable が持っているエラー情報となる例外情報を取得します。
+        /// </summary>
+        /// <returns>エラーを保持している場合は、その例外情報を返します。持っていない場合は null を返します。</returns>
+        ExceptionDispatchInfo GetError();
     }
 
 
@@ -361,6 +423,7 @@ namespace IceMilkTea.Core
     {
         // メンバ変数定義
         private AwaiterContinuationHandler awaiterHandler;
+        private ExceptionDispatchInfo exceptionInfo;
 
 
 
@@ -504,6 +567,31 @@ namespace IceMilkTea.Core
 
             // 待機オブジェクトハンドラのシグナルを設定する
             awaiterHandler.SetOneShotSignal();
+        }
+
+
+        /// <summary>
+        /// 待機可能クラスが、例外を発生させてしまった場合、その例外を設定します。
+        /// この関数で設定した例外は、適切なタイミングで報告されます。
+        /// また、原則としてこの関数を利用した直後は SetSignal() 関数を呼び出して
+        /// 直ちに継続関数を解放するようにしてください。
+        /// </summary>
+        /// <param name="exception">設定する例外</param>
+        protected void SetException(Exception exception)
+        {
+            // 例外をキャプチャして保持する
+            exceptionInfo = ExceptionDispatchInfo.Capture(exception);
+        }
+
+
+        /// <summary>
+        /// 待機可能クラスが、発生した例外の情報を取得します。
+        /// </summary>
+        /// <returns>発生した例外の情報を返します</returns>
+        public ExceptionDispatchInfo GetError()
+        {
+            // 持っている例外情報を返す
+            return exceptionInfo;
         }
 
 
@@ -1681,6 +1769,13 @@ namespace IceMilkTea.Core
                 // 待機ハンドラに継続関数を登録する
                 awaiterHandler.RegisterContinuation(continuation);
             }
+
+
+            // TODO : コンパイルエラー対応（超雑過ぎて酷い、コミット後直ちに対応）
+            public ExceptionDispatchInfo GetError()
+            {
+                return null;
+            }
         }
 
 
@@ -1828,6 +1923,13 @@ namespace IceMilkTea.Core
             {
                 // 待機ハンドラに継続関数を登録する
                 awaiterHandler.RegisterContinuation(continuation);
+            }
+
+
+            // TODO : コンパイルエラー対応（超雑過ぎて酷い、コミット後直ちに対応）
+            public ExceptionDispatchInfo GetError()
+            {
+                return null;
             }
         }
 
