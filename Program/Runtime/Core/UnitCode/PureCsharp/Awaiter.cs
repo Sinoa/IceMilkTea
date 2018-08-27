@@ -577,7 +577,7 @@ namespace IceMilkTea.Core
         /// 直ちに継続関数を解放するようにしてください。
         /// </summary>
         /// <param name="exception">設定する例外</param>
-        protected void SetException(Exception exception)
+        protected internal void SetException(Exception exception)
         {
             // 例外をキャプチャして保持する
             exceptionInfo = ExceptionDispatchInfo.Capture(exception);
