@@ -543,7 +543,7 @@ namespace IceMilkTea.Core
         /// 登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
         /// </summary>
         /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
-        protected virtual void SetSignal()
+        protected internal virtual void SetSignal()
         {
             // 解放済み例外関数を叩く
             ThrowIfDisposed();
