@@ -1086,8 +1086,8 @@ namespace IceMilkTea.Core
                     behaviour.Start();
 
 
-                    // 継続を返却され続ける間ループ
-                    while (behaviour.Update())
+                    // 強制停止がOFFかつ継続を返却され続ける間ループ
+                    while (!forceShutdown && behaviour.Update())
                     {
                         // 休ませる
                         Thread.Sleep(0);
@@ -1186,8 +1186,8 @@ namespace IceMilkTea.Core
                     behaviour.Start();
 
 
-                    // もし継続を返却されたら
-                    if (behaviour.Update())
+                    // 強制停止フラグはOFFまたは、継続を返却されたら
+                    if (!forceShutdown && behaviour.Update())
                     {
                         // 内部更新関数をポストする
                         context.Post(updateCache, targetParameter);
@@ -1220,8 +1220,8 @@ namespace IceMilkTea.Core
 
                 try
                 {
-                    // もし継続を返却されたら
-                    if (behaviour.Update())
+                    // 強制停止フラグはOFFまたは、継続を返却されたら
+                    if (!forceShutdown && behaviour.Update())
                     {
                         // ふたたび更新関数をポストする
                         context.Post(updateCache, targetParameter);
@@ -1246,6 +1246,7 @@ namespace IceMilkTea.Core
         // クラス変数宣言
         private static readonly ImtAwaitableUpdateBehaviourScheduler threadPoolScheduler = new ThreadPoolUpdateBehaviourScheduler();
         private static ImtAwaitableUpdateBehaviourScheduler currentScheduler;
+        private static bool forceShutdown;
 
 
 
@@ -1300,6 +1301,18 @@ namespace IceMilkTea.Core
         {
             // 素直に受け取る
             currentScheduler = scheduler;
+        }
+
+
+        /// <summary>
+        /// あらゆるスケジューラの動作を停止させます。
+        /// また、この関数は一時的なもので、実装の変更が入る恐れがあります。
+        /// </summary>
+        public static void ForceShutdown()
+        {
+            // 強制停止フラグを立てる
+            // TODO : 本来なら、スケジューラでループするのではなく、別の場所での停止ハンドリング（CancellationTokenなど）で出来るようにするべき
+            forceShutdown = true;
         }
     }
     #endregion
