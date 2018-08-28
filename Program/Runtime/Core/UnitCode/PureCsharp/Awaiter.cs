@@ -555,6 +555,22 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 待機状態が完了するとともに、登録された継続関数にシグナルを設定して、継続関数が呼び出されるようにします。
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
+        protected internal virtual void SetSignalWithCompleted()
+        {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
+            // 完了状態にして、待機オブジェクトハンドラのシグナルを設定する
+            IsCompleted = true;
+            awaiterHandler.SetSignal();
+        }
+
+
+        /// <summary>
         /// 登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
         /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
         /// </summary>
@@ -566,6 +582,23 @@ namespace IceMilkTea.Core
 
 
             // 待機オブジェクトハンドラのシグナルを設定する
+            awaiterHandler.SetOneShotSignal();
+        }
+
+
+        /// <summary>
+        /// 待機状態が完了するとともに、登録された複数の継続関数のうち１つだけ継続関数を呼び出します。
+        /// 複数の待機オブジェクトが存在している場合は、先に待機したオブジェクトから継続関数を呼びます。
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
+        protected virtual void SetOneShotSignalWithCompleted()
+        {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
+            // 完了状態にして、待機オブジェクトハンドラのシグナルを設定する
+            IsCompleted = true;
             awaiterHandler.SetOneShotSignal();
         }
 
@@ -730,8 +763,7 @@ namespace IceMilkTea.Core
         public override void Set()
         {
             // シグナル状態を設定して、継続関数を呼び出す
-            IsCompleted = true;
-            SetSignal();
+            SetSignalWithCompleted();
         }
     }
 
@@ -777,9 +809,9 @@ namespace IceMilkTea.Core
         /// <see cref="ResetSignal"/>
         public void Set(TResult result)
         {
-            // 結果を設定して基本クラスのSetSignalを呼ぶ
+            // 結果を設定して基本クラスのSetを呼ぶ
             this.result = result;
-            SetSignal();
+            Set();
         }
 
 
@@ -1012,17 +1044,13 @@ namespace IceMilkTea.Core
         {
             try
             {
-                // イベントハンドラの解除
+                // イベントハンドラの解除をして結果を保存
                 unregister(handler);
-
-
-                // 完了状態の設定と、結果の保存をする
-                IsCompleted = true;
                 this.result = result;
 
 
                 // 待機オブジェクトハンドラのシグナルを設定
-                SetSignal();
+                SetSignalWithCompleted();
 
 
                 // もし自動リセットがONなら
@@ -1037,7 +1065,7 @@ namespace IceMilkTea.Core
                 // もしイベントハンドラ解除や、自動リセット時のリセット状態に
                 // 問題が発生したら無条件にエラー設定をして直ちにシグナルを設定する
                 SetException(exception);
-                SetSignal();
+                SetSignalWithCompleted();
                 return;
             }
         }
@@ -1101,7 +1129,7 @@ namespace IceMilkTea.Core
                 {
                     // エラーが発生したことを設定してシグナルを強制的に設定する
                     behaviour.SetException(exception);
-                    behaviour.SetSignal();
+                    behaviour.SetSignalWithCompleted();
                     return;
                 }
             }
@@ -1201,7 +1229,7 @@ namespace IceMilkTea.Core
                 {
                     // エラーが発生したことを設定してシグナルを強制的に設定する
                     behaviour.SetException(exception);
-                    behaviour.SetSignal();
+                    behaviour.SetSignalWithCompleted();
                     return;
                 }
             }
@@ -1235,7 +1263,7 @@ namespace IceMilkTea.Core
                 {
                     // エラーが発生したことを設定してシグナルを強制的に設定する
                     behaviour.SetException(exception);
-                    behaviour.SetSignal();
+                    behaviour.SetSignalWithCompleted();
                     return;
                 }
             }
@@ -1535,7 +1563,7 @@ namespace IceMilkTea.Core
         protected override void Stop()
         {
             // シグナルを設定する
-            SetSignal();
+            SetSignalWithCompleted();
         }
     }
 
@@ -1683,8 +1711,7 @@ namespace IceMilkTea.Core
                 if (helper.awaitableList.Count == 0)
                 {
                     // 完了状態にして、待機中のオブジェクトの待機を解除
-                    IsCompleted = true;
-                    SetSignal();
+                    SetSignalWithCompleted();
                     return true;
                 }
 
@@ -1711,8 +1738,7 @@ namespace IceMilkTea.Core
 
 
                     // 完了状態にして、待機中のオブジェクトの待機を解除
-                    IsCompleted = true;
-                    SetSignal();
+                    SetSignalWithCompleted();
                     return false;
                 }
 
@@ -1770,8 +1796,7 @@ namespace IceMilkTea.Core
                 if (helper.awaitableList.Count == 0)
                 {
                     // 完了状態にして、待機中のオブジェクトの待機を解除
-                    IsCompleted = true;
-                    SetSignal();
+                    SetSignalWithCompleted();
                     return false;
                 }
 
