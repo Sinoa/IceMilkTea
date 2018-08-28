@@ -183,7 +183,7 @@ namespace IceMilkTea.Module
         /// <summary>
         /// ストリームから ImtArchiveEntryInfo を読み込んで info に設定します
         /// </summary>
-        /// <param name="header">読み込んだ ImtArchiveEntryInfo を受け取る参照</param>
+        /// <param name="info">読み込んだ ImtArchiveEntryInfo を受け取る参照</param>
         /// <exception cref="InvalidOperationException">ストリームから必要なデータを読み込めませんでした</exception>
         public void Read(out ImtArchiveEntryInfo info)
         {

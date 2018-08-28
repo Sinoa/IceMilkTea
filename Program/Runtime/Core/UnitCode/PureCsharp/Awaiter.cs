@@ -1901,7 +1901,7 @@ namespace IceMilkTea.Core
         /// 待機ヘルパに待機オブジェクトを追加します。
         /// 既に追加済みの待機オブジェクトは無視されます。
         /// </summary>
-        /// <param name="awaitable">追加する待機オブジェクトの IList</param>
+        /// <param name="awaitables">追加する待機オブジェクトの IList</param>
         /// <exception cref="ArgumentNullException">awaitables が null です</exception>
         public void AddRange(IList<IAwaitable> awaitables)
         {
@@ -1926,7 +1926,7 @@ namespace IceMilkTea.Core
         /// 待機ヘルパに待機オブジェクトを追加します。
         /// 既に追加済みの待機オブジェクトは無視されます。
         /// </summary>
-        /// <param name="awaitable">追加する待機オブジェクトの IList</param>
+        /// <param name="awaitables">追加する待機オブジェクトの IList</param>
         /// <exception cref="ArgumentNullException">awaitables が null です</exception>
         public void AddRange<TResult>(IList<IAwaitable<TResult>> awaitables)
         {

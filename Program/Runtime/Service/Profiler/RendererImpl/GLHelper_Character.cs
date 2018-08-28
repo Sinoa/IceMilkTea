@@ -50,6 +50,7 @@ namespace IceMilkTea.Profiler
             /// </summary>
             /// <param name="characters">文字列</param>
             /// <param name="position">描画座標</param>
+            /// <param name="color">描画する色</param>
             /// <param name="scale">描画倍率</param>
             /// <returns>描画した文字列の右側のx座標</returns>
             public float DrawString(string characters, Vector3 position, Color color, float scale = 1)
@@ -83,6 +84,7 @@ namespace IceMilkTea.Profiler
             /// </summary>
             /// <param name="value">値</param>
             /// <param name="position">描画座標</param>
+            /// <param name="color">描画する色</param>
             /// <param name="scale">描画倍率</param>
             /// <returns>描画した数値の右側のx座標</returns>
             public float DrawDouble(double value, Vector3 position, Color color, float scale = 1)
@@ -163,7 +165,7 @@ namespace IceMilkTea.Profiler
             /// 直前に描画した文字情報を基に、次に表示する文字情報を取得します
             /// </summary>
             /// <param name="character">描画する文字</param>
-            /// <param name="firstCharacterYposition">文字列を表示するy座標</param>
+            /// <param name="charactersYposition">描画する文字のY座標</param>
             /// <param name="lastDrawCharacterXposition">直前に描画した文字の右側のx座標</param>
             /// <param name="scale">文字の描画倍率</param>
             /// <returns>描画する文字の頂点座標等の情報</returns>
@@ -193,11 +195,8 @@ namespace IceMilkTea.Profiler
             /// <summary>
             /// 1文字の描画を行います。
             /// </summary>
-            /// <param name="ci">文字情報</param>
-            /// <param name="vBottomLeft">頂点座標(左下)</param>
-            /// <param name="vTopLevt">頂点座標(左上)</param>
-            /// <param name="vTopRight">頂点座標(右上)</param>
-            /// <param name="vBottomRight">頂点座標(右下)</param>
+            /// <param name="color">描画する文字の色</param>
+            /// <param name="drawCharacterInfo">描画する文字情報</param>
             private void DrawCharacter(Color color, GLCharacterInfo drawCharacterInfo)
             {
                 SetVertex(color, drawCharacterInfo.CharacterInfo.uvBottomLeft, drawCharacterInfo.DrawUvBottomLeft);

@@ -54,7 +54,6 @@ namespace IceMilkTea.Profiler
         /// 文字を描画するためのCharacterHelperインスタンスを取得します。
         /// </summary>
         /// <param name="font">使用するフォント</param>
-        /// <param name="color">色</param>
         /// <param name="fontSize">フォントサイズ</param>
         /// <param name="screenSize">描画する画面のサイズ</param>
         /// <returns>CharacterHelperインスタンス</returns>

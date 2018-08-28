@@ -61,6 +61,7 @@ namespace IceMilkTea.Module
         /// <param name="stream">アーカイブへ実際に書き込むためのストリーム</param>
         /// <param name="installer">このインストールストリームを制御するインストーラ</param>
         /// <param name="installFinishHandler">インストール完了ハンドリングを行う関数への参照</param>
+        /// <param name="monitor">実際の監視を行う監視オブジェクト</param>
         /// <exception cref="ArgumentNullException">stream または installFinishHandler または installer が null です</exception>
         /// <exception cref="NotSupportedException">ストリームは最低でも CanWrite および CanSeek をサポートしなければいけません</exception>
         /// <exception cref="ArgumentNullException">monitor が null です</exception>
