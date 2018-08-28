@@ -18,7 +18,7 @@ using System.Runtime.ExceptionServices;
 using IceMilkTea.Core;
 using UnityEngine;
 
-namespace IceMilkTea.Component
+namespace IceMilkTea.GameLogic
 {
     /// <summary>
     /// Unity の MonoBehaviour クラスを待機可能にしたコンポーネントクラスです
