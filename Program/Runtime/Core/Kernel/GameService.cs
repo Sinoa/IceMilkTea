@@ -21,6 +21,60 @@ using UnityEngine.Experimental.PlayerLoop;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// サービスが既に存在している場合にスローされる例外クラスです
+    /// </summary>
+    public class GameServiceAlreadyExistsException : Exception
+    {
+        /// <summary>
+        /// GameServiceAlreadyExistsException インスタンスの初期化をします
+        /// </summary>
+        /// <param name="serviceType">既に存在しているサービスのタイプ</param>
+        /// <param name="baseType">存在しているサービスの基本となるタイプ</param>
+        public GameServiceAlreadyExistsException(Type serviceType, Type baseType) : base($"'{serviceType.Name}'のサービスは既に、'{baseType.Name}'として存在しています")
+        {
+        }
+
+
+        /// <summary>
+        /// GameServiceAlreadyExistsException インスタンスの初期化をします
+        /// </summary>
+        /// <param name="serviceType">既に存在しているサービスのタイプ</param>
+        /// <param name="baseType">存在しているサービスの基本となるタイプ</param>
+        /// <param name="inner">この例外がスローされる原因となったら例外</param>
+        public GameServiceAlreadyExistsException(Type serviceType, Type baseType, Exception inner) : base($"'{serviceType.Name}'のサービスは既に、'{baseType.Name}'として存在しています", inner)
+        {
+        }
+    }
+
+
+
+    /// <summary>
+    /// サービスが見つからなかった場合にスローされる例外クラスです
+    /// </summary>
+    public class GameServiceNotFoundException : Exception
+    {
+        /// <summary>
+        /// GameServiceNotFoundException インスタンスの初期化をします
+        /// </summary>
+        /// <param name="serviceType">見つけられなかったサービスのタイプ</param>
+        public GameServiceNotFoundException(Type serviceType) : base($"'{serviceType.Name}'のサービスを見つけられませんでした")
+        {
+        }
+
+
+        /// <summary>
+        /// GameServiceNotFoundException インスタンスの初期化をします
+        /// </summary>
+        /// <param name="serviceType">見つけられなかったサービスのタイプ</param>
+        /// <param name="inner">この例外がスローされる原因となった例外</param>
+        public GameServiceNotFoundException(Type serviceType, Exception inner) : base($"'{serviceType.Name}'のサービスを見つけられませんでした", inner)
+        {
+        }
+    }
+
+
+
+    /// <summary>
     /// PlayerLoopSystemに登録する際に必要になる型情報を定義したGameService用構造体です
     /// </summary>
     public struct GameServiceUpdate

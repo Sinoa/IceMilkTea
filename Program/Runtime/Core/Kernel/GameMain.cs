@@ -20,6 +20,16 @@ using UnityEngine.Experimental.PlayerLoop;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// GameMain クラスのアセット生成ツールメニューの非表示を示す属性クラスです
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public class HideCreateGameMainAssetMenuAttribute : Attribute
+    {
+    }
+
+
+
+    /// <summary>
     /// ゲームメインクラスの実装をするための抽象クラスです。
     /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
     /// </summary>
