@@ -20,6 +20,7 @@ using System.Threading;
 
 namespace IceMilkTea.Core
 {
+    #region 標準ステートマシン実装
     /// <summary>
     /// コンテキストを持つことのできるステートマシンクラスです
     /// </summary>
@@ -138,18 +139,15 @@ namespace IceMilkTea.Core
 
 
 
-        #region メンバ変数定義
         // メンバ変数定義
         private UpdateState updateState;
         private List<State> stateList;
         private State currentState;
         private State nextState;
         private Stack<State> stateStack;
-        #endregion
 
 
 
-        #region プロパティ定義
         /// <summary>
         /// ステートマシンが保持しているコンテキスト
         /// </summary>
@@ -174,11 +172,9 @@ namespace IceMilkTea.Core
         /// 現在のスタックしているステートの数
         /// </summary>
         public int StackCount => stateStack.Count;
-        #endregion
 
 
 
-        #region コンストラクタ
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
         /// </summary>
@@ -204,7 +200,6 @@ namespace IceMilkTea.Core
             // この時点で任意ステートのインスタンスを作ってしまう
             GetOrCreateState<AnyState>();
         }
-        #endregion
 
 
         #region ステート遷移テーブル構築系
@@ -576,10 +571,10 @@ namespace IceMilkTea.Core
         }
         #endregion
     }
+    #endregion
 
 
 
-    #region 同期ステートマシンの実装
     #region 同期コンテキストの実装
     /// <summary>
     /// 同期ステートマシンが保持する、同期コンテキストのクラスです
@@ -1135,6 +1130,5 @@ namespace IceMilkTea.Core
             }
         }
     }
-    #endregion
     #endregion
 }

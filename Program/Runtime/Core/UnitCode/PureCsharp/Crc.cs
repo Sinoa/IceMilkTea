@@ -15,7 +15,6 @@
 
 namespace IceMilkTea.Core
 {
-    #region CRC実装
     #region 最基底CRCクラス定義
     /// <summary>
     /// 巡回冗長検査アルゴリズムの基本となる実装を提供するクラスです。
@@ -475,6 +474,5 @@ namespace IceMilkTea.Core
             return Calculate(ulong.MaxValue, buffer, index, count) ^ ulong.MaxValue;
         }
     }
-    #endregion
     #endregion
 }

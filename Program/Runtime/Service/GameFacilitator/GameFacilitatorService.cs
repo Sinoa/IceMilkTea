@@ -24,7 +24,6 @@ namespace IceMilkTea.Service
     /// </summary>
     public abstract class GameScene
     {
-        #region シーンイベントハンドラ
         /// <summary>
         /// シーンの初期化を行います
         /// </summary>
@@ -79,7 +78,6 @@ namespace IceMilkTea.Service
         protected internal virtual void OnApplicationFocusIn()
         {
         }
-        #endregion
     }
 
 
