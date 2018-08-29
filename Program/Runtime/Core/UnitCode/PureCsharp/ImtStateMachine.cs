@@ -1768,4 +1768,302 @@ namespace IceMilkTea.Core
         }
     }
     #endregion
+
+
+
+    #region 同期マイクロステートマシン本体の実装
+    /// <summary>
+    /// 同期コンテキストの機能を持った、同期マイクロステートマシンクラスです。
+    /// </summary>
+    /// <remarks>
+    /// 同期マイクロステートマシンは、ステートマシンのあらゆる状態制御処理において、同期コンテキストがそのステートマシンに
+    /// スイッチし、同期コンテキストのハンドリングは、このステートマシンによって委ねられます。
+    /// 状態制御が完了した時は、本来の同期コンテキストに戻ります。
+    /// </remarks>
+    /// <typeparam name="TContext">このステートマシンが持つコンテキストの型（同期コンテキストの型ではありません）</typeparam>
+    public class ImtSynchronizationMicroStateMachine<TContext> : ImtMicroStateMachine<TContext>, IDisposable
+    {
+        // 以下メンバ変数定義
+        private StateMachineSynchronizationContext synchronizationContext;
+        private bool disposed;
+
+
+
+        /// <summary>
+        /// ImtSynchronizationMicroStateMachine のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">このステートマシンが持つコンテキスト</param>
+        /// <exception cref="ArgumentNullException">context が null です</exception>
+        public ImtSynchronizationMicroStateMachine(TContext context) : base(context)
+        {
+            // ステートマシン用同期コンテキストを生成
+            synchronizationContext = new StateMachineSynchronizationContext();
+        }
+
+
+        /// <summary>
+        /// ImtSynchronizationMicroStateMachine のデストラクタです
+        /// </summary>
+        ~ImtSynchronizationMicroStateMachine()
+        {
+            // デストラクタからDispose呼び出し
+            Dispose(false);
+        }
+
+
+        /// <summary>
+        /// リソースの解放をします
+        /// </summary>
+        public void Dispose()
+        {
+            // DisposeからのDispose呼び出しをして、デストラクタを呼ばないようにしてもらう
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+        /// <summary>
+        /// リソースの実際の解放をします
+        /// </summary>
+        /// <param name="disposing">マネージ解放の場合は true を、アンマネージ解放の場合は false を指定</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            // 解放済みなら
+            if (disposed)
+            {
+                // 直ちに終了
+                return;
+            }
+
+
+            // マネージ解放なら
+            if (disposing)
+            {
+                // 同期コンテキストの解放もする
+                synchronizationContext.Dispose();
+            }
+
+
+            // 解放済みマーク
+            disposed = true;
+        }
+
+
+        #region 同期コンテキストのハンドリング系
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、このステートマシンに送られた、同期コンテキストのメッセージをすべて処理します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// このステートマシンの状態更新処理中に、同期コンテキストに送られたメッセージを処理するためには必ずこの関数を呼び出すようにして下さい。
+        /// 呼び出さずに放置をしてしまった場合は、システムに深刻なダメージを与えることになります。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        public void DoProcessMessage()
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // ステートマシンがまだ起動していないなら例外を吐く
+            ThrowIfNotRunning();
+
+
+            // ステートマシンが既に更新処理を実行しているのなら
+            if (Updating)
+            {
+                // 更新処理中に呼び出すことは許されない
+                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+            }
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 同期コンテキストのメッセージを処理する
+            synchronizationContext.DoProcessMessages();
+
+
+            // 本来の同期コンテキストに戻す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+
+
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、このステートマシンに送られた、同期コンテキストのメッセージをすべて処理します。
+        /// さらに、すべてのメッセージの処理が終わったらそのまま更新処理を呼び出します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// このステートマシンの状態更新処理中に、同期コンテキストに送られたメッセージを処理するためには必ずこの関数を呼び出すようにして下さい。
+        /// 呼び出さずに放置をしてしまった場合は、システムに深刻なダメージを与えることになります。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        public void DoProcessMessageWithUpdate()
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // ステートマシンがまだ起動していないなら例外を吐く
+            ThrowIfNotRunning();
+
+
+            // ステートマシンが既に更新処理を実行しているのなら
+            if (Updating)
+            {
+                // 更新処理中に呼び出すことは許されない
+                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+            }
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 同期コンテキストのメッセージを処理を行い、そのまま継続してUpdateを呼ぶ
+            synchronizationContext.DoProcessMessages();
+            base.Update();
+
+
+            // 本来の同期コンテキストに戻す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+        #endregion
+
+
+        #region ステートスタック操作系のオーバーライド
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、ステートスタックに積まれているステートを取り出し、遷移の準備を行います。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は、イベントIDを送ることのない点を除けば SendEvent 関数と非常に似ています。
+        /// 既に SendEvent によって次の遷移の準備ができている場合は、スタックからステートはポップされることはありません。
+        /// さらに、この状態更新処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ次の遷移の準備が完了した場合は true を、ポップするステートがなかったり、ステートによりポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override bool PopState()
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のPopStateを呼び出す
+            var result = base.PopState();
+
+
+            // 本来の同期コンテキストに戻して結果を返す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+            return result;
+        }
+        #endregion
+
+
+        #region ステートマシン制御系のオーバーライド
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、イベントを送信して、ステート遷移の準備を行います。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
+        /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
+        /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
+        /// 何度も遷移をすることが可能ですが Exit 中で遷移中になるため例外が送出されます。
+        /// そして、この関数の処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <param name="eventId">ステートマシンに送信するイベントID</param>
+        /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override bool SendEvent(int eventId)
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のSendEventを呼び出す
+            var result = base.SendEvent(eventId);
+
+
+            // 本来の同期コンテキストに戻して結果を返す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+            return result;
+        }
+
+
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、状態を更新します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// ステートマシンの現在処理しているステートの更新を行いますが、まだ未起動の場合は SetStartState 関数によって設定されたステートが起動します。
+        /// また、ステートマシンが初回起動時の場合、ステートのUpdateは呼び出されず、次の更新処理が実行される時になります。
+        /// さらに、この状態更新処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override void Update()
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のUpdateを呼び出す
+            base.Update();
+
+
+            // 本来の同期コンテキストに戻す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+        #endregion
+
+
+        /// <summary>
+        /// すでに解放済みの場合に ObjectDisposedException 例外を送出します
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        private void ThrowIfDisposed()
+        {
+            // すでに破棄済みなら
+            if (disposed)
+            {
+                // 例外を送出する
+                throw new ObjectDisposedException(nameof(ImtSynchronizationStateMachine<TContext>));
+            }
+        }
+    }
+    #endregion
 }
