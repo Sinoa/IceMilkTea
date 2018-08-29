@@ -382,7 +382,7 @@ namespace IceMilkTea.Core
         /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
         /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
         /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
-        /// 何度も遷移をすることが可能ですが Exit 中で遷移中になるため例外が送出されます。
+        /// 何度も遷移をすることが可能ですが Exit 中でイベントを送ると、遷移中になるため例外が送出されます。
         /// </remarks>
         /// <param name="eventId">ステートマシンに送信するイベントID</param>
         /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
@@ -725,6 +725,13 @@ namespace IceMilkTea.Core
         public int StackCount => stateStack.Count;
 
 
+        /// <summary>
+        /// 現在のステートID。
+        /// このプロパティは、ステートマシンが動作しているかの保証はしていません。
+        /// </summary>
+        public int CurrentStateId => currentState.ID;
+
+
 
         /// <summary>
         /// ImtMicroStateMachine のインスタンスを初期化します
@@ -964,6 +971,170 @@ namespace IceMilkTea.Core
         {
             // スタックを空にする
             stateStack.Clear();
+        }
+        #endregion
+
+
+        #region ステートマシン制御系
+        /// <summary>
+        /// 現在実行中のステートが、指定されたステートかどうかを調べます。
+        /// </summary>
+        /// <param name="stateId">確認するステートID</param>
+        /// <returns>指定されたステートの状態であれば true を、異なる場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public bool IsCurrentState(int stateId)
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            ThrowIfNotRunning();
+
+
+            // 現在のステートIDの比較をそのまま返す
+            return currentState.ID == stateId;
+        }
+
+
+        /// <summary>
+        /// ステートマシンにイベントを送信して、ステート遷移の準備を行います。
+        /// </summary>
+        /// <remarks>
+        /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
+        /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
+        /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
+        /// 何度も遷移をすることが可能ですが Exit 中でイベントを送ると、遷移中になるため例外が送出されます。
+        /// </remarks>
+        /// <param name="eventId">ステートマシンに送信するイベントID</param>
+        /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
+        public virtual bool SendEvent(int eventId)
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            ThrowIfNotRunning();
+
+
+            // もし Exit 処理中なら
+            if (updateState == UpdateState.Exit)
+            {
+                // Exit 中の SendEvent は許されない
+                throw new InvalidOperationException("ステートが Exit 処理中のためイベントを受け付けることが出来ません");
+            }
+
+
+            // 既に遷移準備をしているなら
+            if (nextState != null)
+            {
+                // イベントの受付が出来なかったことを返す
+                return false;
+            }
+
+
+            // 現在のステートにイベントガードを呼び出して、ガードされたら
+            if (currentState.GuardEvent != null && currentState.GuardEvent(eventId))
+            {
+                // ガードされて失敗したことを返す
+                return false;
+            }
+
+
+            // 次に遷移するステートを現在のステートから取り出すが見つけられなかったら
+            int tempId;
+            if (!currentState.TransitionTable.TryGetValue(eventId, out tempId))
+            {
+                // 任意ステートからすらも遷移が出来なかったのなら
+                if (!anyState.TransitionTable.TryGetValue(eventId, out tempId))
+                {
+                    // イベントの受付が出来なかった
+                    return false;
+                }
+            }
+
+
+            // イベントの受付をした事を返す
+            nextState = tempId;
+            return true;
+        }
+
+
+        /// <summary>
+        /// ステートマシンの状態を更新します。
+        /// </summary>
+        /// <remarks>
+        /// ステートマシンの現在処理しているステートの更新を行いますが、まだ未起動の場合は SetStartState 関数によって設定されたステートが起動します。
+        /// また、ステートマシンが初回起動時の場合、ステートのUpdateは呼び出されず、次の更新処理が実行される時になります。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
+        /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
+        public virtual void Update()
+        {
+            // もしステートマシンの更新状態がアイドリング以外だったら
+            if (updateState != UpdateState.Idle)
+            {
+                // 多重でUpdateが呼び出せない例外を吐く
+                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+            }
+
+
+            // まだ未起動なら
+            if (!Running)
+            {
+                // 次に処理するべきステートID（つまり起動開始ステートID）が未設定なら
+                if (!nextState.HasValue)
+                {
+                    // 起動が出来ない例外を吐く
+                    throw new InvalidOperationException("開始ステートが設定されていないため、ステートマシンの起動が出来ません");
+                }
+
+
+                // 現在処理中ステートとして設定する
+                currentState = stateTable[nextState.Value];
+                nextState = null;
+
+
+                // Enter処理中であることを設定してEnterを呼ぶ
+                updateState = UpdateState.Enter;
+                currentState.Enter?.Invoke(Context);
+
+
+                // 次に遷移するステートが無いなら
+                if (!nextState.HasValue)
+                {
+                    // 起動処理は終わったので一旦終わる
+                    updateState = UpdateState.Idle;
+                    return;
+                }
+            }
+
+
+            // 次に遷移するステートが存在していないなら
+            if (nextState == null)
+            {
+                // Update処理中であることを設定してUpdateを呼ぶ
+                updateState = UpdateState.Update;
+                currentState.Update?.Invoke(Context);
+            }
+
+
+            // 次に遷移するステートが存在している間ループ
+            while (nextState.HasValue)
+            {
+                // Exit処理中であることを設定してExit処理を呼ぶ
+                updateState = UpdateState.Exit;
+                currentState.Exit?.Invoke(Context);
+
+
+                // 次のステートに切り替える
+                currentState = stateTable[nextState.Value];
+                nextState = null;
+
+
+                // Enter処理中であることを設定してEnterを呼ぶ
+                updateState = UpdateState.Enter;
+                currentState.Enter?.Invoke(Context);
+            }
+
+
+            // 更新処理が終わったらアイドリングに戻る
+            updateState = UpdateState.Idle;
         }
         #endregion
 
