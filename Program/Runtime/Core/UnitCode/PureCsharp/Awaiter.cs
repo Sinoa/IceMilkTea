@@ -610,8 +610,13 @@ namespace IceMilkTea.Core
         /// 直ちに継続関数を解放するようにしてください。
         /// </summary>
         /// <param name="exception">設定する例外</param>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
         protected internal void SetException(Exception exception)
         {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
             // 例外をキャプチャして保持する
             exceptionInfo = ExceptionDispatchInfo.Capture(exception);
         }
@@ -621,8 +626,13 @@ namespace IceMilkTea.Core
         /// 待機可能クラスが、発生した例外の情報を取得します。
         /// </summary>
         /// <returns>発生した例外の情報を返します</returns>
+        /// <exception cref="ObjectDisposedException">この待機クラスは既に破棄されています</exception>
         public ExceptionDispatchInfo GetError()
         {
+            // 解放済み例外関数を叩く
+            ThrowIfDisposed();
+
+
             // 持っている例外情報を返す
             return exceptionInfo;
         }
