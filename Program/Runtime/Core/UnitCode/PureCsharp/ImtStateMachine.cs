@@ -632,6 +632,12 @@ namespace IceMilkTea.Core
             public Func<ImtMicroStateMachine<TContext>, bool> GuardPop { get; private set; }
 
 
+            /// <summary>
+            /// ステート自身が持つ自由なデータを格納するローカルストレージ
+            /// </summary>
+            public object StateLocalStorage { get; set; }
+
+
 
             /// <summary>
             /// StateContainer のオブジェクトを初期化します
@@ -643,7 +649,8 @@ namespace IceMilkTea.Core
             /// <param name="exit">ステートの終了関数。null の場合は空関数で初期化を行います</param>
             /// <param name="guardEvent">ステートのイベントガード関数。null の場合は空関数で初期化を行います</param>
             /// <param name="guardPop">ステートのポップガード関数。null の場合は空関数で初期化を行います</param>
-            public StateContainer(int id, Dictionary<int, int> transitionTable, Action<ImtMicroStateMachine<TContext>> enter, Action<ImtMicroStateMachine<TContext>> update, Action<ImtMicroStateMachine<TContext>> exit, Func<ImtMicroStateMachine<TContext>, int, bool> guardEvent, Func<ImtMicroStateMachine<TContext>, bool> guardPop)
+            /// <param name="storage">ステートローカルストレージのデータ</param>
+            public StateContainer(int id, Dictionary<int, int> transitionTable, Action<ImtMicroStateMachine<TContext>> enter, Action<ImtMicroStateMachine<TContext>> update, Action<ImtMicroStateMachine<TContext>> exit, Func<ImtMicroStateMachine<TContext>, int, bool> guardEvent, Func<ImtMicroStateMachine<TContext>, bool> guardPop, object storage = null)
             {
                 // IDを受け取って null にならないような初期化を行う
                 ID = id;
@@ -653,6 +660,7 @@ namespace IceMilkTea.Core
                 Exit = exit ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
                 GuardEvent = guardEvent ?? new Func<ImtMicroStateMachine<TContext>, int, bool>((_, __) => false);
                 GuardPop = guardPop ?? new Func<ImtMicroStateMachine<TContext>, bool>(_ => false);
+                StateLocalStorage = storage;
             }
         }
         #endregion
@@ -789,7 +797,8 @@ namespace IceMilkTea.Core
                     Update ?? state.Update,
                     Exit ?? state.Exit,
                     GuardEvent ?? state.GuardEvent,
-                    GuardPop ?? state.GuardPop);
+                    GuardPop ?? state.GuardPop,
+                    state.StateLocalStorage);
 
 
                 // 登録は終了
@@ -1162,7 +1171,50 @@ namespace IceMilkTea.Core
         #endregion
 
 
-        #region 内部ロジック系
+        #region ロジック系
+        /// <summary>
+        /// 指定されたステートIDのローカルストレージを取得します
+        /// </summary>
+        /// <param name="stateId">取得するステートID</param>
+        /// <returns>指定されたステートIDに関連付いたローカルストレージを返します</returns>
+        /// <exception cref="ArgumentException">指定されたステートIDのステートが存在しません</exception>
+        public object GetStateLocalStorage(int stateId)
+        {
+            // ステートIDのステートが存在しないなら
+            if (!stateTable.ContainsKey(stateId))
+            {
+                // 残念ながらこの関数は初期化を行わない
+                throw new ArgumentException("指定されたステートIDのステートが存在しません");
+            }
+
+
+            // 指定されたステートIDのストレージをそのまま返す
+            return stateTable[stateId].StateLocalStorage;
+        }
+
+
+        /// <summary>
+        /// 指定されたステートIDのローカルストレージにデータを設定します
+        /// </summary>
+        /// <param name="stateId">設定するステートID</param>
+        /// <param name="data">設定するデータ</param>
+        /// <exception cref="ArgumentException">指定されたステートIDのステートが存在しません</exception>
+        public void SetStateLocalStorage(int stateId, object data)
+        {
+            // ステートIDのステートが存在しないなら
+            StateContainer state;
+            if (!stateTable.TryGetValue(stateId, out state))
+            {
+                // 残念ながらこの関数は初期化を行わない
+                throw new ArgumentException("指定されたステートIDのステートが存在しません");
+            }
+
+
+            // 指定されたステートIDのストレージにデータをそのまま突っ込みし直す
+            stateTable[stateId] = new StateContainer(state.ID, state.TransitionTable, state.Enter, state.Update, state.Exit, state.GuardEvent, state.GuardPop, data);
+        }
+
+
         /// <summary>
         /// ステートマシンが起動している場合に例外を送出します
         /// </summary>
