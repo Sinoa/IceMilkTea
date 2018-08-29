@@ -638,21 +638,21 @@ namespace IceMilkTea.Core
             /// </summary>
             /// <param name="id">このステートのID</param>
             /// <param name="transitionTable">事前に生成済みの遷移テーブルがある場合は渡して下さい、なければ null の指定が可能です</param>
-            /// <param name="enter">ステートの開始関数</param>
-            /// <param name="update">ステートの更新関数</param>
-            /// <param name="exit">ステートの終了関数</param>
-            /// <param name="guardEvent">ステートのイベントガード関数</param>
-            /// <param name="guardPop">ステートのポップガード関数</param>
+            /// <param name="enter">ステートの開始関数。null の場合は空関数で初期化を行います</param>
+            /// <param name="update">ステートの更新関数。null の場合は空関数で初期化を行います</param>
+            /// <param name="exit">ステートの終了関数。null の場合は空関数で初期化を行います</param>
+            /// <param name="guardEvent">ステートのイベントガード関数。null の場合は空関数で初期化を行います</param>
+            /// <param name="guardPop">ステートのポップガード関数。null の場合は空関数で初期化を行います</param>
             public StateContainer(int id, Dictionary<int, int> transitionTable, Action<ImtMicroStateMachine<TContext>> enter, Action<ImtMicroStateMachine<TContext>> update, Action<ImtMicroStateMachine<TContext>> exit, Func<int, bool> guardEvent, Func<bool> guardPop)
             {
-                // 遷移テーブル以外、そのままパラメータを受け取る
-                TransitionTable = transitionTable ?? new Dictionary<int, int>();
+                // IDを受け取って null にならないような初期化を行う
                 ID = id;
-                Enter = enter;
-                Update = update;
-                Exit = exit;
-                GuardEvent = guardEvent;
-                GuardPop = guardPop;
+                TransitionTable = transitionTable ?? new Dictionary<int, int>();
+                Enter = enter ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
+                Update = update ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
+                Exit = exit ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
+                GuardEvent = guardEvent ?? new Func<int, bool>(_ => false);
+                GuardPop = guardPop ?? new Func<bool>(() => false);
             }
         }
         #endregion
@@ -770,14 +770,11 @@ namespace IceMilkTea.Core
         /// <param name="Exit">ステートの終了関数</param>
         /// <param name="GuardEvent">ステートの遷移ガード関数</param>
         /// <param name="GuardPop">ステートのポップガード関数</param>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
         public void RegisterState(int stateId, Action<ImtMicroStateMachine<TContext>> Enter = null, Action<ImtMicroStateMachine<TContext>> Update = null, Action<ImtMicroStateMachine<TContext>> Exit = null, Func<int, bool> GuardEvent = null, Func<bool> GuardPop = null)
         {
-            // ステートマシンが起動してしまっている場合は
-            if (Running)
-            {
-                // もう設定できないので例外を吐く
-                throw new InvalidOperationException("ステートマシンは、既に起動中です");
-            }
+            // 起動済み例外関数を叩く
+            ThrowIfRunning();
 
 
             // まずはステートが取り出せるかを試みて、取り出せる場合は
@@ -930,7 +927,7 @@ namespace IceMilkTea.Core
 
 
             // そもそもスタックが空であるか、次に遷移するステートが存在するか、ポップする前に現在のステートにガードされたのなら
-            if (stateStack.Count == 0 || nextState != null || (currentState.GuardPop != null && currentState.GuardPop()))
+            if (stateStack.Count == 0 || nextState != null || currentState.GuardPop())
             {
                 // ポップ自体出来ないのでfalseを返す
                 return false;
@@ -1029,7 +1026,7 @@ namespace IceMilkTea.Core
 
 
             // 現在のステートにイベントガードを呼び出して、ガードされたら
-            if (currentState.GuardEvent != null && currentState.GuardEvent(eventId))
+            if (currentState.GuardEvent(eventId))
             {
                 // ガードされて失敗したことを返す
                 return false;
@@ -1092,7 +1089,7 @@ namespace IceMilkTea.Core
 
                 // Enter処理中であることを設定してEnterを呼ぶ
                 updateState = UpdateState.Enter;
-                currentState.Enter?.Invoke(this);
+                currentState.Enter(this);
 
 
                 // 次に遷移するステートが無いなら
@@ -1110,7 +1107,7 @@ namespace IceMilkTea.Core
             {
                 // Update処理中であることを設定してUpdateを呼ぶ
                 updateState = UpdateState.Update;
-                currentState.Update?.Invoke(this);
+                currentState.Update(this);
             }
 
 
@@ -1119,7 +1116,7 @@ namespace IceMilkTea.Core
             {
                 // Exit処理中であることを設定してExit処理を呼ぶ
                 updateState = UpdateState.Exit;
-                currentState.Exit?.Invoke(this);
+                currentState.Exit(this);
 
 
                 // 次のステートに切り替える
@@ -1129,7 +1126,7 @@ namespace IceMilkTea.Core
 
                 // Enter処理中であることを設定してEnterを呼ぶ
                 updateState = UpdateState.Enter;
-                currentState.Enter?.Invoke(this);
+                currentState.Enter(this);
             }
 
 
