@@ -575,6 +575,363 @@ namespace IceMilkTea.Core
 
 
 
+    #region マイクロステートマシン実装
+    /// <summary>
+    /// コンテキストを持つことの出来るステートマシンクラスです。
+    /// このステートマシンクラスは、非常にコンパクトなステートマシンの実装を実現することが出来ます。
+    /// </summary>
+    /// <typeparam name="TContext">このステートマシンが持つコンテキストの型</typeparam>
+    public class ImtMicroStateMachine<TContext>
+    {
+        #region ステートコンテナ構造体
+        // TODO : 現在は構造体ですが、パフォーマンス状況によってはクラスに変更する予定（ref 変数が使えるようになったらこのまま）
+        /// <summary>
+        /// 登録されたステート関数を格納しておくための構造体です
+        /// </summary>
+        private struct StateContainer
+        {
+            /// <summary>
+            /// このステートが持つステート遷移テーブル
+            /// </summary>
+            public Dictionary<int, int> TransitionTable { get; private set; }
+
+
+            /// <summary>
+            /// このステートの開始関数
+            /// </summary>
+            public Action<TContext> Enter { get; private set; }
+
+
+            /// <summary>
+            /// このステートの更新関数
+            /// </summary>
+            public Action<TContext> Update { get; private set; }
+
+
+            /// <summary>
+            /// このステートの終了関数
+            /// </summary>
+            public Action<TContext> Exit { get; private set; }
+
+
+            /// <summary>
+            /// このステートのイベントガード関数
+            /// </summary>
+            public Func<int, bool> GuardEvent { get; private set; }
+
+
+            /// <summary>
+            /// このステートのポップガード関数
+            /// </summary>
+            public Func<bool> GuardPop { get; private set; }
+
+
+
+            /// <summary>
+            /// StateContainer のオブジェクトを初期化します
+            /// </summary>
+            /// <param name="transitionTable">事前に生成済みの遷移テーブルがある場合は渡して下さい、なければ null の指定が可能です</param>
+            /// <param name="enter">ステートの開始関数</param>
+            /// <param name="update">ステートの更新関数</param>
+            /// <param name="exit">ステートの終了関数</param>
+            /// <param name="guardEvent">ステートのイベントガード関数</param>
+            /// <param name="guardPop">ステートのポップガード関数</param>
+            public StateContainer(Dictionary<int, int> transitionTable, Action<TContext> enter, Action<TContext> update, Action<TContext> exit, Func<int, bool> guardEvent, Func<bool> guardPop)
+            {
+                // 遷移テーブル以外、そのままパラメータを受け取る
+                TransitionTable = transitionTable ?? new Dictionary<int, int>();
+                Enter = enter;
+                Update = update;
+                Exit = exit;
+                GuardEvent = guardEvent;
+                GuardPop = guardPop;
+            }
+        }
+        #endregion
+
+
+
+        #region 列挙型定義
+        /// <summary>
+        /// ステートマシンのUpdate状態を表現します
+        /// </summary>
+        private enum UpdateState
+        {
+            /// <summary>
+            /// アイドリング中です。つまり何もしていません
+            /// </summary>
+            Idle,
+
+            /// <summary>
+            /// ステートの突入処理中です
+            /// </summary>
+            Enter,
+
+            /// <summary>
+            /// ステートの更新処理中です
+            /// </summary>
+            Update,
+
+            /// <summary>
+            /// ステートの脱出処理中です
+            /// </summary>
+            Exit,
+        }
+        #endregion
+
+
+
+        // メンバ変数定義
+        private UpdateState updateState;
+        private Dictionary<int, StateContainer> stateTable;
+        private StateContainer anyState;
+        private StateContainer currentState;
+        private int? nextState;
+        private Stack<int> stateStack;
+
+
+
+        /// <summary>
+        /// ステートマシンが保持しているコンテキスト
+        /// </summary>
+        public TContext Context { get; private set; }
+
+
+        /// <summary>
+        /// ステートマシンが起動しているかどうか
+        /// </summary>
+        public bool Running => currentState.TransitionTable != null;
+
+
+        /// <summary>
+        /// ステートマシンが、更新処理中かどうか。
+        /// Update 関数から抜けたと思っても、このプロパティが true を示す場合、
+        /// Update 中に例外などで不正な終了の仕方をしている場合が考えられます。
+        /// </summary>
+        public bool Updating => (Running && updateState != UpdateState.Idle);
+
+
+        /// <summary>
+        /// 現在のスタックしているステートの数
+        /// </summary>
+        public int StackCount => stateStack.Count;
+
+
+
+        /// <summary>
+        /// ImtMicroStateMachine のインスタンスを初期化します
+        /// </summary>
+        /// <param name="context">このステートマシンが持つコンテキスト</param>
+        /// <exception cref="ArgumentNullException">context が null です</exception>
+        public ImtMicroStateMachine(TContext context)
+        {
+            // 渡されたコンテキストがnullなら
+            if (context == null)
+            {
+                // nullは許されない
+                throw new ArgumentNullException(nameof(context));
+            }
+
+
+            // メンバの初期化をする
+            Context = context;
+            stateTable = new Dictionary<int, StateContainer>();
+            stateStack = new Stack<int>();
+            updateState = UpdateState.Idle;
+
+
+            // この時点で任意ステートのインスタンスを作ってしまう
+            anyState = new StateContainer(null, null, null, null, null, null);
+        }
+
+
+        #region ステート生成＆ステート遷移テーブル構築系
+        /// <summary>
+        /// ステートの登録を行います。既に登録済みの場合は、指定関数が null 以外の場合上書きになります。
+        /// </summary>
+        /// <param name="stateId">登録するステートの識別ID</param>
+        /// <param name="enter">ステートの開始関数</param>
+        /// <param name="update">ステートの更新関数</param>
+        /// <param name="exit">ステートの終了関数</param>
+        /// <param name="guardEvent">ステートの遷移ガード関数</param>
+        /// <param name="guardPop">ステートのポップガード関数</param>
+        public void RegisterState(int stateId, Action<TContext> enter = null, Action<TContext> update = null, Action<TContext> exit = null, Func<int, bool> guardEvent = null, Func<bool> guardPop = null)
+        {
+            // ステートマシンが起動してしまっている場合は
+            if (Running)
+            {
+                // もう設定できないので例外を吐く
+                throw new InvalidOperationException("ステートマシンは、既に起動中です");
+            }
+
+
+            // まずはステートが取り出せるかを試みて、取り出せる場合は
+            StateContainer state;
+            if (stateTable.TryGetValue(stateId, out state))
+            {
+                // null 以外の更新を上書き更新を行って書き戻す
+                stateTable[stateId] = new StateContainer(
+                    state.TransitionTable,
+                    enter ?? state.Enter,
+                    update ?? state.Update,
+                    exit ?? state.Exit,
+                    guardEvent ?? state.GuardEvent,
+                    guardPop ?? state.GuardPop);
+
+
+                // 登録は終了
+                return;
+            }
+
+
+            // 存在しないなら素直に新規で登録
+            stateTable[stateId] = new StateContainer(null, enter, update, exit, guardEvent, guardPop);
+        }
+
+
+        /// <summary>
+        /// ステートの任意遷移構造を追加します。
+        /// </summary>
+        /// <remarks>
+        /// この関数は、遷移元が任意の状態からの遷移を希望する場合に利用してください。
+        /// 任意の遷移は、通常の遷移（Any以外の遷移元）より優先度が低いことにも、注意をしてください。
+        /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
+        /// </remarks>
+        /// <param name="toStateId">遷移先ステートID、ステートがまだ登録されていない場合は新規生成されます</param>
+        /// <param name="eventId">遷移する条件となるイベントID</param>
+        /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        public void AddAnyTransition(int toStateId, int eventId)
+        {
+            // 起動済み例外関数を叩く
+            ThrowIfRunning();
+
+
+            // ステートが存在しない場合の生成関数を叩く
+            CreateStateIfNotExists(toStateId);
+
+
+            // 既にイベントIDが割り当て済みなら
+            if (anyState.TransitionTable.ContainsKey(eventId))
+            {
+                // 既に何かが登録中なので登録を防ぐ
+                throw new ArgumentException(nameof(eventId), "既に同じ eventId が設定された遷移先ステートが存在します");
+            }
+
+
+            // AnyState専用インスタンスがあるのでココで遷移レコードを作る
+            anyState.TransitionTable[eventId] = toStateId;
+        }
+
+
+        /// <summary>
+        /// ステートの遷移構造を追加します。
+        /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
+        /// </summary>
+        /// <param name="fromStaetId">遷移する元になるステートID、ステートがまだ登録されていない場合は新規生成されます</param>
+        /// <param name="toStateId">遷移する先になるステートID、ステートがまだ登録されていない場合は新規生成されます</param>
+        /// <param name="eventId">遷移する条件となるイベントID</param>
+        /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        public void AddTransition(int fromStaetId, int toStateId, int eventId)
+        {
+            // 起動済み例外関数を叩く
+            ThrowIfRunning();
+
+
+            // ステートが存在しない場合の生成関数を叩く
+            CreateStateIfNotExists(fromStaetId);
+            CreateStateIfNotExists(toStateId);
+
+
+            // 遷移元ステートの遷移テーブルの参照を拾っておく
+            var transitionTable = stateTable[fromStaetId].TransitionTable;
+
+
+            // 遷移元ステートの遷移テーブルに既に同じイベントIDが存在していたら
+            if (transitionTable.ContainsKey(eventId))
+            {
+                // 上書き登録を許さないので例外を吐く
+                throw new ArgumentException($"ステート'{fromStaetId}'には、既にイベントID'{eventId}'の遷移が設定済みです");
+            }
+
+
+            // 遷移テーブルに遷移を設定する
+            transitionTable[eventId] = toStateId;
+        }
+
+
+        /// <summary>
+        /// ステートマシンが起動する時に、最初に開始するステートを設定します。
+        /// </summary>
+        /// <param name="startStateId">起動するステートID、ステートがまだ登録されていない場合は新規生成されます</param>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        public void SetStartState(int startStateId)
+        {
+            // 起動済み例外関数を叩く
+            ThrowIfRunning();
+
+
+            // ステートが存在しない場合の生成関数を叩く
+            CreateStateIfNotExists(startStateId);
+
+
+            // 次に処理するステートのIDを設定しておく
+            nextState = startStateId;
+        }
+        #endregion
+
+
+        #region 内部ロジック系
+        /// <summary>
+        /// ステートマシンが起動している場合に例外を送出します
+        /// </summary>
+        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        protected void ThrowIfRunning()
+        {
+            // ステートマシンが起動してしまっている場合は
+            if (Running)
+            {
+                // もう設定できないので例外を吐く
+                throw new InvalidOperationException("ステートマシンは、既に起動中です");
+            }
+        }
+
+
+        /// <summary>
+        /// ステートマシンが未起動の場合に例外を送出します
+        /// </summary>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        protected void IfNotRunningThrowException()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら
+            if (!Running)
+            {
+                // まだ起動すらしていないので例外を吐く
+                throw new InvalidOperationException("ステートマシンは、まだ起動していません");
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたIDのステートが存在しない場合は生成します
+        /// </summary>
+        /// <param name="stateId">生成するステートID</param>
+        protected void CreateStateIfNotExists(int stateId)
+        {
+            // 遷移先ステートが存在しないなら
+            if (!stateTable.ContainsKey(stateId))
+            {
+                // 初期化しておく
+                RegisterState(stateId);
+            }
+        }
+        #endregion
+    }
+    #endregion
+
+
+
     #region 同期コンテキストの実装
     /// <summary>
     /// 同期ステートマシンが保持する、同期コンテキストのクラスです
