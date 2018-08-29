@@ -623,13 +623,13 @@ namespace IceMilkTea.Core
             /// <summary>
             /// このステートのイベントガード関数
             /// </summary>
-            public Func<int, bool> GuardEvent { get; private set; }
+            public Func<ImtMicroStateMachine<TContext>, int, bool> GuardEvent { get; private set; }
 
 
             /// <summary>
             /// このステートのポップガード関数
             /// </summary>
-            public Func<bool> GuardPop { get; private set; }
+            public Func<ImtMicroStateMachine<TContext>, bool> GuardPop { get; private set; }
 
 
 
@@ -643,7 +643,7 @@ namespace IceMilkTea.Core
             /// <param name="exit">ステートの終了関数。null の場合は空関数で初期化を行います</param>
             /// <param name="guardEvent">ステートのイベントガード関数。null の場合は空関数で初期化を行います</param>
             /// <param name="guardPop">ステートのポップガード関数。null の場合は空関数で初期化を行います</param>
-            public StateContainer(int id, Dictionary<int, int> transitionTable, Action<ImtMicroStateMachine<TContext>> enter, Action<ImtMicroStateMachine<TContext>> update, Action<ImtMicroStateMachine<TContext>> exit, Func<int, bool> guardEvent, Func<bool> guardPop)
+            public StateContainer(int id, Dictionary<int, int> transitionTable, Action<ImtMicroStateMachine<TContext>> enter, Action<ImtMicroStateMachine<TContext>> update, Action<ImtMicroStateMachine<TContext>> exit, Func<ImtMicroStateMachine<TContext>, int, bool> guardEvent, Func<ImtMicroStateMachine<TContext>, bool> guardPop)
             {
                 // IDを受け取って null にならないような初期化を行う
                 ID = id;
@@ -651,8 +651,8 @@ namespace IceMilkTea.Core
                 Enter = enter ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
                 Update = update ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
                 Exit = exit ?? new Action<ImtMicroStateMachine<TContext>>(_ => { });
-                GuardEvent = guardEvent ?? new Func<int, bool>(_ => false);
-                GuardPop = guardPop ?? new Func<bool>(() => false);
+                GuardEvent = guardEvent ?? new Func<ImtMicroStateMachine<TContext>, int, bool>((_, __) => false);
+                GuardPop = guardPop ?? new Func<ImtMicroStateMachine<TContext>, bool>(_ => false);
             }
         }
         #endregion
@@ -771,7 +771,7 @@ namespace IceMilkTea.Core
         /// <param name="GuardEvent">ステートの遷移ガード関数</param>
         /// <param name="GuardPop">ステートのポップガード関数</param>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void RegisterState(int stateId, Action<ImtMicroStateMachine<TContext>> Enter = null, Action<ImtMicroStateMachine<TContext>> Update = null, Action<ImtMicroStateMachine<TContext>> Exit = null, Func<int, bool> GuardEvent = null, Func<bool> GuardPop = null)
+        public void RegisterState(int stateId, Action<ImtMicroStateMachine<TContext>> Enter = null, Action<ImtMicroStateMachine<TContext>> Update = null, Action<ImtMicroStateMachine<TContext>> Exit = null, Func<ImtMicroStateMachine<TContext>, int, bool> GuardEvent = null, Func<ImtMicroStateMachine<TContext>, bool> GuardPop = null)
         {
             // 起動済み例外関数を叩く
             ThrowIfRunning();
@@ -927,7 +927,7 @@ namespace IceMilkTea.Core
 
 
             // そもそもスタックが空であるか、次に遷移するステートが存在するか、ポップする前に現在のステートにガードされたのなら
-            if (stateStack.Count == 0 || nextState != null || currentState.GuardPop())
+            if (stateStack.Count == 0 || nextState != null || currentState.GuardPop(this))
             {
                 // ポップ自体出来ないのでfalseを返す
                 return false;
@@ -1026,7 +1026,7 @@ namespace IceMilkTea.Core
 
 
             // 現在のステートにイベントガードを呼び出して、ガードされたら
-            if (currentState.GuardEvent(eventId))
+            if (currentState.GuardEvent(this, eventId))
             {
                 // ガードされて失敗したことを返す
                 return false;
