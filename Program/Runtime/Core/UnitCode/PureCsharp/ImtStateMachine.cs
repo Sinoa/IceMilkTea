@@ -875,6 +875,32 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ステートの遷移構造を、可変長引数式に一気に追加します。
+        /// 追加構造は（from, to, event, from, to, event,,,）となるような配列で指定して下さい
+        /// </summary>
+        /// <param name="transitionArray">一気に追加する遷移構造</param>
+        /// <exception cref="ArgumentException">遷移構造パラメータは最低でも3つ以上か、3の倍数の長さで作って下さい</exception>
+        public void AddTransitionRange(params int[] transitionArray)
+        {
+            // 引数の長さが 0 または 3の倍数以外なら
+            if (transitionArray.Length == 0 || (transitionArray.Length % 3) != 0)
+            {
+                // 引数が想定外の長さである
+                throw new ArgumentException("遷移構造パラメータは最低でも3つ以上か、3の倍数の長さで作って下さい");
+            }
+
+
+            // データを突っ込む回数を求めて一気に追加
+            var dataCount = transitionArray.Length / 3;
+            for (int i = 0; i < dataCount; ++i)
+            {
+                // AddTransitionを呼び続ける
+                AddTransition(transitionArray[i * 3 + 0], transitionArray[i * 3 + 1], transitionArray[i * 3 + 2]);
+            }
+        }
+
+
+        /// <summary>
         /// ステートマシンが起動する時に、最初に開始するステートを設定します。
         /// </summary>
         /// <param name="startStateId">起動するステートID、ステートがまだ登録されていない場合は新規生成されます</param>
