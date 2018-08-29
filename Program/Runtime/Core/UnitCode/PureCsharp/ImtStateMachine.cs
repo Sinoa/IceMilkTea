@@ -591,6 +591,12 @@ namespace IceMilkTea.Core
         private struct StateContainer
         {
             /// <summary>
+            /// このステートのID
+            /// </summary>
+            public int ID { get; private set; }
+
+
+            /// <summary>
             /// このステートが持つステート遷移テーブル
             /// </summary>
             public Dictionary<int, int> TransitionTable { get; private set; }
@@ -630,16 +636,18 @@ namespace IceMilkTea.Core
             /// <summary>
             /// StateContainer のオブジェクトを初期化します
             /// </summary>
+            /// <param name="id">このステートのID</param>
             /// <param name="transitionTable">事前に生成済みの遷移テーブルがある場合は渡して下さい、なければ null の指定が可能です</param>
             /// <param name="enter">ステートの開始関数</param>
             /// <param name="update">ステートの更新関数</param>
             /// <param name="exit">ステートの終了関数</param>
             /// <param name="guardEvent">ステートのイベントガード関数</param>
             /// <param name="guardPop">ステートのポップガード関数</param>
-            public StateContainer(Dictionary<int, int> transitionTable, Action<TContext> enter, Action<TContext> update, Action<TContext> exit, Func<int, bool> guardEvent, Func<bool> guardPop)
+            public StateContainer(int id, Dictionary<int, int> transitionTable, Action<TContext> enter, Action<TContext> update, Action<TContext> exit, Func<int, bool> guardEvent, Func<bool> guardPop)
             {
                 // 遷移テーブル以外、そのままパラメータを受け取る
                 TransitionTable = transitionTable ?? new Dictionary<int, int>();
+                ID = id;
                 Enter = enter;
                 Update = update;
                 Exit = exit;
@@ -741,7 +749,7 @@ namespace IceMilkTea.Core
 
 
             // この時点で任意ステートのインスタンスを作ってしまう
-            anyState = new StateContainer(null, null, null, null, null, null);
+            anyState = new StateContainer(0, null, null, null, null, null, null);
         }
 
 
@@ -771,6 +779,7 @@ namespace IceMilkTea.Core
             {
                 // null 以外の更新を上書き更新を行って書き戻す
                 stateTable[stateId] = new StateContainer(
+                    stateId,
                     state.TransitionTable,
                     enter ?? state.Enter,
                     update ?? state.Update,
@@ -785,7 +794,7 @@ namespace IceMilkTea.Core
 
 
             // 存在しないなら素直に新規で登録
-            stateTable[stateId] = new StateContainer(null, enter, update, exit, guardEvent, guardPop);
+            stateTable[stateId] = new StateContainer(stateId, null, enter, update, exit, guardEvent, guardPop);
         }
 
 
@@ -882,6 +891,83 @@ namespace IceMilkTea.Core
         #endregion
 
 
+        #region ステートスタック操作系
+        /// <summary>
+        /// 現在実行中のステートを、ステートスタックにプッシュします
+        /// </summary>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public void PushState()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            ThrowIfNotRunning();
+
+
+            // 現在のステートIDをスタックに積む
+            stateStack.Push(currentState.ID);
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているステートを取り出し、遷移の準備を行います。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は、イベントIDを送ることのない点を除けば SendEvent 関数と非常に似ています。
+        /// 既に SendEvent によって次の遷移の準備ができている場合は、スタックからステートはポップされることはありません。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ次の遷移の準備が完了した場合は true を、ポップするステートがなかったり、ステートによりポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public virtual bool PopState()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            ThrowIfNotRunning();
+
+
+            // そもそもスタックが空であるか、次に遷移するステートが存在するか、ポップする前に現在のステートにガードされたのなら
+            if (stateStack.Count == 0 || nextState != null || (currentState.GuardPop != null && currentState.GuardPop()))
+            {
+                // ポップ自体出来ないのでfalseを返す
+                return false;
+            }
+
+
+            // ステートをスタックから取り出して次のステートへ遷移するようにして成功を返す
+            nextState = stateStack.Pop();
+            return true;
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているステートを一つ取り出し、そのまま捨てます。
+        /// </summary>
+        /// <remarks>
+        /// ステートスタックの一番上に積まれているステートをそのまま捨てたい時に利用します。
+        /// </remarks>
+        public void PopAndDropState()
+        {
+            // スタックが空なら
+            if (stateStack.Count == 0)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // スタックからステートを取り出して何もせずそのまま捨てる
+            stateStack.Pop();
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているすべてのステートを捨てます。
+        /// </summary>
+        public void ClearStack()
+        {
+            // スタックを空にする
+            stateStack.Clear();
+        }
+        #endregion
+
+
         #region 内部ロジック系
         /// <summary>
         /// ステートマシンが起動している場合に例外を送出します
@@ -902,7 +988,7 @@ namespace IceMilkTea.Core
         /// ステートマシンが未起動の場合に例外を送出します
         /// </summary>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
-        protected void IfNotRunningThrowException()
+        protected void ThrowIfNotRunning()
         {
             // そもそもまだ現在実行中のステートが存在していないなら
             if (!Running)
