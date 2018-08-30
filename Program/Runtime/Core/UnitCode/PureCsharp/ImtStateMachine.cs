@@ -299,6 +299,45 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ステートの遷移構造を、可変長引数式に一気に追加します。
+        /// 追加構造は（Type from, Type to, int event, Type from, Type to, int event,,,）となるような配列で指定して下さい
+        /// </summary>
+        /// <param name="transitionArray">一気に追加する遷移構造</param>
+        /// <exception cref="ArgumentException">遷移構造パラメータは最低でも3つ以上か、3の倍数の長さで作って下さい</exception>
+        /// <exception cref="InvalidOperationException">遷移テーブル構築配列に不正な型、または扱えない値や null などが含まれていました</exception>
+        public void AddTransitionRange(params object[] transitionArray)
+        {
+            // 引数の長さが 0 または 3の倍数以外なら
+            if (transitionArray.Length == 0 || (transitionArray.Length % 3) != 0)
+            {
+                // 引数が想定外の長さである
+                throw new ArgumentException("遷移構造パラメータは最低でも3つ以上か、3の倍数の長さで作って下さい");
+            }
+
+
+            // データを突っ込む回数を求めて一気に追加
+            var stateBaseType = typeof(State);
+            var dataCount = transitionArray.Length / 3;
+            for (int i = 0; i < dataCount; ++i)
+            {
+                // ちゃんと StateType, StateType, int の順番で格納されているかチェックして、ダメなら
+                var fromType = transitionArray[i * 3 + 0] as Type;
+                var toType = transitionArray[i * 3 + 1] as Type;
+                var eventId = transitionArray[i * 3 + 2];
+                if (!(stateBaseType.IsAssignableFrom(fromType) && stateBaseType.IsAssignableFrom(toType) && eventId is int))
+                {
+                    // 不正なデータ構造として例外を吐く
+                    throw new InvalidOperationException("遷移テーブル構築配列に不正な型、または扱えない値や null などが含まれていました");
+                }
+
+
+                // 型で引数を取るAddTransitionを呼び続ける
+                AddTransition(fromType, toType, (int)eventId);
+            }
+        }
+
+
+        /// <summary>
         /// ステートマシンが起動する時に、最初に開始するステートを設定します。
         /// </summary>
         /// <typeparam name="TStartState">ステートマシンが起動時に開始するステートの型</typeparam>
