@@ -16,7 +16,6 @@
 using System;
 using System.Collections.Generic;
 using IceMilkTea.Core;
-using UnityEngine;
 
 namespace IceMilkTea.Service
 {
@@ -36,6 +35,7 @@ namespace IceMilkTea.Service
 
 
 
+    #region キャッシュクラス
     /// <summary>
     /// 読み込まれたアセットのキャッシュを貯蔵するクラスです
     /// </summary>
@@ -105,37 +105,119 @@ namespace IceMilkTea.Service
             }
         }
     }
+    #endregion
 
 
 
+    #region アセットローダプロバイダ
     /// <summary>
     /// アセットローダーを提供するクラスです
     /// </summary>
     internal class AssetLoaderProvider
     {
-        public AssetLoader RequestAssetLoader(ulong assetId, Uri assetUrl)
+        // メンバ変数定義
+        private List<AssetLoaderResolver> resolverList;
+
+
+
+        /// <summary>
+        /// AssetLoaderProvider のインスタンスを初期化します
+        /// </summary>
+        public AssetLoaderProvider()
         {
-            throw new NotImplementedException();
+            // リゾルバリストを生成する
+            resolverList = new List<AssetLoaderResolver>();
+        }
+
+
+        /// <summary>
+        /// 指定された、アセットローダリゾルバを追加します。
+        /// ただし、既に追加済みの場合は何もしません。
+        /// </summary>
+        /// <param name="resolver">追加するリゾルバ</param>
+        /// <exception cref="ArgumentNullException">resolver が null です</exception>
+        public void AddResolver(AssetLoaderResolver resolver)
+        {
+            // nullが渡されたら
+            if (resolver == null)
+            {
+                // 何を追加すれば良いんですか
+                throw new ArgumentNullException(nameof(resolver));
+            }
+
+
+            // 既に指定されたリゾルバが存在するなら
+            if (resolverList.Contains(resolver))
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // リゾルバの追加
+            resolverList.Add(resolver);
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットIDとアセットURLから適切なアセットローダを取得します
+        /// </summary>
+        /// <param name="assetId">これからロードする予定のアセットID</param>
+        /// <param name="assetUrl">これからロードする予定のアセットURL</param>
+        /// <returns>対応可能なアセットローダが存在した場合は、そのローダのインスタンスを返しますが、存在しない場合は null を返します</returns>
+        public AssetLoader GetAssetLoader(ulong assetId, Uri assetUrl)
+        {
+            // 登録されているリゾルバ分回る
+            foreach (var resolver in resolverList)
+            {
+                // アセットIDとURLを渡してローダを取得出来たのなら
+                var loader = resolver.GetLoader(assetId, assetUrl);
+                if (loader != null)
+                {
+                    // このローダを返す
+                    return loader;
+                }
+            }
+
+
+            // ループから抜けてきたという事は誰も担当出来るローダがいなかったとして null を返す
+            return null;
         }
     }
+    #endregion
 
 
 
+    #region アセットローダリゾルバとローダの抽象クラス
     /// <summary>
-    /// アセットパスから適切なローダーを解決するリゾルバクラスです
+    /// アセットパスから適切なローダーを解決するリゾルバ抽象クラスです
     /// </summary>
-    public abstract class AssetPathResolver
+    public abstract class AssetLoaderResolver
     {
+        /// <summary>
+        /// 指定されたアセットIDとアセットURLから、最適なアセットローダを取得します。
+        /// </summary>
+        /// <param name="assetId">ロード要求のあるアセットID</param>
+        /// <param name="assetUrl">ロード要求のあるアセットURL</param>
+        /// <returns>最適なアセットローダがある場合は、そのローダのインスタンスを返しますが、存在しない場合は null を返します</returns>
         public abstract AssetLoader GetLoader(ulong assetId, Uri assetUrl);
     }
 
 
 
     /// <summary>
-    /// アセットのロードを実際に行うクラスです
+    /// アセットのロードを実際に行うローダ抽象クラスです
     /// </summary>
     public abstract class AssetLoader
     {
-        public abstract IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl);
+        /// <summary>
+        /// 指定されたアセットID、アセットURLからアセットを非同期に読み込みます。
+        /// </summary>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">読み込み状況の進捗通知を受ける IProgress</param>
+        /// <returns>アセットの非同期ロードを待機する待機可能クラスのインスタンスを返します</returns>
+        public abstract IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress);
     }
+    #endregion
 }
