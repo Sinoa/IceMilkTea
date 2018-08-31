@@ -27,6 +27,30 @@ namespace IceMilkTea.Service
 
 
 
+    /// <summary>
+    /// アセットクリーンアップの度合いを表現します
+    /// </summary>
+    public enum AssetCleanupAggressiveLevel
+    {
+        /// <summary>
+        /// キャッシュの消失チェックと、必要であればファイルクローズまでを行います。
+        /// </summary>
+        Low,
+
+        /// <summary>
+        /// Unityに未参照アセットのアンロード要求を行ってから、Lowと同じ事をします。
+        /// </summary>
+        Normal,
+
+        /// <summary>
+        /// GCを強制的に起動、Unityに未参照アセットのアンロード要求、キャッシュ消失チェックなど
+        /// 最大限のアセットクリーンアップを行います。
+        /// </summary>
+        High,
+    }
+
+
+
     #region サービス本体
     /// <summary>
     /// Unityのゲームアセットを読み込む機能を提供するサービスクラスです
@@ -135,7 +159,7 @@ namespace IceMilkTea.Service
 
             // ローダにロードを要求して、キャッシュ関数にも流す
             var loadAwaitable = loader.LoadAssetAsync<TAssetType>(assetId, url, progress);
-            DoAssetCache(assetId, loadAwaitable);
+            DoAssetCache(assetId, loader, loadAwaitable);
 
 
             // ローダが返した待機クラスのインスタンスを返す
@@ -144,12 +168,24 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// 不要になったアセットなどを意図的にクリーンアップを非同期的に実行します
+        /// </summary>
+        /// <param name="level">アセットクリーンアップの度合いを指定します。度合いが高いほどクリーンアップに時間がかかります。</param>
+        /// <returns>クリーンアップを待機するインスタンスを返します</returns>
+        public IAwaitable AssetCleanupAsync(AssetCleanupAggressiveLevel level)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
         /// 指定されたアセットIDに対して、ロード待機オブジェクトからロード結果を取得して、キャッシュを行います
         /// </summary>
         /// <typeparam name="TAssetType">ロードしようとしているアセットの型</typeparam>
         /// <param name="assetId">キャッシュするアセットID</param>
+        /// <param name="loader">該当アセットのロードを担当したアセットローダ</param>
         /// <param name="awaitable">ロード中の待機オブジェクト</param>
-        private async void DoAssetCache<TAssetType>(ulong assetId, IAwaitable<TAssetType> awaitable) where TAssetType : UnityAsset
+        private async void DoAssetCache<TAssetType>(ulong assetId, AssetLoader loader, IAwaitable<TAssetType> awaitable) where TAssetType : UnityAsset
         {
             // ロードの完了をまって、ロードに失敗しているようであれば
             var asset = await awaitable;
@@ -161,7 +197,7 @@ namespace IceMilkTea.Service
 
 
             // アセットのキャッシュをする
-            cacheStorage.StoreAssetCache(assetId, asset);
+            cacheStorage.StoreAssetCache(assetId, asset, loader);
         }
     }
     #endregion
@@ -174,11 +210,52 @@ namespace IceMilkTea.Service
     /// </summary>
     internal class AssetCacheStorage
     {
+        /// <summary>
+        /// アセットキャッシュの情報を保持した構造体です
+        /// </summary>
+        private struct AssetCacheInfo
+        {
+            /// <summary>
+            /// キャッシュしているアセットID
+            /// </summary>
+            public ulong AssetId { get; private set; }
+
+
+            /// <summary>
+            /// キャッシュしているアセットへの弱参照プロパティ
+            /// </summary>
+            public WeakUnityAsset AssetReference { get; private set; }
+
+
+            /// <summary>
+            /// アセットのロードを担当したアセットローダ
+            /// </summary>
+            public AssetLoader AssetLoader { get; private set; }
+
+
+
+            /// <summary>
+            /// AssetCacheInfo のインスタンスを初期化します
+            /// </summary>
+            /// <param name="assetId">キャッシュするアセットID</param>
+            /// <param name="asset">キャッシュするアセット</param>
+            /// <param name="loader">キャッシュするアセットをロードしたローダ</param>
+            public AssetCacheInfo(ulong assetId, UnityAsset asset, AssetLoader loader)
+            {
+                // 各フィールドを初期化する
+                AssetId = assetId;
+                AssetReference = new WeakUnityAsset(asset);
+                AssetLoader = loader;
+            }
+        }
+
+
+
         // 定数定義
         private const int DefaultCacheEntryCapacity = 1 << 10;
 
         // メンバ変数定義
-        private Dictionary<ulong, WeakUnityAsset> assetCacheTable;
+        private Dictionary<ulong, AssetCacheInfo> assetCacheTable;
 
 
 
@@ -188,7 +265,7 @@ namespace IceMilkTea.Service
         public AssetCacheStorage()
         {
             // キャッシュテーブルを生成する
-            assetCacheTable = new Dictionary<ulong, WeakUnityAsset>(DefaultCacheEntryCapacity);
+            assetCacheTable = new Dictionary<ulong, AssetCacheInfo>(DefaultCacheEntryCapacity);
         }
 
 
@@ -201,8 +278,8 @@ namespace IceMilkTea.Service
         public TAssetType GetAssetCache<TAssetType>(ulong assetId) where TAssetType : UnityAsset
         {
             // まずはアセットIDから参照を引っ張り出して存在しないなら
-            WeakUnityAsset assetReference;
-            if (!assetCacheTable.TryGetValue(assetId, out assetReference))
+            AssetCacheInfo cacheInfo;
+            if (!assetCacheTable.TryGetValue(assetId, out cacheInfo))
             {
                 // まだキャッシュされていない
                 return null;
@@ -211,9 +288,11 @@ namespace IceMilkTea.Service
 
             // 参照から実体の取得が出来なかったら
             UnityAsset asset;
-            if (!assetReference.TryGetTarget(out asset))
+            if (!cacheInfo.AssetReference.TryGetTarget(out asset))
             {
+                // ローダにアセットが消失したことを通知して
                 // レコードを削除してキャッシュが取り出せなかったとして返す
+                cacheInfo.AssetLoader.OnCacheLost(assetId);
                 assetCacheTable.Remove(assetId);
                 return null;
             }
@@ -230,8 +309,9 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="assetId">貯蔵するアセットのアセットID</param>
         /// <param name="asset">貯蔵するアセット</param>
+        /// <param name="loader">このアセットをロードしたローダ</param>
         /// <exception cref="ArgumentNullException">asset が null です</exception>
-        public void StoreAssetCache(ulong assetId, UnityAsset asset)
+        public void StoreAssetCache(ulong assetId, UnityAsset asset, AssetLoader loader)
         {
             // もしassetがnullなら
             if (asset == null)
@@ -241,18 +321,18 @@ namespace IceMilkTea.Service
             }
 
 
-            // 一度テーブルから参照を引っ張り出せるか試みる
-            WeakUnityAsset assetReference;
-            if (assetCacheTable.TryGetValue(assetId, out assetReference))
+            // 一度テーブルから情報を引っ張り出せるか試みる
+            AssetCacheInfo cacheInfo;
+            if (assetCacheTable.TryGetValue(assetId, out cacheInfo))
             {
                 // 取り出せたのなら参照を上書きして終了
-                assetReference.SetTarget(asset);
+                cacheInfo.AssetReference.SetTarget(asset);
                 return;
             }
 
 
             // そもそもレコードすら無いのなら新規で追加する
-            assetCacheTable[assetId] = new WeakUnityAsset(asset);
+            assetCacheTable[assetId] = new AssetCacheInfo(assetId, asset, loader);
         }
     }
     #endregion
@@ -371,6 +451,15 @@ namespace IceMilkTea.Service
         /// <param name="progress">読み込み状況の進捗通知を受ける IProgress</param>
         /// <returns>アセットの非同期ロードを待機する待機可能クラスのインスタンスを返します</returns>
         public abstract IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress) where TAssetType : UnityAsset;
+
+
+        /// <summary>
+        /// 該当アセットIDのキャッシュが消失した時のハンドリングを行います
+        /// </summary>
+        /// <param name="assetId">キャッシュが消失したアセットID</param>
+        public virtual void OnCacheLost(ulong assetId)
+        {
+        }
     }
     #endregion
 
@@ -496,5 +585,10 @@ namespace IceMilkTea.Service
             throw new NotImplementedException();
         }
     }
+    #endregion
+
+
+
+    #region AssetClearWorker
     #endregion
 }
