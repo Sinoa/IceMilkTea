@@ -32,6 +32,124 @@ namespace IceMilkTea.Service
     /// </summary>
     public class AssetLoadService : GameService
     {
+        // メンバ変数定義
+        private Crc64TextCoder textCoder;
+        private AssetCacheStorage cacheStorage;
+        private AssetLoaderProvider loaderProvider;
+
+
+
+        /// <summary>
+        /// AssetLoadService のインスタンスを初期化します
+        /// </summary>
+        public AssetLoadService()
+        {
+            // テキストコーダ、キャッシュストレージ、ローダプロバイダの初期化
+            textCoder = new Crc64TextCoder();
+            cacheStorage = new AssetCacheStorage();
+            loaderProvider = new AssetLoaderProvider();
+        }
+
+
+        /// <summary>
+        /// アセットローダリゾルバを登録します。
+        /// 同じインスタンスのリゾルバは重複登録出来ません。
+        /// </summary>
+        /// <param name="resolver">登録するリゾルバ</param>
+        public void RegisterResolver(AssetLoaderResolver resolver)
+        {
+            // ローダプロバイダにそのまま横流しする
+            loaderProvider.AddResolver(resolver);
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットURLのアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="TAssetType">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットのURL</param>
+        /// <returns>アセットの非同期ロードを待機するインスタンスを返します</returns>
+        /// <exception cref="ArgumentException">uriString（assetUrl） が null です</exception>
+        /// <exception cref="UriFormatException">指定されたアセットURLのフォーマットが正しくありません</exception>
+        /// <exception cref="InvalidOperationException">指定されたアセットURLからアセットをロードが出来ませんでした</exception>
+        public IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(string assetUrl) where TAssetType : UnityAsset
+        {
+            // 進捗通知を受けないものとしてLoadAssetAsyncを叩く
+            return LoadAssetAsync<TAssetType>(assetUrl, null);
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットURLのアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="TAssetType">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットのURL</param>
+        /// <param name="progress">アセットのロード進捗通知を受ける IProgress</param>
+        /// <returns>アセットの非同期ロードを待機するインスタンスを返します</returns>
+        /// <exception cref="ArgumentException">uriString（assetUrl） が null です</exception>
+        /// <exception cref="UriFormatException">指定されたアセットURLのフォーマットが正しくありません</exception>
+        /// <exception cref="InvalidOperationException">指定されたアセットURLからアセットをロードが出来ませんでした</exception>
+        public IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(string assetUrl, IProgress<float> progress) where TAssetType : UnityAsset
+        {
+            // URIを生成する（assetUrl引数にまつわる例外はURIに委ねる）
+            var url = new Uri(assetUrl);
+
+
+            // URLからIDを作る
+            var assetId = textCoder.GetCode(assetUrl);
+
+
+            // キャッシュストレージにキャッシュがあるか取得をして、取得出来たのなら
+            var asset = cacheStorage.GetAssetCache<TAssetType>(assetId);
+            if (asset != null)
+            {
+                // TODO : CompletedなAwaitableが欲しい
+                // シグナル状態のManualReset用意してそのまま結果を突っ込んで返す
+                var completedAwaitable = new ImtAwaitableManualReset<TAssetType>(true);
+                completedAwaitable.PrepareResult(asset);
+                return completedAwaitable;
+            }
+
+
+            // ローダプロバイダにローダを要求して誰一人と対応可能なローダがいなかったら
+            var loader = loaderProvider.GetAssetLoader<TAssetType>(assetId, url);
+            if (loader == null)
+            {
+                // ごめんなさい、ロード出来ません
+                throw new InvalidOperationException("指定されたアセットURLからアセットをロードが出来ませんでした");
+            }
+
+
+            // ローダにロードを要求して、キャッシュ関数にも流す
+            var loadAwaitable = loader.LoadAssetAsync<TAssetType>(assetId, url, progress);
+            DoAssetCache(assetId, loadAwaitable);
+
+
+            // ローダが返した待機クラスのインスタンスを返す
+            return loadAwaitable;
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットIDに対して、ロード待機オブジェクトからロード結果を取得して、キャッシュを行います
+        /// </summary>
+        /// <typeparam name="TAssetType">ロードしようとしているアセットの型</typeparam>
+        /// <param name="assetId">キャッシュするアセットID</param>
+        /// <param name="awaitable">ロード中の待機オブジェクト</param>
+        private async void DoAssetCache<TAssetType>(ulong assetId, IAwaitable<TAssetType> awaitable) where TAssetType : UnityAsset
+        {
+            // ロードの完了をまって、ロードに失敗しているようであれば
+            var asset = await awaitable;
+            if (asset == null)
+            {
+                // キャッシュはしないで終わる
+                return;
+            }
+
+
+            // アセットのキャッシュをする
+            cacheStorage.StoreAssetCache(assetId, asset);
+        }
     }
 
 
