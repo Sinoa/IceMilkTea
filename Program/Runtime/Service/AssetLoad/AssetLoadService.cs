@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using IceMilkTea.Core;
+using UnityEngine;
 
 namespace IceMilkTea.Service
 {
@@ -162,16 +163,17 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたアセットIDとアセットURLから適切なアセットローダを取得します
         /// </summary>
+        /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
         /// <param name="assetId">これからロードする予定のアセットID</param>
         /// <param name="assetUrl">これからロードする予定のアセットURL</param>
         /// <returns>対応可能なアセットローダが存在した場合は、そのローダのインスタンスを返しますが、存在しない場合は null を返します</returns>
-        public AssetLoader GetAssetLoader(ulong assetId, Uri assetUrl)
+        public AssetLoader GetAssetLoader<TAssetType>(ulong assetId, Uri assetUrl) where TAssetType : UnityAsset
         {
             // 登録されているリゾルバ分回る
             foreach (var resolver in resolverList)
             {
                 // アセットIDとURLを渡してローダを取得出来たのなら
-                var loader = resolver.GetLoader(assetId, assetUrl);
+                var loader = resolver.GetLoader<TAssetType>(assetId, assetUrl);
                 if (loader != null)
                 {
                     // このローダを返す
@@ -197,10 +199,11 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたアセットIDとアセットURLから、最適なアセットローダを取得します。
         /// </summary>
+        /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
         /// <param name="assetId">ロード要求のあるアセットID</param>
         /// <param name="assetUrl">ロード要求のあるアセットURL</param>
         /// <returns>最適なアセットローダがある場合は、そのローダのインスタンスを返しますが、存在しない場合は null を返します</returns>
-        public abstract AssetLoader GetLoader(ulong assetId, Uri assetUrl);
+        public abstract AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl) where TAssetType : UnityAsset;
     }
 
 
@@ -213,11 +216,12 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたアセットID、アセットURLからアセットを非同期に読み込みます。
         /// </summary>
+        /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
         /// <param name="assetId">読み込むアセットID</param>
         /// <param name="assetUrl">読み込むアセットURL</param>
         /// <param name="progress">読み込み状況の進捗通知を受ける IProgress</param>
         /// <returns>アセットの非同期ロードを待機する待機可能クラスのインスタンスを返します</returns>
-        public abstract IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress);
+        public abstract IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress) where TAssetType : UnityAsset;
     }
     #endregion
 
@@ -229,9 +233,43 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ResourcesAssetLoaderResolver : AssetLoaderResolver
     {
-        public override AssetLoader GetLoader(ulong assetId, Uri assetUrl)
+        // 定数定義
+        private const string ResourcesHostName = "resources";
+
+        // メンバ変数定義
+        private ResourcesAssetLoader loader;
+
+
+
+        /// <summary>
+        /// ResourcesAssetLoaderResolver のインスタンスを初期化します
+        /// </summary>
+        public ResourcesAssetLoaderResolver()
         {
-            throw new NotImplementedException();
+            // リクエストごとに異なるResourcesロードは無いのでこのタイミングでインスタンスを作っておく
+            loader = new ResourcesAssetLoader();
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットIDとURLから必要なローダを取得します
+        /// </summary>
+        /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
+        /// <param name="assetId">ロード要求されているアセットID</param>
+        /// <param name="assetUrl">ロード要求されているアセットURL</param>
+        /// <returns>対応可能なアセットローダが存在した場合は、インスタンスを返しますが、見つからない場合は null を返します</returns>
+        public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
+        {
+            // ホスト名部分がResourcesローダー系の物でないなら
+            if (assetUrl.Host != ResourcesHostName)
+            {
+                // 残念ながら対応出来ない
+                return null;
+            }
+
+
+            // Resources系なら対応出来るのでローダを返す
+            return loader;
         }
     }
 
@@ -242,7 +280,7 @@ namespace IceMilkTea.Service
     /// </summary>
     public class FileAssetBundleAssetLoaderResolver : AssetLoaderResolver
     {
-        public override AssetLoader GetLoader(ulong assetId, Uri assetUrl)
+        public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
         {
             throw new NotImplementedException();
         }
@@ -255,7 +293,7 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ImtArchiveLoaderResolver : AssetLoaderResolver
     {
-        public override AssetLoader GetLoader(ulong assetId, Uri assetUrl)
+        public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
         {
             throw new NotImplementedException();
         }
@@ -270,9 +308,17 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ResourcesAssetLoader : AssetLoader
     {
-        public override IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        /// <summary>
+        /// 指定されたアセットIDと、アセットURLからアセットを非同期でロードします
+        /// </summary>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
+        public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
-            throw new NotImplementedException();
+            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す
+            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath).ToAwaitable<TAssetType>(progress);
         }
     }
 
@@ -283,7 +329,7 @@ namespace IceMilkTea.Service
     /// </summary>
     public class FileAssetBundleAssetLoader : AssetLoader
     {
-        public override IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
             throw new NotImplementedException();
         }
@@ -296,7 +342,7 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ImtArchiveAssetLoader : AssetLoader
     {
-        public override IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
             throw new NotImplementedException();
         }
