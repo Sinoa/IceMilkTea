@@ -49,6 +49,14 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// 別のシーンがDropされシーンが再開される時の処理を行います
+        /// </summary>
+        protected internal virtual void Restart()
+        {
+        }
+
+
+        /// <summary>
         /// アプリケーションの要因でシーンの一時停止処理を行います
         /// </summary>
         protected internal virtual void OnApplicationSleep()
@@ -177,6 +185,7 @@ namespace IceMilkTea.Service
 
         // メンバ変数定義
         private List<SceneManagementContext> sceneManagementContextList;
+        private bool needUpdateReferenceCurrentScene;
 
 
 
@@ -254,39 +263,55 @@ namespace IceMilkTea.Service
         /// </summary>
         private void UpdateService()
         {
-            // Updateを呼ぶべきシーンを初期化する
-            var needUpdateScene = default(TSceneBase);
-
-
-            // 管理情報の数分回る（全体を巡回しながら初期化を呼ぶべき子も一緒に探す）
-            foreach (var sceneManagementContext in sceneManagementContextList)
+            // 現在のシーンの参照更新が必要な場合は
+            if (needUpdateReferenceCurrentScene)
             {
-                // もし動作開始準備なシーンなら
-                if (IsReady(sceneManagementContext.State))
+                // Updateを呼ぶべきシーンと再スタートを呼ぶべきかのフラグを用意
+                var needUpdateScene = default(TSceneBase);
+                var needCallRestart = false;
+
+
+                // 管理情報の数分回る（全体を巡回しながら初期化を呼ぶべき子も一緒に探す）
+                foreach (var sceneManagementContext in sceneManagementContextList)
                 {
-                    // 初期化処理を呼び出して実行状態にする
-                    sceneManagementContext.Scene.Initialize();
-                    sceneManagementContext.State = SceneState.Running;
+                    // もし動作開始準備なシーンなら
+                    if (IsReady(sceneManagementContext.State))
+                    {
+                        // 初期化処理を呼び出して実行状態にする
+                        sceneManagementContext.Scene.Initialize();
+                        sceneManagementContext.State = SceneState.Running;
 
 
-                    // そしてUpdateを呼ぶべきシーンとして覚えて次へ
-                    needUpdateScene = sceneManagementContext.Scene;
-                    continue;
+                        // そしてUpdateを呼ぶべきシーンとして覚えて、このシーンはRestartを呼ばないようにしてもらう
+                        needUpdateScene = sceneManagementContext.Scene;
+                        needCallRestart = false;
+                        continue;
+                    }
+
+
+                    // もし実行状態なシーンなら
+                    if (IsRunning(sceneManagementContext.State))
+                    {
+                        // Updateを呼ぶべきシーンとして覚えて、Restartを呼ぶようにしてもらう
+                        needUpdateScene = sceneManagementContext.Scene;
+                        needCallRestart = true;
+                        continue;
+                    }
                 }
 
 
-                // もし実行状態なシーンなら
-                if (IsRunning(sceneManagementContext.State))
+                // 巡回更新が終わったら現在処理するべきシーンの更新をして、もしRestartを呼ぶ必要があるなら
+                CurrentScene = needUpdateScene;
+                if (needCallRestart)
                 {
-                    // Updateを呼ぶべきシーンとして覚えて次へ
-                    needUpdateScene = sceneManagementContext.Scene;
-                    continue;
+                    // Restartを叩く
+                    CurrentScene.Restart();
                 }
+
+
+                // もう更新の必要はないとする
+                needUpdateReferenceCurrentScene = false;
             }
-
-
-            // 巡回更新が終わったら現在処理するべきシーンの更新をする
-            CurrentScene = needUpdateScene;
 
 
             // Updateを呼ぶべきシーンが存在するなら
@@ -314,6 +339,15 @@ namespace IceMilkTea.Service
                     {
                         // 破棄処理を呼ぶ
                         sceneManagementContextList[i].Scene.Terminate();
+                    }
+
+
+                    // もし現在のシーンと同じなら
+                    if (sceneManagementContextList[i].Scene == CurrentScene)
+                    {
+                        // 現在のシーンの参照をすてて参照を更新する必要があることを示す
+                        CurrentScene = null;
+                        needUpdateReferenceCurrentScene = true;
                     }
 
 
@@ -409,6 +443,10 @@ namespace IceMilkTea.Service
                 Scene = scene,
                 State = SceneState.Ready,
             });
+
+
+            // 現在の動作シーンの参照を更新する必要があることを示す
+            needUpdateReferenceCurrentScene = true;
         }
 
 
