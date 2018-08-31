@@ -27,6 +27,7 @@ namespace IceMilkTea.Service
 
 
 
+    #region サービス本体
     /// <summary>
     /// Unityのゲームアセットを読み込む機能を提供するサービスクラスです
     /// </summary>
@@ -163,6 +164,7 @@ namespace IceMilkTea.Service
             cacheStorage.StoreAssetCache(assetId, asset);
         }
     }
+    #endregion
 
 
 
