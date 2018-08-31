@@ -32,6 +32,9 @@ namespace IceMilkTea.Service
     /// </summary>
     public class AssetLoadService : GameService
     {
+        // 定数定義
+        public const string AssetScheme = "asset";
+
         // メンバ変数定義
         private Crc64TextCoder textCoder;
         private AssetCacheStorage cacheStorage;
@@ -87,12 +90,21 @@ namespace IceMilkTea.Service
         /// <param name="progress">アセットのロード進捗通知を受ける IProgress</param>
         /// <returns>アセットの非同期ロードを待機するインスタンスを返します</returns>
         /// <exception cref="ArgumentException">uriString（assetUrl） が null です</exception>
+        /// <exception cref="ArgumentException">アセットロードサービスは asset スキーム以外のURLは処理を受け付けていません</exception>
         /// <exception cref="UriFormatException">指定されたアセットURLのフォーマットが正しくありません</exception>
         /// <exception cref="InvalidOperationException">指定されたアセットURLからアセットをロードが出来ませんでした</exception>
         public IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(string assetUrl, IProgress<float> progress) where TAssetType : UnityAsset
         {
             // URIを生成する（assetUrl引数にまつわる例外はURIに委ねる）
             var url = new Uri(assetUrl);
+
+
+            // もし asset スキームでは無いのなら
+            if (url.Scheme != AssetScheme)
+            {
+                // assetスキーム以外は現在受け付けない
+                throw new ArgumentException("アセットロードサービスは asset スキーム以外のURLは処理を受け付けていません");
+            }
 
 
             // URLからIDを作る
