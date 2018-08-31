@@ -172,6 +172,9 @@ namespace IceMilkTea.Service
     /// </summary>
     internal class AssetCacheStorage
     {
+        // 定数定義
+        private const int DefaultCacheEntryCapacity = 1 << 10;
+
         // メンバ変数定義
         private Dictionary<ulong, WeakUnityAsset> assetCacheTable;
 
@@ -183,7 +186,7 @@ namespace IceMilkTea.Service
         public AssetCacheStorage()
         {
             // キャッシュテーブルを生成する
-            assetCacheTable = new Dictionary<ulong, WeakUnityAsset>();
+            assetCacheTable = new Dictionary<ulong, WeakUnityAsset>(DefaultCacheEntryCapacity);
         }
 
 
@@ -244,6 +247,10 @@ namespace IceMilkTea.Service
                 assetReference.SetTarget(asset);
                 return;
             }
+
+
+            // そもそもレコードすら無いのなら新規で追加する
+            assetCacheTable[assetId] = new WeakUnityAsset(asset);
         }
     }
     #endregion
