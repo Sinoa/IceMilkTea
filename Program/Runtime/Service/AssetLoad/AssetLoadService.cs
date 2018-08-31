@@ -445,8 +445,8 @@ namespace IceMilkTea.Service
         /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
-            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す
-            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath).ToAwaitable<TAssetType>(progress);
+            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す（LocalPathの先頭はスラッシュが入っているので除去）
+            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath.TrimStart('/')).ToAwaitable<TAssetType>(progress);
         }
     }
 
