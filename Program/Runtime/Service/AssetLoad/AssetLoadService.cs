@@ -220,4 +220,86 @@ namespace IceMilkTea.Service
         public abstract IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress);
     }
     #endregion
+
+
+
+    #region AssetLoaderResolverの実体
+    /// <summary>
+    /// UnityのResourcesからアセットをロードするローダを解決するクラスです
+    /// </summary>
+    public class ResourcesAssetLoaderResolver : AssetLoaderResolver
+    {
+        public override AssetLoader GetLoader(ulong assetId, Uri assetUrl)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+
+
+    /// <summary>
+    /// Unityのファイル状になっているアセットバンドルからアセットをロードするローダを解決するクラスです
+    /// </summary>
+    public class FileAssetBundleAssetLoaderResolver : AssetLoaderResolver
+    {
+        public override AssetLoader GetLoader(ulong assetId, Uri assetUrl)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+
+
+    /// <summary>
+    /// IceMilkTeaArchiveからアセットをロードするローダを解決するクラスです
+    /// </summary>
+    public class ImtArchiveLoaderResolver : AssetLoaderResolver
+    {
+        public override AssetLoader GetLoader(ulong assetId, Uri assetUrl)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
+
+
+
+    #region AssetLoaderの実体
+    /// <summary>
+    /// UnityのResourcesからアセットをロードするローダクラスです
+    /// </summary>
+    public class ResourcesAssetLoader : AssetLoader
+    {
+        public override IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+
+
+    /// <summary>
+    /// Unityのファイル状アセットバンドルからアセットをロードするローダクラスです
+    /// </summary>
+    public class FileAssetBundleAssetLoader : AssetLoader
+    {
+        public override IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+
+
+    /// <summary>
+    /// IceMilkTeaArchiveからアセットをロードするローダクラスです
+    /// </summary>
+    public class ImtArchiveAssetLoader : AssetLoader
+    {
+        public override IAwaitable<UnityAsset> LoadAssetAsync(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
 }
