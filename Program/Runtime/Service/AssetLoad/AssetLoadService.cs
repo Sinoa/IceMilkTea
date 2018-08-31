@@ -166,6 +166,16 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// AssetCacheStorage のインスタンスを初期化します
+        /// </summary>
+        public AssetCacheStorage()
+        {
+            // キャッシュテーブルを生成する
+            assetCacheTable = new Dictionary<ulong, WeakUnityAsset>();
+        }
+
+
+        /// <summary>
         /// 指定されたアセットIDから、キャッシュ済みアセットの取得をします。
         /// </summary>
         /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
