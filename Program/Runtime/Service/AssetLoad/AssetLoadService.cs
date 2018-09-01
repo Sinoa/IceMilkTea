@@ -506,7 +506,7 @@ namespace IceMilkTea.Service
 
 
 
-    #region AssetLoaderResolverの実体
+    #region Resolver&Loader Resources
     /// <summary>
     /// UnityのResourcesからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -554,6 +554,30 @@ namespace IceMilkTea.Service
 
 
 
+    /// <summary>
+    /// UnityのResourcesからアセットをロードするローダクラスです
+    /// </summary>
+    public class ResourcesAssetLoader : AssetLoader
+    {
+        /// <summary>
+        /// 指定されたアセットIDと、アセットURLからアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
+        public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
+        {
+            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す（LocalPathの先頭はスラッシュが入っているので除去）
+            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath.TrimStart('/')).ToAwaitable<TAssetType>(progress);
+        }
+    }
+    #endregion
+
+
+
+    #region Resolver&Loader AssetBundle
     /// <summary>
     /// Unityのファイル状になっているアセットバンドルからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -660,43 +684,6 @@ namespace IceMilkTea.Service
         {
             // 指示されたアセットバンドルIDのレコードを削除する
             loaderTable.Remove(assetBundleId);
-        }
-    }
-
-
-
-    /// <summary>
-    /// IceMilkTeaArchiveからアセットをロードするローダを解決するクラスです
-    /// </summary>
-    public class ImtArchiveLoaderResolver : AssetLoaderResolver
-    {
-        public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
-        {
-            throw new NotImplementedException();
-        }
-    }
-    #endregion
-
-
-
-    #region AssetLoaderの実体
-    /// <summary>
-    /// UnityのResourcesからアセットをロードするローダクラスです
-    /// </summary>
-    public class ResourcesAssetLoader : AssetLoader
-    {
-        /// <summary>
-        /// 指定されたアセットIDと、アセットURLからアセットを非同期でロードします
-        /// </summary>
-        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
-        /// <param name="assetId">読み込むアセットID</param>
-        /// <param name="assetUrl">読み込むアセットURL</param>
-        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
-        /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
-        public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
-        {
-            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す（LocalPathの先頭はスラッシュが入っているので除去）
-            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath.TrimStart('/')).ToAwaitable<TAssetType>(progress);
         }
     }
 
@@ -833,6 +820,21 @@ namespace IceMilkTea.Service
             assetBundle = null;
         }
     }
+    #endregion
+
+
+
+    #region Resolver&Loader ImtArchive
+    /// <summary>
+    /// IceMilkTeaArchiveからアセットをロードするローダを解決するクラスです
+    /// </summary>
+    public class ImtArchiveLoaderResolver : AssetLoaderResolver
+    {
+        public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
+        {
+            throw new NotImplementedException();
+        }
+    }
 
 
 
@@ -850,7 +852,7 @@ namespace IceMilkTea.Service
 
 
 
-    #region AssetCleaner
+    #region アセットクリーナ
     /// <summary>
     /// アセットのクリーンアップを行うクラスです
     /// </summary>
