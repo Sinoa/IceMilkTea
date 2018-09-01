@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using IceMilkTea.Core;
 using UnityEngine;
 
@@ -61,7 +62,6 @@ namespace IceMilkTea.Service
         public const string AssetScheme = "asset";
 
         // メンバ変数定義
-        private Crc64TextCoder textCoder;
         private AssetCacheStorage cacheStorage;
         private AssetLoaderProvider loaderProvider;
         private AssetCleaner assetCleaner;
@@ -74,7 +74,6 @@ namespace IceMilkTea.Service
         public AssetLoadService()
         {
             // 各種サブシステムの初期化
-            textCoder = new Crc64TextCoder();
             cacheStorage = new AssetCacheStorage();
             loaderProvider = new AssetLoaderProvider();
             assetCleaner = new AssetCleaner(cacheStorage);
@@ -135,7 +134,7 @@ namespace IceMilkTea.Service
 
 
             // URLからIDを作る
-            var assetId = textCoder.GetCode(assetUrl);
+            var assetId = assetUrl.ToCrc64Code();
 
 
             // キャッシュストレージにキャッシュがあるか取得をして、取得出来たのなら
@@ -532,7 +531,7 @@ namespace IceMilkTea.Service
         /// <returns>対応可能なアセットローダが存在した場合は、インスタンスを返しますが、見つからない場合は null を返します</returns>
         public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
         {
-            // ホスト名部分がResourcesローダー系の物でないなら
+            // ホスト名部分がResourcesローダ系の物でないなら
             if (assetUrl.Host != ResourcesHostName)
             {
                 // 残念ながら対応出来ない
@@ -552,9 +551,106 @@ namespace IceMilkTea.Service
     /// </summary>
     public class FileAssetBundleAssetLoaderResolver : AssetLoaderResolver
     {
+        // 定数定義
+        private const string AssetBundleHostName = "assetbundle";
+
+        // メンバ変数定義
+        private Dictionary<ulong, AssetLoader> loaderTable;
+        private string baseDirectoryPath;
+
+
+
+        /// <summary>
+        /// FileAssetBundleAssetLoaderResolver のインスタンスを初期化します
+        /// </summary>
+        /// <param name="assetBundleDirectoryBasePath">アセットバンドルが格納されているルートとなるディレクトリパス</param>
+        public FileAssetBundleAssetLoaderResolver(string assetBundleDirectoryBasePath)
+        {
+            // 初期化する
+            loaderTable = new Dictionary<ulong, AssetLoader>();
+            baseDirectoryPath = assetBundleDirectoryBasePath;
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットIDとURLから必要なローダを取得します
+        /// </summary>
+        /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
+        /// <param name="assetId">ロード要求されているアセットID</param>
+        /// <param name="assetUrl">ロード要求されているアセットURL</param>
+        /// <returns>対応可能なアセットローダが存在した場合は、インスタンスを返しますが、見つからない場合は null を返します</returns>
         public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
         {
-            throw new NotImplementedException();
+            // ホスト名部分がAssetBundleローダ系の物でないなら
+            if (assetUrl.Host != AssetBundleHostName)
+            {
+                // 残念ながら対応できない
+                return null;
+            }
+
+
+            // 開くべきアセットバンドルのファイルパスを取得してアセットバンドルIDも作る
+            var assetBundleFilePath = GetAssetBundleFilePath(assetUrl);
+            var assetBundleId = assetBundleFilePath.ToCrc64Code();
+
+
+            // もし、アセットバンドルファイルパスが空文字列として来たのなら
+            if (string.IsNullOrWhiteSpace(assetBundleFilePath))
+            {
+                // 自分の担当かと思ったけど、そうではなかったようだ
+                return null;
+            }
+
+
+            // 既に開いた経験のあるアセットバンドルなら
+            AssetLoader loader;
+            if (loaderTable.TryGetValue(assetBundleId, out loader))
+            {
+                // 開いたことのあるローダで返す
+                return loader;
+            }
+
+
+            // 開いたことが無いなら新しくローダを生成して覚える
+            loader = new FileAssetBundleAssetLoader(this, assetBundleId);
+            loaderTable[assetBundleId] = loader;
+
+
+            // ローダを返す
+            return loader;
+        }
+
+
+        /// <summary>
+        /// アセットURLからアセットバンドルのファイルパスを取得します
+        /// </summary>
+        /// <param name="assetUrl">アセットバンドルのファイルパスを取り出すための、アセットURL</param>
+        /// <returns>取得されたアセットバンドルファイルパスを返しますが、URLが正しくない場合は空文字列を返すことがあります</returns>
+        private string GetAssetBundleFilePath(Uri assetUrl)
+        {
+            // セグメントの数が2以下なら
+            if (assetUrl.Segments.Length <= 2)
+            {
+                // アセットバンドルのファイル名が指定されていない可能性があるのでから文字列を返して諦める
+                return string.Empty;
+            }
+
+
+            // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
+            // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
+            var cutPath = assetUrl.LocalPath.Replace(assetUrl.Segments[assetUrl.Segments.Length - 1], "").Trim('/');
+            return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
+        }
+
+
+        /// <summary>
+        /// 該当のアセットバンドルIDのローダレコードの削除を要求します
+        /// </summary>
+        /// <param name="assetBundleId">削除するローダのアセットバンドルID</param>
+        internal void RequestRemoveAssetBundleLoader(ulong assetBundleId)
+        {
+            // 指示されたアセットバンドルIDのレコードを削除する
+            loaderTable.Remove(assetBundleId);
         }
     }
 
@@ -601,9 +697,56 @@ namespace IceMilkTea.Service
     /// </summary>
     public class FileAssetBundleAssetLoader : AssetLoader
     {
+        // 定数定義
+        private const string QueryBaseKeyName = "base";
+
+        // メンバ変数定義
+        private ulong assetBundleId;
+        private FileAssetBundleAssetLoaderResolver resolver;
+        private Dictionary<string, string> uriQueryBufferTable;
+
+
+
+        public FileAssetBundleAssetLoader(FileAssetBundleAssetLoaderResolver resolver, ulong assetBundleId)
+        {
+            this.resolver = resolver;
+            this.assetBundleId = assetBundleId;
+            uriQueryBufferTable = new Dictionary<string, string>();
+        }
+
+
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
             throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// アセットURLからアセット名を取得します
+        /// </summary>
+        /// <param name="assetUrl">アセット名を取り出すための、アセットURL</param>
+        /// <returns>取得されたアセット名を返します</returns>
+        private string GetAssetName(Uri assetUrl)
+        {
+            // URLの最後のセグメントがアセット名の一部になるので取得する
+            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
+
+
+            // まずはURLからクエリテーブルを取り出す
+            uriQueryBufferTable.Clear();
+            assetUrl.ToQueryDictionary(uriQueryBufferTable);
+
+
+            // もし base キーのクエリがある場合は
+            if (uriQueryBufferTable.ContainsKey(QueryBaseKeyName))
+            {
+                // 結合する
+                assetName = Path.Combine(uriQueryBufferTable[QueryBaseKeyName], assetName).Replace('\\', '/');
+            }
+
+
+            // 最終的なアセット名を返す
+            return assetName;
         }
     }
 
