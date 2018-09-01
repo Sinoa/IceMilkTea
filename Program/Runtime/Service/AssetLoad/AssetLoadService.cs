@@ -638,7 +638,8 @@ namespace IceMilkTea.Service
 
             // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
             // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
-            var cutPath = assetUrl.LocalPath.Replace(assetUrl.Segments[assetUrl.Segments.Length - 1], "").Trim('/');
+            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
+            var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
             return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
         }
 
