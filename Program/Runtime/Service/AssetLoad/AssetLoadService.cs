@@ -64,6 +64,7 @@ namespace IceMilkTea.Service
         private Crc64TextCoder textCoder;
         private AssetCacheStorage cacheStorage;
         private AssetLoaderProvider loaderProvider;
+        private AssetCleaner assetCleaner;
 
 
 
@@ -72,10 +73,11 @@ namespace IceMilkTea.Service
         /// </summary>
         public AssetLoadService()
         {
-            // テキストコーダ、キャッシュストレージ、ローダプロバイダの初期化
+            // 各種サブシステムの初期化
             textCoder = new Crc64TextCoder();
             cacheStorage = new AssetCacheStorage();
             loaderProvider = new AssetLoaderProvider();
+            assetCleaner = new AssetCleaner(cacheStorage);
         }
 
 
@@ -174,7 +176,8 @@ namespace IceMilkTea.Service
         /// <returns>クリーンアップを待機するインスタンスを返します</returns>
         public IAwaitable AssetCleanupAsync(AssetCleanupAggressiveLevel level)
         {
-            throw new NotImplementedException();
+            // クリーナのクリーンアップ関数を叩く
+            return assetCleaner.AssetCleanupAsync(level);
         }
 
 
@@ -620,14 +623,68 @@ namespace IceMilkTea.Service
 
 
 
-    #region AssetClearWorker
+    #region AssetCleaner
     /// <summary>
-    /// 待機可能な、度合いが最も低いレベルアセットクリーンアップクラスです
+    /// アセットのクリーンアップを行うクラスです
     /// </summary>
-    internal class AssetCleanupLowLevelAwaitable : ImtAwaitableUpdateBehaviour
+    internal class AssetCleaner
     {
         // メンバ変数定義
-        private AssetCacheStorage assetCacheStorage;
+        private AssetCleanupAwaitable[] cleanupAwaitables;
+
+
+
+        /// <summary>
+        /// AssetCleaner のインスタンスを初期化します
+        /// </summary>
+        /// <param name="cacheStorate">クリーンアップ対象になるキャッシュストレージ</param>
+        public AssetCleaner(AssetCacheStorage cacheStorate)
+        {
+            // 各レベル毎のクリーンアップ待機可能クラスのインスタンスを生成
+            cleanupAwaitables = new AssetCleanupAwaitable[3];
+            cleanupAwaitables[(int)AssetCleanupAggressiveLevel.Low] = new AssetCleanupLowLevelAwaitable(cacheStorate);
+            cleanupAwaitables[(int)AssetCleanupAggressiveLevel.Normal] = new AssetCleanupNormalLevelAwaitable(cacheStorate);
+            cleanupAwaitables[(int)AssetCleanupAggressiveLevel.High] = new AssetCleanupHighLevelAwaitable(cacheStorate);
+        }
+
+
+        /// <summary>
+        /// 不要になったアセットなどを意図的にクリーンアップを非同期的に実行します。
+        /// また、非同期動作中にこの関数を操作しても、動作中のクリーンアップが終わるまでは
+        /// 指定された、度合いのクリーンアップは行われません。
+        /// </summary>
+        /// <param name="level">アセットクリーンアップの度合いを指定します。度合いが高いほどクリーンアップに時間がかかります。</param>
+        /// <returns>クリーンアップを待機するインスタンスを返しますが、既に非同期操作中のクリーンがある場合は、その待機クラスのインスタンスを返します。</returns>
+        public IAwaitable AssetCleanupAsync(AssetCleanupAggressiveLevel level)
+        {
+            // クリーンアップレベル分回る
+            foreach (var cleanupAwaitable in cleanupAwaitables)
+            {
+                // 既に動作中なら
+                if (cleanupAwaitable.IsRunning)
+                {
+                    // この動作中の待機クラスを返す
+                    return cleanupAwaitable;
+                }
+            }
+
+
+            // 指定されたレベルのクリーンアップを開始して返す
+            return cleanupAwaitables[(int)level].Run();
+        }
+    }
+    #endregion
+
+
+
+    #region AssetClearWorker
+    /// <summary>
+    /// 待機可能な、アセットクリーンアップ抽象クラスです
+    /// </summary>
+    internal abstract class AssetCleanupAwaitable : ImtAwaitableUpdateBehaviour
+    {
+        // メンバ変数定義
+        protected AssetCacheStorage assetCacheStorage;
 
 
 
@@ -635,10 +692,24 @@ namespace IceMilkTea.Service
         /// AssetCleanupLowLevelAwaitable のインスタンスを初期化します
         /// </summary>
         /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
-        public AssetCleanupLowLevelAwaitable(AssetCacheStorage storage)
+        public AssetCleanupAwaitable(AssetCacheStorage storage)
         {
-            // 受け取る
-            assetCacheStorage = storage;
+        }
+    }
+
+
+
+    /// <summary>
+    /// 待機可能な、度合いが最も低いレベルアセットクリーンアップクラスです
+    /// </summary>
+    internal class AssetCleanupLowLevelAwaitable : AssetCleanupAwaitable
+    {
+        /// <summary>
+        /// AssetCleanupLowLevelAwaitable のインスタンスを初期化します
+        /// </summary>
+        /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
+        public AssetCleanupLowLevelAwaitable(AssetCacheStorage storage) : base(storage)
+        {
         }
 
 
@@ -653,6 +724,38 @@ namespace IceMilkTea.Service
 
             // この低レベルクリーンアップは数フレーム掛けて処理するものはないので直ちに完了する
             SetSignalWithCompleted();
+        }
+    }
+
+
+
+    /// <summary>
+    /// 待機可能な、度合いが通常のレベルアセットクリーンアップクラスです
+    /// </summary>
+    internal class AssetCleanupNormalLevelAwaitable : AssetCleanupAwaitable
+    {
+        /// <summary>
+        /// AssetCleanupNormalLevelAwaitable のインスタンスを初期化します
+        /// </summary>
+        /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
+        public AssetCleanupNormalLevelAwaitable(AssetCacheStorage storage) : base(storage)
+        {
+        }
+    }
+
+
+
+    /// <summary>
+    /// 待機可能な、度合いが最も高いレベルアセットクリーンアップクラスです
+    /// </summary>
+    internal class AssetCleanupHighLevelAwaitable : AssetCleanupAwaitable
+    {
+        /// <summary>
+        /// AssetCleanupHighLevelAwaitable のインスタンスを初期化します
+        /// </summary>
+        /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
+        public AssetCleanupHighLevelAwaitable(AssetCacheStorage storage) : base(storage)
+        {
         }
     }
     #endregion
