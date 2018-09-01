@@ -612,7 +612,7 @@ namespace IceMilkTea.Service
 
 
             // 開いたことが無いなら新しくローダを生成して覚える
-            loader = new FileAssetBundleAssetLoader(this, assetBundleId);
+            loader = new FileAssetBundleAssetLoader(assetBundleFilePath);
             loaderTable[assetBundleId] = loader;
 
 
@@ -679,6 +679,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたアセットIDと、アセットURLからアセットを非同期でロードします
         /// </summary>
+        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
         /// <param name="assetId">読み込むアセットID</param>
         /// <param name="assetUrl">読み込むアセットURL</param>
         /// <param name="progress">ロード進捗通知を受ける IProgress</param>
@@ -701,23 +702,73 @@ namespace IceMilkTea.Service
         private const string QueryBaseKeyName = "base";
 
         // メンバ変数定義
-        private ulong assetBundleId;
-        private FileAssetBundleAssetLoaderResolver resolver;
+        private string assetBundlePath;
+        private AssetBundle assetBundle;
         private Dictionary<string, string> uriQueryBufferTable;
+        private List<ulong> loadedAssetIdList;
 
 
 
-        public FileAssetBundleAssetLoader(FileAssetBundleAssetLoaderResolver resolver, ulong assetBundleId)
+        /// <summary>
+        /// FileAssetBundleAssetLoader のインスタンスを初期化します
+        /// </summary>
+        /// <param name="assetBundlePath">このローダが担当するアセットバンドルのファイルパス</param>
+        public FileAssetBundleAssetLoader(string assetBundlePath)
         {
-            this.resolver = resolver;
-            this.assetBundleId = assetBundleId;
+            // 初期化をする
+            this.assetBundlePath = assetBundlePath;
             uriQueryBufferTable = new Dictionary<string, string>();
+            loadedAssetIdList = new List<ulong>();
         }
 
 
+        /// <summary>
+        /// 指定されたアセットIDと、アセットURLからアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
-            throw new NotImplementedException();
+            // ロード完了待機ハンドルを生成して実際のロードを非同期で行い、ひとまずハンドルをすぐに返す
+            var waitHandle = new ImtAwaitableManualReset<TAssetType>(false);
+            DoAssetLoadAsync(assetId, assetUrl, progress, waitHandle);
+            return waitHandle;
+        }
+
+
+        /// <summary>
+        /// 実際の非同期ロードを行います
+        /// </summary>
+        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        private async void DoAssetLoadAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress, ImtAwaitableManualReset<TAssetType> waitHandle) where TAssetType : UnityAsset
+        {
+            // もしまだアセットバンドルが開かれていなかったら
+            if (assetBundle == null)
+            {
+                // アセットバンドルを非同期で開く
+                assetBundle = await AssetBundle.LoadFromFileAsync(assetBundlePath).ToAwaitable(progress);
+            }
+
+
+            // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+            var asset = await assetBundle.LoadAssetAsync<TAssetType>(GetAssetName(assetUrl)).ToAwaitable<TAssetType>(progress);
+            if (asset == null)
+            {
+                // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                waitHandle.Set(null);
+                return;
+            }
+
+
+            // 読み込めたのならアセットIDを覚えて、待機ハンドルに結果付きでシグナルを送る
+            loadedAssetIdList.Add(assetId);
+            waitHandle.Set(asset);
         }
 
 
@@ -747,6 +798,30 @@ namespace IceMilkTea.Service
 
             // 最終的なアセット名を返す
             return assetName;
+        }
+
+
+        /// <summary>
+        /// キャッシュストレージから、このローダが読み込んだアセットのキャッシュが消失した通知のハンドリングを行います
+        /// </summary>
+        /// <param name="assetId">消失したアセットのID</param>
+        public override void OnCacheLost(ulong assetId)
+        {
+            // ロードしたアセットリストから該当のIDを削除
+            loadedAssetIdList.Remove(assetId);
+
+
+            // もし読み込んだアセットのリストがまだ空では無いなら
+            if (loadedAssetIdList.Count > 0)
+            {
+                // まだ何もしない
+                return;
+            }
+
+
+            // リストが空になったのなら、一度アセットバンドルは閉じる
+            assetBundle.Unload(false);
+            assetBundle = null;
         }
     }
 
