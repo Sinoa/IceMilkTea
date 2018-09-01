@@ -694,6 +694,8 @@ namespace IceMilkTea.Service
         /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
         public AssetCleanupAwaitable(AssetCacheStorage storage)
         {
+            // 受け取る
+            assetCacheStorage = storage;
         }
     }
 
