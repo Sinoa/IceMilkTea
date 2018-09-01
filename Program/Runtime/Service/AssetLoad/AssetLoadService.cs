@@ -30,23 +30,23 @@ namespace IceMilkTea.Service
     /// <summary>
     /// アセットクリーンアップの度合いを表現します
     /// </summary>
-    public enum AssetCleanupAggressiveLevel
+    public enum AssetCleanupAggressiveLevel : int
     {
         /// <summary>
         /// キャッシュの消失チェックと、必要であればファイルクローズまでを行います。
         /// </summary>
-        Low,
+        Low = 0,
 
         /// <summary>
         /// Unityに未参照アセットのアンロード要求を行ってから、Lowと同じ事をします。
         /// </summary>
-        Normal,
+        Normal = 1,
 
         /// <summary>
         /// GCを強制的に起動、Unityに未参照アセットのアンロード要求、キャッシュ消失チェックなど
         /// 最大限のアセットクリーンアップを行います。
         /// </summary>
-        High,
+        High = 2,
     }
 
 
@@ -334,6 +334,37 @@ namespace IceMilkTea.Service
             // そもそもレコードすら無いのなら新規で追加する
             assetCacheTable[assetId] = new AssetCacheInfo(assetId, asset, loader);
         }
+
+
+        /// <summary>
+        /// 保持しているキャッシュエントリ情報をすべて確認し、未参照アセットが在った場合レコードから削除します。
+        /// また、削除されるれコードがある場合アセットローダにキャッシュが消失した通知も行います。
+        /// </summary>
+        internal void DoCleanupUnreferencedAssets()
+        {
+            // キャッシュテーブルの値の数分ループして削除されるべきIDを列挙する
+            var removeAssetIdList = new List<ulong>(assetCacheTable.Count);
+            foreach (var cacheEntry in assetCacheTable.Values)
+            {
+                // アセットの参照が取り出せなかったら
+                UnityAsset asset;
+                if (!cacheEntry.AssetReference.TryGetTarget(out asset))
+                {
+                    // 削除されるべき対象としてIDを覚える
+                    removeAssetIdList.Add(cacheEntry.AssetId);
+                }
+            }
+
+
+            // キャッシュエントリ削除の対象分回る
+            foreach (var removeAssetId in removeAssetIdList)
+            {
+                // 該当のレコードを取り出してキャッシュ消失通知を行い削除する
+                var cacheEntry = assetCacheTable[removeAssetId];
+                cacheEntry.AssetLoader.OnCacheLost(removeAssetId);
+                assetCacheTable.Remove(removeAssetId);
+            }
+        }
     }
     #endregion
 
@@ -590,5 +621,39 @@ namespace IceMilkTea.Service
 
 
     #region AssetClearWorker
+    /// <summary>
+    /// 待機可能な、度合いが最も低いレベルアセットクリーンアップクラスです
+    /// </summary>
+    internal class AssetCleanupLowLevelAwaitable : ImtAwaitableUpdateBehaviour
+    {
+        // メンバ変数定義
+        private AssetCacheStorage assetCacheStorage;
+
+
+
+        /// <summary>
+        /// AssetCleanupLowLevelAwaitable のインスタンスを初期化します
+        /// </summary>
+        /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
+        public AssetCleanupLowLevelAwaitable(AssetCacheStorage storage)
+        {
+            // 受け取る
+            assetCacheStorage = storage;
+        }
+
+
+        /// <summary>
+        /// 待機可能クラスの更新を開始します
+        /// </summary>
+        protected internal override void Start()
+        {
+            // キャッシュストレージに未参照の解放をお願いする
+            assetCacheStorage.DoCleanupUnreferencedAssets();
+
+
+            // この低レベルクリーンアップは数フレーム掛けて処理するものはないので直ちに完了する
+            SetSignalWithCompleted();
+        }
+    }
     #endregion
 }
