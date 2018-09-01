@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using IceMilkTea.Core;
+using IceMilkTea.Module;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -674,17 +675,6 @@ namespace IceMilkTea.Service
             var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
             return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
         }
-
-
-        /// <summary>
-        /// 該当のアセットバンドルIDのローダレコードの削除を要求します
-        /// </summary>
-        /// <param name="assetBundleId">削除するローダのアセットバンドルID</param>
-        internal void RequestRemoveAssetBundleLoader(ulong assetBundleId)
-        {
-            // 指示されたアセットバンドルIDのレコードを削除する
-            loaderTable.Remove(assetBundleId);
-        }
     }
 
 
@@ -830,9 +820,96 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ImtArchiveLoaderResolver : AssetLoaderResolver
     {
+        // 定数定義
+        private const string ImtArchiveHostName = "imtarchive";
+
+        // メンバ変数定義
+        private Dictionary<ulong, AssetLoader> loaderTable;
+        private string baseDirectoryPath;
+
+
+
+        /// <summary>
+        /// ImtArchiveLoaderResolver のインスタンスを初期化します
+        /// </summary>
+        /// <param name="archiveDirectoryPath">アーカイブが保存されるディレクトリパス</param>
+        public ImtArchiveLoaderResolver(string archiveDirectoryPath)
+        {
+            // 初期化する
+            loaderTable = new Dictionary<ulong, AssetLoader>();
+            baseDirectoryPath = archiveDirectoryPath;
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットIDとURLから必要なローダを取得します
+        /// </summary>
+        /// <typeparam name="TAssetType">取得するアセットの型</typeparam>
+        /// <param name="assetId">ロード要求されているアセットID</param>
+        /// <param name="assetUrl">ロード要求されているアセットURL</param>
+        /// <returns>対応可能なアセットローダが存在した場合は、インスタンスを返しますが、見つからない場合は null を返します</returns>
         public override AssetLoader GetLoader<TAssetType>(ulong assetId, Uri assetUrl)
         {
-            throw new NotImplementedException();
+            // ホスト名部分がImtArchiveローダ系の物でないなら
+            if (assetUrl.Host != ImtArchiveHostName)
+            {
+                // 残念ながら対応出来ない
+                return null;
+            }
+
+
+            // 開くべきアーカイブファイルパスを取得してアーカイブIDも作る
+            var archivePath = GetArchiveFilePath(assetUrl);
+            var archiveId = archivePath.ToCrc64Code();
+
+
+            // もし、アーカイブパスが空文字列として来たのなら
+            if (string.IsNullOrWhiteSpace(archivePath))
+            {
+                // 自分の担当かと思ったけど、そうではなかったようだ
+                return null;
+            }
+
+
+            // 既に開いた経験のあるローダなら
+            AssetLoader loader;
+            if (loaderTable.TryGetValue(archiveId, out loader))
+            {
+                // 開いたことのあるローダで返す
+                return loader;
+            }
+
+
+            // 開いたことが無いなら新しくローダを生成して覚える
+            loader = new ImtArchiveAssetLoader(archivePath);
+            loaderTable[archiveId] = loader;
+
+
+            // ローダを返す
+            return loader;
+        }
+
+
+        /// <summary>
+        /// アセットURLからアーカイブのファイルパスを取得します
+        /// </summary>
+        /// <param name="assetUrl">アーカイブのファイルパスを取り出すための、アセットURL</param>
+        /// <returns>取得されたアーカイブパスを返しますが、URLが正しくない場合は空文字列を返すことがあります</returns>
+        private string GetArchiveFilePath(Uri assetUrl)
+        {
+            // セグメントの数が2以下なら
+            if (assetUrl.Segments.Length <= 2)
+            {
+                // ファイル名が指定されていない可能性があるのでから文字列を返して諦める
+                return string.Empty;
+            }
+
+
+            // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
+            // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
+            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
+            var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
+            return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
         }
     }
 
@@ -843,6 +920,17 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ImtArchiveAssetLoader : AssetLoader
     {
+        // メンバ変数定義
+        private string archivePath;
+        private ImtArchive archive;
+
+
+
+        public ImtArchiveAssetLoader(string archivePath)
+        {
+        }
+
+
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
             throw new NotImplementedException();
