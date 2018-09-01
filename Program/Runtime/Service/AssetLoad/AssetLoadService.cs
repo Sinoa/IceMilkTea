@@ -718,11 +718,8 @@ namespace IceMilkTea.Service
         /// </summary>
         protected internal override void Start()
         {
-            // キャッシュストレージに未参照の解放をお願いする
+            // キャッシュストレージに未参照の解放をお願いして作業は完了
             assetCacheStorage.DoCleanupUnreferencedAssets();
-
-
-            // この低レベルクリーンアップは数フレーム掛けて処理するものはないので直ちに完了する
             SetSignalWithCompleted();
         }
     }
@@ -741,6 +738,21 @@ namespace IceMilkTea.Service
         public AssetCleanupNormalLevelAwaitable(AssetCacheStorage storage) : base(storage)
         {
         }
+
+
+        /// <summary>
+        /// 待機可能クラスの更新を開始します
+        /// </summary>
+        protected internal override async void Start()
+        {
+            // まずはUnityのリソース解放関数を叩いて待機
+            await Resources.UnloadUnusedAssets();
+
+
+            // キャッシュストレージに未参照の解放をお願いして作業は完了
+            assetCacheStorage.DoCleanupUnreferencedAssets();
+            SetSignalWithCompleted();
+        }
     }
 
 
@@ -750,12 +762,42 @@ namespace IceMilkTea.Service
     /// </summary>
     internal class AssetCleanupHighLevelAwaitable : AssetCleanupAwaitable
     {
+        // メンバ変数定義
+        private ImtTask gcTask;
+
+
+
         /// <summary>
         /// AssetCleanupHighLevelAwaitable のインスタンスを初期化します
         /// </summary>
         /// <param name="storage">クリーンアップ時にキャッシュクリーンアップを対応するストレージ</param>
         public AssetCleanupHighLevelAwaitable(AssetCacheStorage storage) : base(storage)
         {
+            // GCを起動するためのタスクを生成する
+            gcTask = new ImtTask(_ => GC.Collect());
+        }
+
+
+        /// <summary>
+        /// 待機可能クラスの更新を開始します
+        /// </summary>
+        protected internal override async void Start()
+        {
+            // 本来はこの関数は多重呼び出しされないはずだが、念の為GCタスクが動作していないことを確認
+            if (!gcTask.IsRunning)
+            {
+                // GCタスクを後ろで実行して待機する
+                await gcTask.Run(ImtAwaitableUpdateBehaviourScheduler.GetThreadPoolScheduler());
+            }
+
+
+            // まずはUnityのリソース解放関数を叩いて待機
+            await Resources.UnloadUnusedAssets();
+
+
+            // キャッシュストレージに未参照の解放をお願いして作業は完了
+            assetCacheStorage.DoCleanupUnreferencedAssets();
+            SetSignalWithCompleted();
         }
     }
     #endregion
