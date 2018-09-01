@@ -115,21 +115,17 @@ namespace IceMilkTea.Service
         /// <param name="assetUrl">ロードするアセットのURL</param>
         /// <param name="progress">アセットのロード進捗通知を受ける IProgress</param>
         /// <returns>アセットの非同期ロードを待機するインスタンスを返します</returns>
-        /// <exception cref="ArgumentException">uriString（assetUrl） が null です</exception>
+        /// <exception cref="ArgumentException">assetUrl が null です</exception>
         /// <exception cref="ArgumentException">アセットロードサービスは asset スキーム以外のURLは処理を受け付けていません</exception>
         /// <exception cref="UriFormatException">指定されたアセットURLのフォーマットが正しくありません</exception>
         /// <exception cref="InvalidOperationException">指定されたアセットURLからアセットをロードが出来ませんでした</exception>
         public IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(string assetUrl, IProgress<float> progress) where TAssetType : UnityAsset
         {
-            // URIを生成する（assetUrl引数にまつわる例外はURIに委ねる）
-            var url = new Uri(assetUrl);
-
-
-            // もし asset スキームでは無いのなら
-            if (url.Scheme != AssetScheme)
+            // assetUrlがnullなら
+            if (assetUrl == null)
             {
-                // assetスキーム以外は現在受け付けない
-                throw new ArgumentException("アセットロードサービスは asset スキーム以外のURLは処理を受け付けていません");
+                // 何を読み込めばよいのですか
+                throw new ArgumentNullException(nameof(assetUrl));
             }
 
 
@@ -146,6 +142,18 @@ namespace IceMilkTea.Service
                 var completedAwaitable = new ImtAwaitableManualReset<TAssetType>(true);
                 completedAwaitable.PrepareResult(asset);
                 return completedAwaitable;
+            }
+
+
+            // URIを生成する
+            var url = new Uri(assetUrl);
+
+
+            // もし asset スキームでは無いのなら
+            if (url.Scheme != AssetScheme)
+            {
+                // assetスキーム以外は現在受け付けない
+                throw new ArgumentException("アセットロードサービスは asset スキーム以外のURLは処理を受け付けていません");
             }
 
 
