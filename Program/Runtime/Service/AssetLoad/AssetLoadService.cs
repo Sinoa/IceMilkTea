@@ -732,6 +732,7 @@ namespace IceMilkTea.Service
         /// <param name="assetId">読み込むアセットID</param>
         /// <param name="assetUrl">読み込むアセットURL</param>
         /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        /// <param name="waitHandle">アセットのロード完了の同期を行う待機クラスのオブジェクト</param>
         private async void DoAssetLoadAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress, ImtAwaitableManualReset<TAssetType> waitHandle) where TAssetType : UnityAsset
         {
             // もしまだアセットバンドルが開かれていなかったら
@@ -1007,6 +1008,7 @@ namespace IceMilkTea.Service
         /// <param name="assetId">読み込むアセットID</param>
         /// <param name="assetUrl">読み込むアセットURL</param>
         /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        /// <param name="waitHandle">アセットのロード完了の同期を行う待機クラスのオブジェクト</param>
         private async void DoAssetLoadAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress, ImtAwaitableManualReset<TAssetType> waitHandle) where TAssetType : UnityAsset
         {
             // アセットバンドル名とアセット名の取得してアセットバンドルIDも用意
