@@ -819,7 +819,7 @@ namespace IceMilkTea.Service
     /// <summary>
     /// IceMilkTeaArchiveからアセットをロードするローダを解決するクラスです
     /// </summary>
-    public class ImtArchiveLoaderResolver : AssetLoaderResolver
+    public class ImtArchiveAssetLoaderResolver : AssetLoaderResolver
     {
         // 定数定義
         private const string ImtArchiveHostName = "imtarchive";
@@ -831,10 +831,10 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// ImtArchiveLoaderResolver のインスタンスを初期化します
+        /// ImtArchiveAssetLoaderResolver のインスタンスを初期化します
         /// </summary>
         /// <param name="archiveDirectoryPath">アーカイブが保存されるディレクトリパス</param>
-        public ImtArchiveLoaderResolver(string archiveDirectoryPath)
+        public ImtArchiveAssetLoaderResolver(string archiveDirectoryPath)
         {
             // 初期化する
             loaderTable = new Dictionary<ulong, AssetLoader>();
