@@ -920,20 +920,161 @@ namespace IceMilkTea.Service
     /// </summary>
     public class ImtArchiveAssetLoader : AssetLoader
     {
-        // メンバ変数定義
-        private string archivePath;
-        private ImtArchive archive;
-
-
-
-        public ImtArchiveAssetLoader(string archivePath)
+        /// <summary>
+        /// アーカイブ内に含まれたアセットバンドル情報を収める構造体です
+        /// </summary>
+        private struct EntryAssetBundleInfo
         {
+            /// <summary>
+            /// 開いているアセットバンドル
+            /// </summary>
+            public AssetBundle AssetBundle { get; private set; }
+
+
+            /// <summary>
+            /// 該当アセットバンドルからロードしたアセットIDリスト
+            /// </summary>
+            public List<ulong> LoadedAssetIdList { get; private set; }
+
+
+
+            /// <summary>
+            /// EntryAssetBundleInfo のインスタンスを初期化します
+            /// </summary>
+            /// <param name="assetBundle">開かれたアセットバンドル</param>
+            public EntryAssetBundleInfo(AssetBundle assetBundle)
+            {
+                // そのまま受け取る
+                AssetBundle = assetBundle;
+                LoadedAssetIdList = new List<ulong>();
+            }
         }
 
 
+
+        // 定数定義
+        private const string QueryNameKeyName = "name";
+
+        // メンバ変数定義
+        private ImtArchive archive;
+        private Dictionary<ulong, EntryAssetBundleInfo> assetBundleTable;
+        private Dictionary<string, string> uriQueryBufferTable;
+
+
+
+        /// <summary>
+        /// ImtArchiveAssetLoader のインスタンス
+        /// </summary>
+        /// <param name="archivePath">このローダが担当するアーカイブファイルへのパス</param>
+        public ImtArchiveAssetLoader(string archivePath)
+        {
+            // この時点でアーカイブを開いておく
+            archive = new ImtArchive(archivePath);
+            if (archive.CanFetchManageData())
+            {
+                // マネージデータが読み込めるなら読み込む
+                archive.FetchManageData();
+            }
+
+
+            // アセットバンドルテーブルも初期化
+            assetBundleTable = new Dictionary<ulong, EntryAssetBundleInfo>();
+            uriQueryBufferTable = new Dictionary<string, string>();
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットIDと、アセットURLからアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
-            throw new NotImplementedException();
+            // ロード完了待機ハンドルを生成して実際のロードを非同期で行い、ひとまずハンドルをすぐに返す
+            var waitHandle = new ImtAwaitableManualReset<TAssetType>(false);
+            DoAssetLoadAsync(assetId, assetUrl, progress, waitHandle);
+            return waitHandle;
+        }
+
+
+        /// <summary>
+        /// 実際の非同期ロードを行います
+        /// </summary>
+        /// <typeparam name="TAssetType">読み込むアセットの型</typeparam>
+        /// <param name="assetId">読み込むアセットID</param>
+        /// <param name="assetUrl">読み込むアセットURL</param>
+        /// <param name="progress">ロード進捗通知を受ける IProgress</param>
+        private async void DoAssetLoadAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress, ImtAwaitableManualReset<TAssetType> waitHandle) where TAssetType : UnityAsset
+        {
+            // アセットバンドル名とアセット名の取得してアセットバンドルIDも用意
+            var assetBundleName = GetAssetBundleName(assetUrl);
+            var assetName = GetAssetName(assetUrl);
+            var assetBundleId = assetBundleName.ToCrc64Code();
+
+
+            // もしまだアセットバンドルが開かれていなかったら
+            EntryAssetBundleInfo info;
+            if (!assetBundleTable.TryGetValue(assetBundleId, out info))
+            {
+                // アセットバンドルのエントリIDを計算してアセットバンドルを非同期で開く
+                var entryId = archive.CalculateEntryId(assetBundleName);
+                var assetBundle = await AssetBundle.LoadFromStreamAsync(archive.GetEntryStream(entryId)).ToAwaitable(progress);
+
+
+                // 開いたアセットバンドルを覚える
+                info = new EntryAssetBundleInfo(assetBundle);
+                assetBundleTable[assetBundleId] = info;
+            }
+
+
+            // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+            var asset = await info.AssetBundle.LoadAssetAsync<TAssetType>(assetName).ToAwaitable<TAssetType>(progress);
+            if (asset == null)
+            {
+                // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                waitHandle.Set(null);
+                return;
+            }
+
+
+            // 読み込めたのならアセットIDを覚えて、待機ハンドルに結果付きでシグナルを送る
+            // TODO : アーカイブ内アセットバンドルについては、開きっぱにするかどうかで検討中
+            //info.LoadedAssetIdList.Add(assetId);
+            waitHandle.Set(asset);
+        }
+
+
+        /// <summary>
+        /// アセットURLから読み込むべきアセットバンドル名を取得します
+        /// </summary>
+        /// <param name="assetUrl">アセットバンドル名が含まれているアセットURL</param>
+        /// <returns>アセットURLから取得されたアセットバンドル名を返します</returns>
+        private string GetAssetBundleName(Uri assetUrl)
+        {
+            // URLの最後のセグメントがアセットバンドル名の一部になるので取得してそのまま返す
+            return assetUrl.Segments[assetUrl.Segments.Length - 1];
+        }
+
+
+        /// <summary>
+        /// アセットURLから読み込むべきアセット名を取得します
+        /// </summary>
+        /// <param name="assetUrl">アセット名が含まれるアセットURL</param>
+        /// <returns>アセットURLから取得されたアセット名を返しますが、取得出来なかった場合は null を返します</returns>
+        private string GetAssetName(Uri assetUrl)
+        {
+            // URLからクエリを取り出す
+            uriQueryBufferTable.Clear();
+            assetUrl.ToQueryDictionary(uriQueryBufferTable);
+
+
+            // nameのキーの取得結果をそのまま伝える
+            string assetName;
+            uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName);
+            return assetName;
         }
     }
     #endregion
@@ -1106,6 +1247,7 @@ namespace IceMilkTea.Service
             if (!gcTask.IsRunning)
             {
                 // GCタスクを後ろで実行して待機する
+                // MEMO : 実際は全世界が止まるので極端に良くなるわけではない
                 await gcTask.Run(ImtAwaitableUpdateBehaviourScheduler.GetThreadPoolScheduler());
             }
 
