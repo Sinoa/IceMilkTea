@@ -648,7 +648,7 @@ namespace IceMilkTea.Core
             if (Disposed)
             {
                 // 例外を吐く
-                throw new ObjectDisposedException(null);
+                throw new ObjectDisposedException(this.GetType().FullName);
             }
         }
     }
