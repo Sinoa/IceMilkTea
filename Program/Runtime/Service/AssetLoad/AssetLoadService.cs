@@ -1072,8 +1072,45 @@ namespace IceMilkTea.Service
             }
 
 
+            // 読み込んだアセットを受ける変数を宣言
+            TAssetType asset;
+
+
+            // もしマルチスプライトの読み込み場合は
+            if (typeof(TAssetType) == typeof(MultiSprite))
+            {
+                // まずは普通に LoadAssetWithSubAssetsAsync の呼び出しを行ってテクスチャ配下のスプライトを非同期に読み込む
+                var assetBundleRequest = info.AssetBundle.LoadAssetWithSubAssetsAsync<Sprite>(assetName);
+                await assetBundleRequest;
+
+
+                // もし読み込みが出来なかったのなら
+                if (assetBundleRequest.allAssets == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
+
+
+                // 欲しい返却は待機した時の値ではなく allAssets 側なのでリクエスト時の変数から引っ張り出す
+                var spriteArray = Array.ConvertAll(assetBundleRequest.allAssets, x => (Sprite)x);
+                asset = (TAssetType)(UnityAsset)new MultiSprite(spriteArray);
+            }
+            else
+            {
+                // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+                asset = await info.AssetBundle.LoadAssetAsync<TAssetType>(assetName).ToAwaitable<TAssetType>(progress);
+                if (asset == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
+            }
+
+
             // アセットバンドルから該当のアセットを非同期にロードする（結果的にnullが返ってきてもnullを設定するのでnull判定はしないことにした）
-            var asset = await info.AssetBundle.LoadAssetAsync<TAssetType>(assetName).ToAwaitable<TAssetType>(progress);
             waitHandle.Set(asset);
         }
 
