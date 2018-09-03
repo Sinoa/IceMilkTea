@@ -29,30 +29,6 @@ namespace IceMilkTea.Service
 
 
 
-    /// <summary>
-    /// アセットクリーンアップの度合いを表現します
-    /// </summary>
-    public enum AssetCleanupAggressiveLevel : int
-    {
-        /// <summary>
-        /// キャッシュの消失チェックと、必要であればファイルクローズまでを行います。
-        /// </summary>
-        Low = 0,
-
-        /// <summary>
-        /// Unityに未参照アセットのアンロード要求を行ってから、Lowと同じ事をします。
-        /// </summary>
-        Normal = 1,
-
-        /// <summary>
-        /// GCを強制的に起動、Unityに未参照アセットのアンロード要求、キャッシュ消失チェックなど
-        /// 最大限のアセットクリーンアップを行います。
-        /// </summary>
-        High = 2,
-    }
-
-
-
     #region サービス本体
     /// <summary>
     /// Unityのゲームアセットを読み込む機能を提供するサービスクラスです
@@ -508,6 +484,7 @@ namespace IceMilkTea.Service
 
 
     #region Resolver&Loader Resources
+    #region Resolver
     /// <summary>
     /// UnityのResourcesからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -552,9 +529,11 @@ namespace IceMilkTea.Service
             return loader;
         }
     }
+    #endregion
 
 
 
+    #region Loader
     /// <summary>
     /// UnityのResourcesからアセットをロードするローダクラスです
     /// </summary>
@@ -575,10 +554,12 @@ namespace IceMilkTea.Service
         }
     }
     #endregion
+    #endregion
 
 
 
     #region Resolver&Loader AssetBundle
+    #region Resolver
     /// <summary>
     /// Unityのファイル状になっているアセットバンドルからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -665,9 +646,11 @@ namespace IceMilkTea.Service
             return Path.Combine(baseDirectoryPath, assetUrl.LocalPath.TrimStart('/')).Replace('\\', '/');
         }
     }
+    #endregion
 
 
 
+    #region Loader
     /// <summary>
     /// Unityのファイル状アセットバンドルからアセットをロードするローダクラスです
     /// </summary>
@@ -808,10 +791,12 @@ namespace IceMilkTea.Service
         }
     }
     #endregion
+    #endregion
 
 
 
     #region Resolver&Loader ImtArchive
+    #region Resolver
     /// <summary>
     /// IceMilkTeaArchiveからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -898,9 +883,11 @@ namespace IceMilkTea.Service
             return Path.Combine(baseDirectoryPath, assetUrl.LocalPath.TrimStart('/')).Replace('\\', '/');
         }
     }
+    #endregion
 
 
 
+    #region Loader
     /// <summary>
     /// IceMilkTeaArchiveからアセットをロードするローダクラスです
     /// </summary>
@@ -1076,10 +1063,35 @@ namespace IceMilkTea.Service
         }
     }
     #endregion
+    #endregion
 
 
 
     #region アセットクリーナ
+    /// <summary>
+    /// アセットクリーンアップの度合いを表現します
+    /// </summary>
+    public enum AssetCleanupAggressiveLevel : int
+    {
+        /// <summary>
+        /// キャッシュの消失チェックと、必要であればファイルクローズまでを行います。
+        /// </summary>
+        Low = 0,
+
+        /// <summary>
+        /// Unityに未参照アセットのアンロード要求を行ってから、Lowと同じ事をします。
+        /// </summary>
+        Normal = 1,
+
+        /// <summary>
+        /// GCを強制的に起動、Unityに未参照アセットのアンロード要求、キャッシュ消失チェックなど
+        /// 最大限のアセットクリーンアップを行います。
+        /// </summary>
+        High = 2,
+    }
+
+
+
     /// <summary>
     /// アセットのクリーンアップを行うクラスです
     /// </summary>
