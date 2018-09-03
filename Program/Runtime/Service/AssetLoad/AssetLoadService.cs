@@ -549,8 +549,39 @@ namespace IceMilkTea.Service
         /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
-            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す（LocalPathの先頭はスラッシュが入っているので除去）
-            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath.TrimStart('/')).ToAwaitable<TAssetType>(progress);
+            // アセットパスを拾う（LocalPathの先頭はスラッシュが入っているので除去）
+            var assetPath = assetUrl.LocalPath.TrimStart('/');
+
+
+            // もしマルチスプライトの型のロード要求なら
+            if (typeof(TAssetType) == typeof(MultiSprite))
+            {
+                // シグナル状態の待機ハンドルを作る
+                var completedHandle = new ImtAwaitableManualReset<UnityAsset>(true);
+
+
+                // Resourcesは、残念ながらAll系の非同期は無いのでここで一気に読み込む
+                var result = Resources.LoadAll<Sprite>(assetPath);
+
+
+                // nullが返ってきてしまったら
+                if (result == null)
+                {
+                    // 読み込めなかったとして待機ハンドルを返す
+                    completedHandle.Set(null);
+                    return (IAwaitable<TAssetType>)completedHandle;
+                }
+
+
+                // マルチスプライトのインスタンスを生成して待機ハンドルに設定してシグナルを送る
+                var multiSprite = new MultiSprite(result);
+                completedHandle.Set(multiSprite);
+                return (IAwaitable<TAssetType>)completedHandle;
+            }
+
+
+            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す
+            return Resources.LoadAsync<TAssetType>(assetPath).ToAwaitable<TAssetType>(progress);
         }
     }
     #endregion
@@ -1269,62 +1300,6 @@ namespace IceMilkTea.Service
             // キャッシュストレージに未参照の解放をお願いして作業は完了
             assetCacheStorage.DoCleanupUnreferencedAssets();
             SetSignalWithCompleted();
-        }
-    }
-    #endregion
-
-
-
-    #region MultiSprite
-    /// <summary>
-    /// Unityのマルチスプライトを扱うアセット型クラスです
-    /// </summary>
-    public class MultiSprite : UnityAsset
-    {
-        // メンバ変数定義
-        private Dictionary<string, Sprite> spriteTable;
-
-
-
-        /// <summary>
-        /// スプライト名からスプライトへアクセスします
-        /// </summary>
-        /// <param name="name">スプライト名</param>
-        /// <returns>指定されたスプライト名のスプライトを返しますが、存在しない場合は null を返すことがあります</returns>
-        public Sprite this[string name]
-        {
-            get
-            {
-                // 名前からスプライトを取り出してそのまま返す
-                Sprite result;
-                spriteTable.TryGetValue(name, out result);
-                return result;
-            }
-        }
-
-
-
-        /// <summary>
-        /// MultiSprite のインスタンスを初期化します
-        /// </summary>
-        /// <param name="sprites">マルチスプライトとして扱うスプライトの配列</param>
-        internal MultiSprite(Sprite[] sprites)
-        {
-            // nullを渡されたら
-            if (sprites == null)
-            {
-                // 何を管理すればよいのですか
-                throw new ArgumentNullException(nameof(sprites));
-            }
-
-
-            // テーブルとして全て構築する
-            spriteTable = new Dictionary<string, Sprite>(sprites.Length);
-            foreach (var sprite in sprites)
-            {
-                // キーは名前として登録する
-                spriteTable[sprite.name] = sprite;
-            }
         }
     }
     #endregion
