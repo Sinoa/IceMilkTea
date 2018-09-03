@@ -661,19 +661,8 @@ namespace IceMilkTea.Service
         /// <returns>取得されたアセットバンドルファイルパスを返しますが、URLが正しくない場合は空文字列を返すことがあります</returns>
         private string GetAssetBundleFilePath(Uri assetUrl)
         {
-            // セグメントの数が2以下なら
-            if (assetUrl.Segments.Length <= 2)
-            {
-                // アセットバンドルのファイル名が指定されていない可能性があるのでから文字列を返して諦める
-                return string.Empty;
-            }
-
-
-            // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
-            // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
-            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
-            var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
-            return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
+            // ローカルパスそのものがアセットバンドルへのパスとして扱う（ローカルパスの先頭のスラッシュだけは削除）
+            return Path.Combine(baseDirectoryPath, assetUrl.LocalPath.TrimStart('/')).Replace('\\', '/');
         }
     }
 
@@ -685,7 +674,7 @@ namespace IceMilkTea.Service
     public class FileAssetBundleAssetLoader : AssetLoader
     {
         // 定数定義
-        private const string QueryBaseKeyName = "base";
+        private const string QueryNameKeyName = "name";
 
         // メンバ変数定義
         private string assetBundlePath;
@@ -743,6 +732,16 @@ namespace IceMilkTea.Service
             }
 
 
+            // アセット名を取得するが、取得が出来なかったのなら
+            var assetName = GetAssetName(assetUrl);
+            if (string.IsNullOrWhiteSpace(assetName))
+            {
+                // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                waitHandle.Set(null);
+                return;
+            }
+
+
             // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
             var asset = await assetBundle.LoadAssetAsync<TAssetType>(GetAssetName(assetUrl)).ToAwaitable<TAssetType>(progress);
             if (asset == null)
@@ -763,28 +762,25 @@ namespace IceMilkTea.Service
         /// アセットURLからアセット名を取得します
         /// </summary>
         /// <param name="assetUrl">アセット名を取り出すための、アセットURL</param>
-        /// <returns>取得されたアセット名を返します</returns>
+        /// <returns>取得されたアセット名を返しますが、取得出来なかった場合は空文字列を返すことがあります</returns>
         private string GetAssetName(Uri assetUrl)
         {
-            // URLの最後のセグメントがアセット名の一部になるので取得する
-            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
-
-
-            // まずはURLからクエリテーブルを取り出す
+            // URLからクエリテーブルを取り出す
             uriQueryBufferTable.Clear();
-            assetUrl.ToQueryDictionary(uriQueryBufferTable);
+            assetUrl.GetQueryDictionary(uriQueryBufferTable);
 
 
-            // もし base キーのクエリがある場合は
-            if (uriQueryBufferTable.ContainsKey(QueryBaseKeyName))
+            // クエリのnameを取り出せたら
+            var assetName = string.Empty;
+            if (uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName))
             {
-                // 結合する
-                assetName = Path.Combine(uriQueryBufferTable[QueryBaseKeyName], assetName).Replace('\\', '/');
+                // そのアセット名を返す
+                return assetName;
             }
 
 
-            // 最終的なアセット名を返す
-            return assetName;
+            // 見つからなかったのならから文字列を返す
+            return string.Empty;
         }
 
 
@@ -1070,7 +1066,7 @@ namespace IceMilkTea.Service
         {
             // URLからクエリを取り出す
             uriQueryBufferTable.Clear();
-            assetUrl.ToQueryDictionary(uriQueryBufferTable);
+            assetUrl.GetQueryDictionary(uriQueryBufferTable);
 
 
             // nameのキーの取得結果をそのまま伝える
