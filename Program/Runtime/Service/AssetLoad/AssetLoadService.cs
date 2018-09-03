@@ -574,8 +574,7 @@ namespace IceMilkTea.Service
 
 
                 // マルチスプライトのインスタンスを生成して待機ハンドルに設定してシグナルを送る
-                UnityAsset multiSprite = new MultiSprite(result);
-                completedHandle.Set((TAssetType)multiSprite);
+                completedHandle.Set((TAssetType)(UnityAsset)new MultiSprite(result));
                 return completedHandle;
             }
 
@@ -756,13 +755,41 @@ namespace IceMilkTea.Service
             }
 
 
-            // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
-            var asset = await assetBundle.LoadAssetAsync<TAssetType>(GetAssetName(assetUrl)).ToAwaitable<TAssetType>(progress);
-            if (asset == null)
+            // 読み込んだアセットを受ける変数を宣言
+            TAssetType asset;
+
+
+            // もしマルチスプライトの読み込み場合は
+            if (typeof(TAssetType) == typeof(MultiSprite))
             {
-                // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
-                waitHandle.Set(null);
-                return;
+                // まずは普通に LoadAssetWithSubAssetsAsync の呼び出しを行ってテクスチャ配下のスプライトを非同期に読み込む
+                var assetBundleRequest = assetBundle.LoadAssetWithSubAssetsAsync<Sprite>(assetName);
+                await assetBundleRequest;
+
+
+                // もし読み込みが出来なかったのなら
+                if (assetBundleRequest.allAssets == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
+
+
+                // 欲しい返却は待機した時の値ではなく allAssets 側なのでリクエスト時の変数から引っ張り出す
+                var spriteArray = Array.ConvertAll(assetBundleRequest.allAssets, x => (Sprite)x);
+                asset = (TAssetType)(UnityAsset)new MultiSprite(spriteArray);
+            }
+            else
+            {
+                // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+                asset = await assetBundle.LoadAssetAsync<TAssetType>(GetAssetName(assetUrl)).ToAwaitable<TAssetType>(progress);
+                if (asset == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
             }
 
 
