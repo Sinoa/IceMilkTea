@@ -894,19 +894,8 @@ namespace IceMilkTea.Service
         /// <returns>取得されたアーカイブパスを返しますが、URLが正しくない場合は空文字列を返すことがあります</returns>
         private string GetArchiveFilePath(Uri assetUrl)
         {
-            // セグメントの数が2以下なら
-            if (assetUrl.Segments.Length <= 2)
-            {
-                // ファイル名が指定されていない可能性があるのでから文字列を返して諦める
-                return string.Empty;
-            }
-
-
-            // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
-            // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
-            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
-            var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
-            return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
+            // ローカルパスそのものがアーカイブへのパスとして扱う（ローカルパスの先頭のスラッシュだけは削除）
+            return Path.Combine(baseDirectoryPath, assetUrl.LocalPath.TrimStart('/')).Replace('\\', '/');
         }
     }
 
@@ -950,6 +939,7 @@ namespace IceMilkTea.Service
 
 
         // 定数定義
+        private const string QueryEntryKeyName = "entry";
         private const string QueryNameKeyName = "name";
 
         // メンバ変数定義
@@ -1007,9 +997,17 @@ namespace IceMilkTea.Service
         /// <param name="waitHandle">アセットのロード完了の同期を行う待機クラスのオブジェクト</param>
         private async void DoAssetLoadAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress, ImtAwaitableManualReset<TAssetType> waitHandle) where TAssetType : UnityAsset
         {
-            // アセットバンドル名とアセット名の取得してアセットバンドルIDも用意
-            var assetBundleName = GetAssetBundleName(assetUrl);
-            var assetName = GetAssetName(assetUrl);
+            // アセットバンドル名とアセット名を取得するが、出来なかったら
+            string assetBundleName, assetName;
+            if (!GetAssetBundleAndAssetName(assetUrl, out assetBundleName, out assetName))
+            {
+                // 読み込めなかったとしてnullで待機ハンドルにシグナルを送る
+                waitHandle.Set(null);
+                return;
+            }
+
+
+            // アセットバンドルIDも用意
             var assetBundleId = assetBundleName.ToCrc64Code();
 
 
@@ -1019,7 +1017,8 @@ namespace IceMilkTea.Service
             {
                 // アセットバンドルのエントリIDを計算してアセットバンドルを非同期で開く
                 var entryId = archive.CalculateEntryId(assetBundleName);
-                var assetBundle = await AssetBundle.LoadFromStreamAsync(archive.GetEntryStream(entryId)).ToAwaitable(progress);
+                var entryStream = archive.GetEntryStream(entryId);
+                var assetBundle = await AssetBundle.LoadFromStreamAsync(entryStream).ToAwaitable(progress);
 
 
                 // 開いたアセットバンドルを覚える
@@ -1028,51 +1027,52 @@ namespace IceMilkTea.Service
             }
 
 
-            // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+            // アセットバンドルから該当のアセットを非同期にロードする（結果的にnullが返ってきてもnullを設定するのでnull判定はしないことにした）
             var asset = await info.AssetBundle.LoadAssetAsync<TAssetType>(assetName).ToAwaitable<TAssetType>(progress);
-            if (asset == null)
-            {
-                // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
-                waitHandle.Set(null);
-                return;
-            }
-
-
-            // 読み込めたのならアセットIDを覚えて、待機ハンドルに結果付きでシグナルを送る
-            // TODO : アーカイブ内アセットバンドルについては、開きっぱにするかどうかで検討中
-            //info.LoadedAssetIdList.Add(assetId);
             waitHandle.Set(asset);
         }
 
 
         /// <summary>
-        /// アセットURLから読み込むべきアセットバンドル名を取得します
+        /// アセットURLから読み込むべきアセットバンドル名とアセット名を取得します
         /// </summary>
-        /// <param name="assetUrl">アセットバンドル名が含まれているアセットURL</param>
-        /// <returns>アセットURLから取得されたアセットバンドル名を返します</returns>
-        private string GetAssetBundleName(Uri assetUrl)
-        {
-            // URLの最後のセグメントがアセットバンドル名の一部になるので取得してそのまま返す
-            return assetUrl.Segments[assetUrl.Segments.Length - 1];
-        }
-
-
-        /// <summary>
-        /// アセットURLから読み込むべきアセット名を取得します
-        /// </summary>
-        /// <param name="assetUrl">アセット名が含まれるアセットURL</param>
-        /// <returns>アセットURLから取得されたアセット名を返しますが、取得出来なかった場合は null を返します</returns>
-        private string GetAssetName(Uri assetUrl)
+        /// <param name="assetUrl">アセットバンドル名、アセット名を含んでいるアセットURL</param>
+        /// <param name="assetBundleName">取り出したアセットバンドル名を格納、取り出せなかった時は空文字列として初期化します</param>
+        /// <param name="assetName">取り出したアセット名を格納、取り出せなかった場合は空文字列として初期化します</param>
+        /// <returns>アセットバンドル、アセット名ともに取り出せた場合は true を、どちらかが取り出せなかった場合は false を返します</returns>
+        private bool GetAssetBundleAndAssetName(Uri assetUrl, out string assetBundleName, out string assetName)
         {
             // URLからクエリを取り出す
             uriQueryBufferTable.Clear();
             assetUrl.GetQueryDictionary(uriQueryBufferTable);
 
 
-            // nameのキーの取得結果をそのまま伝える
-            string assetName;
-            uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName);
-            return assetName;
+            // entryからアセットバンドル名を取り出すが、取り出せなかったら
+            if (!uriQueryBufferTable.TryGetValue(QueryEntryKeyName, out assetBundleName))
+            {
+                // 空文字列として初期化
+                assetBundleName = string.Empty;
+            }
+
+
+            // nameからアセット名を取り出すが、取り出せなかったら
+            if (!uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName))
+            {
+                // 空文字列として初期化
+                assetName = string.Empty;
+            }
+
+
+            // どちらかが無効値が入っていたら
+            if (string.IsNullOrWhiteSpace(assetBundleName) || string.IsNullOrWhiteSpace(assetName))
+            {
+                // 失敗を返す
+                return false;
+            }
+
+
+            // ここまで来たら、安心してtrueを返せる
+            return true;
         }
     }
     #endregion
