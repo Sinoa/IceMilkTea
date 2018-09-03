@@ -1272,4 +1272,60 @@ namespace IceMilkTea.Service
         }
     }
     #endregion
+
+
+
+    #region MultiSprite
+    /// <summary>
+    /// Unityのマルチスプライトを扱うアセット型クラスです
+    /// </summary>
+    public class MultiSprite : UnityAsset
+    {
+        // メンバ変数定義
+        private Dictionary<string, Sprite> spriteTable;
+
+
+
+        /// <summary>
+        /// スプライト名からスプライトへアクセスします
+        /// </summary>
+        /// <param name="name">スプライト名</param>
+        /// <returns>指定されたスプライト名のスプライトを返しますが、存在しない場合は null を返すことがあります</returns>
+        public Sprite this[string name]
+        {
+            get
+            {
+                // 名前からスプライトを取り出してそのまま返す
+                Sprite result;
+                spriteTable.TryGetValue(name, out result);
+                return result;
+            }
+        }
+
+
+
+        /// <summary>
+        /// MultiSprite のインスタンスを初期化します
+        /// </summary>
+        /// <param name="sprites">マルチスプライトとして扱うスプライトの配列</param>
+        internal MultiSprite(Sprite[] sprites)
+        {
+            // nullを渡されたら
+            if (sprites == null)
+            {
+                // 何を管理すればよいのですか
+                throw new ArgumentNullException(nameof(sprites));
+            }
+
+
+            // テーブルとして全て構築する
+            spriteTable = new Dictionary<string, Sprite>(sprites.Length);
+            foreach (var sprite in sprites)
+            {
+                // キーは名前として登録する
+                spriteTable[sprite.name] = sprite;
+            }
+        }
+    }
+    #endregion
 }
