@@ -557,7 +557,7 @@ namespace IceMilkTea.Service
             if (typeof(TAssetType) == typeof(MultiSprite))
             {
                 // シグナル状態の待機ハンドルを作る
-                var completedHandle = new ImtAwaitableManualReset<UnityAsset>(true);
+                var completedHandle = new ImtAwaitableManualReset<TAssetType>(true);
 
 
                 // Resourcesは、残念ながらAll系の非同期は無いのでここで一気に読み込む
@@ -569,14 +569,14 @@ namespace IceMilkTea.Service
                 {
                     // 読み込めなかったとして待機ハンドルを返す
                     completedHandle.Set(null);
-                    return (IAwaitable<TAssetType>)completedHandle;
+                    return completedHandle;
                 }
 
 
                 // マルチスプライトのインスタンスを生成して待機ハンドルに設定してシグナルを送る
-                var multiSprite = new MultiSprite(result);
-                completedHandle.Set(multiSprite);
-                return (IAwaitable<TAssetType>)completedHandle;
+                UnityAsset multiSprite = new MultiSprite(result);
+                completedHandle.Set((TAssetType)multiSprite);
+                return completedHandle;
             }
 
 
