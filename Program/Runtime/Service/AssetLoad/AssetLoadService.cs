@@ -29,30 +29,6 @@ namespace IceMilkTea.Service
 
 
 
-    /// <summary>
-    /// アセットクリーンアップの度合いを表現します
-    /// </summary>
-    public enum AssetCleanupAggressiveLevel : int
-    {
-        /// <summary>
-        /// キャッシュの消失チェックと、必要であればファイルクローズまでを行います。
-        /// </summary>
-        Low = 0,
-
-        /// <summary>
-        /// Unityに未参照アセットのアンロード要求を行ってから、Lowと同じ事をします。
-        /// </summary>
-        Normal = 1,
-
-        /// <summary>
-        /// GCを強制的に起動、Unityに未参照アセットのアンロード要求、キャッシュ消失チェックなど
-        /// 最大限のアセットクリーンアップを行います。
-        /// </summary>
-        High = 2,
-    }
-
-
-
     #region サービス本体
     /// <summary>
     /// Unityのゲームアセットを読み込む機能を提供するサービスクラスです
@@ -508,6 +484,7 @@ namespace IceMilkTea.Service
 
 
     #region Resolver&Loader Resources
+    #region Resolver
     /// <summary>
     /// UnityのResourcesからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -552,9 +529,11 @@ namespace IceMilkTea.Service
             return loader;
         }
     }
+    #endregion
 
 
 
+    #region Loader
     /// <summary>
     /// UnityのResourcesからアセットをロードするローダクラスです
     /// </summary>
@@ -570,15 +549,47 @@ namespace IceMilkTea.Service
         /// <returns>待機可能なロードクラスのインスタンスを返します</returns>
         public override IAwaitable<TAssetType> LoadAssetAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress)
         {
-            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す（LocalPathの先頭はスラッシュが入っているので除去）
-            return Resources.LoadAsync<TAssetType>(assetUrl.LocalPath.TrimStart('/')).ToAwaitable<TAssetType>(progress);
+            // アセットパスを拾う（LocalPathの先頭はスラッシュが入っているので除去）
+            var assetPath = assetUrl.LocalPath.TrimStart('/');
+
+
+            // もしマルチスプライトの型のロード要求なら
+            if (typeof(TAssetType) == typeof(MultiSprite))
+            {
+                // シグナル状態の待機ハンドルを作る
+                var completedHandle = new ImtAwaitableManualReset<TAssetType>(true);
+
+
+                // Resourcesは、残念ながらAll系の非同期は無いのでここで一気に読み込む
+                var result = Resources.LoadAll<Sprite>(assetPath);
+
+
+                // nullが返ってきてしまったら
+                if (result == null)
+                {
+                    // 読み込めなかったとして待機ハンドルを返す
+                    completedHandle.Set(null);
+                    return completedHandle;
+                }
+
+
+                // マルチスプライトのインスタンスを生成して待機ハンドルに設定してシグナルを送る
+                completedHandle.Set((TAssetType)(UnityAsset)new MultiSprite(result));
+                return completedHandle;
+            }
+
+
+            // Resourcesから非同期でロードする待機可能クラスのインスタンスを返す
+            return Resources.LoadAsync<TAssetType>(assetPath).ToAwaitable<TAssetType>(progress);
         }
     }
+    #endregion
     #endregion
 
 
 
     #region Resolver&Loader AssetBundle
+    #region Resolver
     /// <summary>
     /// Unityのファイル状になっているアセットバンドルからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -661,31 +672,22 @@ namespace IceMilkTea.Service
         /// <returns>取得されたアセットバンドルファイルパスを返しますが、URLが正しくない場合は空文字列を返すことがあります</returns>
         private string GetAssetBundleFilePath(Uri assetUrl)
         {
-            // セグメントの数が2以下なら
-            if (assetUrl.Segments.Length <= 2)
-            {
-                // アセットバンドルのファイル名が指定されていない可能性があるのでから文字列を返して諦める
-                return string.Empty;
-            }
-
-
-            // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
-            // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
-            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
-            var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
-            return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
+            // ローカルパスそのものがアセットバンドルへのパスとして扱う（ローカルパスの先頭のスラッシュだけは削除）
+            return Path.Combine(baseDirectoryPath, assetUrl.LocalPath.TrimStart('/')).Replace('\\', '/');
         }
     }
+    #endregion
 
 
 
+    #region Loader
     /// <summary>
     /// Unityのファイル状アセットバンドルからアセットをロードするローダクラスです
     /// </summary>
     public class FileAssetBundleAssetLoader : AssetLoader
     {
         // 定数定義
-        private const string QueryBaseKeyName = "base";
+        private const string QueryNameKeyName = "name";
 
         // メンバ変数定義
         private string assetBundlePath;
@@ -743,13 +745,51 @@ namespace IceMilkTea.Service
             }
 
 
-            // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
-            var asset = await assetBundle.LoadAssetAsync<TAssetType>(GetAssetName(assetUrl)).ToAwaitable<TAssetType>(progress);
-            if (asset == null)
+            // アセット名を取得するが、取得が出来なかったのなら
+            var assetName = GetAssetName(assetUrl);
+            if (string.IsNullOrWhiteSpace(assetName))
             {
                 // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
                 waitHandle.Set(null);
                 return;
+            }
+
+
+            // 読み込んだアセットを受ける変数を宣言
+            TAssetType asset;
+
+
+            // もしマルチスプライトの読み込み場合は
+            if (typeof(TAssetType) == typeof(MultiSprite))
+            {
+                // まずは普通に LoadAssetWithSubAssetsAsync の呼び出しを行ってテクスチャ配下のスプライトを非同期に読み込む
+                var assetBundleRequest = assetBundle.LoadAssetWithSubAssetsAsync<Sprite>(assetName);
+                await assetBundleRequest;
+
+
+                // もし読み込みが出来なかったのなら
+                if (assetBundleRequest.allAssets == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
+
+
+                // 欲しい返却は待機した時の値ではなく allAssets 側なのでリクエスト時の変数から引っ張り出す
+                var spriteArray = Array.ConvertAll(assetBundleRequest.allAssets, x => (Sprite)x);
+                asset = (TAssetType)(UnityAsset)new MultiSprite(spriteArray);
+            }
+            else
+            {
+                // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+                asset = await assetBundle.LoadAssetAsync<TAssetType>(GetAssetName(assetUrl)).ToAwaitable<TAssetType>(progress);
+                if (asset == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
             }
 
 
@@ -763,28 +803,25 @@ namespace IceMilkTea.Service
         /// アセットURLからアセット名を取得します
         /// </summary>
         /// <param name="assetUrl">アセット名を取り出すための、アセットURL</param>
-        /// <returns>取得されたアセット名を返します</returns>
+        /// <returns>取得されたアセット名を返しますが、取得出来なかった場合は空文字列を返すことがあります</returns>
         private string GetAssetName(Uri assetUrl)
         {
-            // URLの最後のセグメントがアセット名の一部になるので取得する
-            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
-
-
-            // まずはURLからクエリテーブルを取り出す
+            // URLからクエリテーブルを取り出す
             uriQueryBufferTable.Clear();
-            assetUrl.ToQueryDictionary(uriQueryBufferTable);
+            assetUrl.GetQueryDictionary(uriQueryBufferTable);
 
 
-            // もし base キーのクエリがある場合は
-            if (uriQueryBufferTable.ContainsKey(QueryBaseKeyName))
+            // クエリのnameを取り出せたら
+            var assetName = string.Empty;
+            if (uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName))
             {
-                // 結合する
-                assetName = Path.Combine(uriQueryBufferTable[QueryBaseKeyName], assetName).Replace('\\', '/');
+                // そのアセット名を返す
+                return assetName;
             }
 
 
-            // 最終的なアセット名を返す
-            return assetName;
+            // 見つからなかったのならから文字列を返す
+            return string.Empty;
         }
 
 
@@ -812,10 +849,12 @@ namespace IceMilkTea.Service
         }
     }
     #endregion
+    #endregion
 
 
 
     #region Resolver&Loader ImtArchive
+    #region Resolver
     /// <summary>
     /// IceMilkTeaArchiveからアセットをロードするローダを解決するクラスです
     /// </summary>
@@ -898,24 +937,15 @@ namespace IceMilkTea.Service
         /// <returns>取得されたアーカイブパスを返しますが、URLが正しくない場合は空文字列を返すことがあります</returns>
         private string GetArchiveFilePath(Uri assetUrl)
         {
-            // セグメントの数が2以下なら
-            if (assetUrl.Segments.Length <= 2)
-            {
-                // ファイル名が指定されていない可能性があるのでから文字列を返して諦める
-                return string.Empty;
-            }
-
-
-            // ローカルパスに含まれる最後のセグメントだけアセット名になるのでそれを削除して
-            // 最後の前後に残るスラッシュを消してURLからパスを摘出後ベースパスとくっつけて返す
-            var assetName = assetUrl.Segments[assetUrl.Segments.Length - 1];
-            var cutPath = assetUrl.LocalPath.Remove(assetUrl.LocalPath.Length - assetName.Length, assetName.Length).Trim('/');
-            return Path.Combine(baseDirectoryPath, cutPath).Replace('\\', '/');
+            // ローカルパスそのものがアーカイブへのパスとして扱う（ローカルパスの先頭のスラッシュだけは削除）
+            return Path.Combine(baseDirectoryPath, assetUrl.LocalPath.TrimStart('/')).Replace('\\', '/');
         }
     }
+    #endregion
 
 
 
+    #region Loader
     /// <summary>
     /// IceMilkTeaArchiveからアセットをロードするローダクラスです
     /// </summary>
@@ -954,6 +984,7 @@ namespace IceMilkTea.Service
 
 
         // 定数定義
+        private const string QueryEntryKeyName = "entry";
         private const string QueryNameKeyName = "name";
 
         // メンバ変数定義
@@ -1011,9 +1042,17 @@ namespace IceMilkTea.Service
         /// <param name="waitHandle">アセットのロード完了の同期を行う待機クラスのオブジェクト</param>
         private async void DoAssetLoadAsync<TAssetType>(ulong assetId, Uri assetUrl, IProgress<float> progress, ImtAwaitableManualReset<TAssetType> waitHandle) where TAssetType : UnityAsset
         {
-            // アセットバンドル名とアセット名の取得してアセットバンドルIDも用意
-            var assetBundleName = GetAssetBundleName(assetUrl);
-            var assetName = GetAssetName(assetUrl);
+            // アセットバンドル名とアセット名を取得するが、出来なかったら
+            string assetBundleName, assetName;
+            if (!GetAssetBundleAndAssetName(assetUrl, out assetBundleName, out assetName))
+            {
+                // 読み込めなかったとしてnullで待機ハンドルにシグナルを送る
+                waitHandle.Set(null);
+                return;
+            }
+
+
+            // アセットバンドルIDも用意
             var assetBundleId = assetBundleName.ToCrc64Code();
 
 
@@ -1023,7 +1062,8 @@ namespace IceMilkTea.Service
             {
                 // アセットバンドルのエントリIDを計算してアセットバンドルを非同期で開く
                 var entryId = archive.CalculateEntryId(assetBundleName);
-                var assetBundle = await AssetBundle.LoadFromStreamAsync(archive.GetEntryStream(entryId)).ToAwaitable(progress);
+                var entryStream = archive.GetEntryStream(entryId);
+                var assetBundle = await AssetBundle.LoadFromStreamAsync(entryStream).ToAwaitable(progress);
 
 
                 // 開いたアセットバンドルを覚える
@@ -1032,58 +1072,121 @@ namespace IceMilkTea.Service
             }
 
 
-            // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
-            var asset = await info.AssetBundle.LoadAssetAsync<TAssetType>(assetName).ToAwaitable<TAssetType>(progress);
-            if (asset == null)
+            // 読み込んだアセットを受ける変数を宣言
+            TAssetType asset;
+
+
+            // もしマルチスプライトの読み込み場合は
+            if (typeof(TAssetType) == typeof(MultiSprite))
             {
-                // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
-                waitHandle.Set(null);
-                return;
+                // まずは普通に LoadAssetWithSubAssetsAsync の呼び出しを行ってテクスチャ配下のスプライトを非同期に読み込む
+                var assetBundleRequest = info.AssetBundle.LoadAssetWithSubAssetsAsync<Sprite>(assetName);
+                await assetBundleRequest;
+
+
+                // もし読み込みが出来なかったのなら
+                if (assetBundleRequest.allAssets == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
+
+
+                // 欲しい返却は待機した時の値ではなく allAssets 側なのでリクエスト時の変数から引っ張り出す
+                var spriteArray = Array.ConvertAll(assetBundleRequest.allAssets, x => (Sprite)x);
+                asset = (TAssetType)(UnityAsset)new MultiSprite(spriteArray);
+            }
+            else
+            {
+                // アセットバンドルから該当のアセットを非同期にロードするがロード出来なかったら
+                asset = await info.AssetBundle.LoadAssetAsync<TAssetType>(assetName).ToAwaitable<TAssetType>(progress);
+                if (asset == null)
+                {
+                    // 読み込めなかったということでnullで待機ハンドルにシグナルを送る
+                    waitHandle.Set(null);
+                    return;
+                }
             }
 
 
-            // 読み込めたのならアセットIDを覚えて、待機ハンドルに結果付きでシグナルを送る
-            // TODO : アーカイブ内アセットバンドルについては、開きっぱにするかどうかで検討中
-            //info.LoadedAssetIdList.Add(assetId);
+            // アセットバンドルから該当のアセットを非同期にロードする（結果的にnullが返ってきてもnullを設定するのでnull判定はしないことにした）
             waitHandle.Set(asset);
         }
 
 
         /// <summary>
-        /// アセットURLから読み込むべきアセットバンドル名を取得します
+        /// アセットURLから読み込むべきアセットバンドル名とアセット名を取得します
         /// </summary>
-        /// <param name="assetUrl">アセットバンドル名が含まれているアセットURL</param>
-        /// <returns>アセットURLから取得されたアセットバンドル名を返します</returns>
-        private string GetAssetBundleName(Uri assetUrl)
-        {
-            // URLの最後のセグメントがアセットバンドル名の一部になるので取得してそのまま返す
-            return assetUrl.Segments[assetUrl.Segments.Length - 1];
-        }
-
-
-        /// <summary>
-        /// アセットURLから読み込むべきアセット名を取得します
-        /// </summary>
-        /// <param name="assetUrl">アセット名が含まれるアセットURL</param>
-        /// <returns>アセットURLから取得されたアセット名を返しますが、取得出来なかった場合は null を返します</returns>
-        private string GetAssetName(Uri assetUrl)
+        /// <param name="assetUrl">アセットバンドル名、アセット名を含んでいるアセットURL</param>
+        /// <param name="assetBundleName">取り出したアセットバンドル名を格納、取り出せなかった時は空文字列として初期化します</param>
+        /// <param name="assetName">取り出したアセット名を格納、取り出せなかった場合は空文字列として初期化します</param>
+        /// <returns>アセットバンドル、アセット名ともに取り出せた場合は true を、どちらかが取り出せなかった場合は false を返します</returns>
+        private bool GetAssetBundleAndAssetName(Uri assetUrl, out string assetBundleName, out string assetName)
         {
             // URLからクエリを取り出す
             uriQueryBufferTable.Clear();
-            assetUrl.ToQueryDictionary(uriQueryBufferTable);
+            assetUrl.GetQueryDictionary(uriQueryBufferTable);
 
 
-            // nameのキーの取得結果をそのまま伝える
-            string assetName;
-            uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName);
-            return assetName;
+            // entryからアセットバンドル名を取り出すが、取り出せなかったら
+            if (!uriQueryBufferTable.TryGetValue(QueryEntryKeyName, out assetBundleName))
+            {
+                // 空文字列として初期化
+                assetBundleName = string.Empty;
+            }
+
+
+            // nameからアセット名を取り出すが、取り出せなかったら
+            if (!uriQueryBufferTable.TryGetValue(QueryNameKeyName, out assetName))
+            {
+                // 空文字列として初期化
+                assetName = string.Empty;
+            }
+
+
+            // どちらかが無効値が入っていたら
+            if (string.IsNullOrWhiteSpace(assetBundleName) || string.IsNullOrWhiteSpace(assetName))
+            {
+                // 失敗を返す
+                return false;
+            }
+
+
+            // ここまで来たら、安心してtrueを返せる
+            return true;
         }
     }
+    #endregion
     #endregion
 
 
 
     #region アセットクリーナ
+    /// <summary>
+    /// アセットクリーンアップの度合いを表現します
+    /// </summary>
+    public enum AssetCleanupAggressiveLevel : int
+    {
+        /// <summary>
+        /// キャッシュの消失チェックと、必要であればファイルクローズまでを行います。
+        /// </summary>
+        Low = 0,
+
+        /// <summary>
+        /// Unityに未参照アセットのアンロード要求を行ってから、Lowと同じ事をします。
+        /// </summary>
+        Normal = 1,
+
+        /// <summary>
+        /// GCを強制的に起動、Unityに未参照アセットのアンロード要求、キャッシュ消失チェックなど
+        /// 最大限のアセットクリーンアップを行います。
+        /// </summary>
+        High = 2,
+    }
+
+
+
     /// <summary>
     /// アセットのクリーンアップを行うクラスです
     /// </summary>

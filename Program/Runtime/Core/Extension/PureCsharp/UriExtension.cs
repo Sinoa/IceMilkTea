@@ -23,33 +23,38 @@ namespace IceMilkTea.Core
     /// </summary>
     public static class UriExtensions
     {
+        // クラス変数宣言
+        private static readonly char[] StringSplitPattern = new char[] { '&' };
+
+
+
         /// <summary>
-        /// UriクラスのQueryプロパティをDictionaryとしてアクセスできるように変換します
+        /// UriクラスのQueryプロパティをDictionaryとしてアクセスできるように取得します
         /// </summary>
-        /// <param name="uri">変換するUri</param>
-        /// <returns>変換したDictionaryを返します。クエリが空であっても件数が0件のDictionaryインスタンスを返します</returns>
-        public static Dictionary<string, string> ToQueryDictionary(this Uri uri)
+        /// <param name="uri">クエリが存在するUri</param>
+        /// <returns>取得されたクエリのDictionaryを返します。クエリが空であっても件数が0件のDictionaryインスタンスを返します</returns>
+        public static Dictionary<string, string> GetQueryDictionary(this Uri uri)
         {
             // Dictionaryインスタンスを生成して、引数として受け取る ToQueryDictionary 関数を叩いて返す
             var result = new Dictionary<string, string>();
-            ToQueryDictionary(uri, result);
+            GetQueryDictionary(uri, result);
             return result;
         }
 
 
         /// <summary>
-        /// UriクラスのQueryプロパティをDictionaryとしてアクセスできるように変換します
+        /// UriクラスのQueryプロパティをDictionaryとしてアクセスできるように取得します
         /// </summary>
-        /// <param name="uri">変換するUri</param>
-        /// <param name="result">変換した結果を受けるDictionary</param>
-        public static void ToQueryDictionary(this Uri uri, Dictionary<string, string> result)
+        /// <param name="uri">クエリが存在するUri</param>
+        /// <param name="result">クエリの取得した結果を受けるDictionary</param>
+        public static void GetQueryDictionary(this Uri uri, Dictionary<string, string> result)
         {
             // クエリ文字列の先頭の'?'を削除
             var queryString = uri.Query.TrimStart('?');
 
 
             // 各クエリの分割をしてループ（やってることは .Split().Select(x => x.Split()).ToDictionary() と同じ）
-            var queries = queryString.Split(new char[] { '&' }, StringSplitOptions.RemoveEmptyEntries);
+            var queries = queryString.Split(StringSplitPattern, StringSplitOptions.RemoveEmptyEntries);
             foreach (var query in queries)
             {
                 // 更にキーと値を分離して結果テーブルに詰める
