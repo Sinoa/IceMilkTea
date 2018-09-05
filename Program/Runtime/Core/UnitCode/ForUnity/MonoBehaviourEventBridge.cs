@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace IceMilkTea.Core
@@ -24,8 +25,10 @@ namespace IceMilkTea.Core
     internal class MonoBehaviourEventBridge : MonoBehaviour
     {
         // 以下メンバ変数定義
+        private WaitForEndOfFrame waitForEndOfFrame;
         private Action<bool> onApplicationFocusFunction;
         private Action<bool> onApplicationPauseFunction;
+        private Action onEndOfFrame;
 
 
 
@@ -33,11 +36,9 @@ namespace IceMilkTea.Core
         /// 対象のゲームオブジェクトに MonoBehaviourEventBridge コンポーネントを新規アタッチを行い初期化を行います
         /// </summary>
         /// <param name="targetGameObject">アタッチする対象のゲームオブジェクト</param>
-        /// <param name="focusFunction">OnApplicationFocusを実行する関数</param>
-        /// <param name="pauseFunction">OnApplicationPauseを実行する関数</param>
         /// <returns>新規でアタッチした MonoBehaviourEventBridge のインスタンスを返します</returns>
         /// <exception cref="ArgumentNullException">targetGameObject が null です</exception>
-        public static MonoBehaviourEventBridge Attach(GameObject targetGameObject, Action<bool> focusFunction, Action<bool> pauseFunction)
+        public static MonoBehaviourEventBridge Attach(GameObject targetGameObject)
         {
             // nullなゲームオブジェクトを渡されたら
             if (targetGameObject == null)
@@ -49,16 +50,79 @@ namespace IceMilkTea.Core
 
             // 自身をアタッチして初期化をする
             var component = targetGameObject.AddComponent<MonoBehaviourEventBridge>();
-            component.onApplicationFocusFunction = focusFunction ?? new Action<bool>(_ => { });
-            component.onApplicationPauseFunction = pauseFunction ?? new Action<bool>(_ => { });
+            component.waitForEndOfFrame = new WaitForEndOfFrame();
+            component.onApplicationFocusFunction = new Action<bool>(_ => { });
+            component.onApplicationPauseFunction = new Action<bool>(_ => { });
+            component.onEndOfFrame = new Action(() => { });
 
 
-            // インスペクタから姿を消す
+            // コルーチンを開始する
+            component.StartCoroutine(component.DoEndOfFrameLoop());
+
+
+            // インスペクタから姿を消して返す
             component.hideFlags = HideFlags.HideInInspector;
-
-
-            // 結果を返す
             return component;
+        }
+
+
+        /// <summary>
+        /// OnApplicationFocusを実行する関数を設定します
+        /// </summary>
+        /// <param name="focusFunction">OnApplicationFocusを実行する関数</param>
+        /// <exception cref="ArgumentNullException">focusFunction が null です</exception>
+        public void SetApplicationFocusFunction(Action<bool> focusFunction)
+        {
+            // null が渡されたら
+            if (focusFunction == null)
+            {
+                // 許さない
+                throw new ArgumentNullException(nameof(focusFunction));
+            }
+
+
+            // 新しい関数を受け取る
+            onApplicationFocusFunction = focusFunction;
+        }
+
+
+        /// <summary>
+        /// OnApplicationPauseを実行する関数を設定します
+        /// </summary>
+        /// <param name="pauseFunction">OnApplicationPauseを実行する関数</param>
+        /// <exception cref="ArgumentNullException">pauseFunction が null です</exception>
+        public void SetApplicationPauseFunction(Action<bool> pauseFunction)
+        {
+            // null が渡されたら
+            if (pauseFunction == null)
+            {
+                // 許さない
+                throw new ArgumentNullException(nameof(pauseFunction));
+            }
+
+
+            // 新しい関数を受け取る
+            onApplicationPauseFunction = pauseFunction;
+        }
+
+
+        /// <summary>
+        /// WaitForEndOfFrameの継続関数を設定します
+        /// </summary>
+        /// <param name="endOfFrameFunction">WaitForEndOfFrameの継続を行う関数</param>
+        /// <exception cref="ArgumentNullException">endOfFrameFunction が null です</exception>
+        public void SetEndOfFrameFunction(Action endOfFrameFunction)
+        {
+            // null が渡されたら
+            if (endOfFrameFunction == null)
+            {
+                // 許さない
+                throw new ArgumentNullException(nameof(endOfFrameFunction));
+            }
+
+
+            // 新しい関数を受け取る
+            onEndOfFrame = endOfFrameFunction;
         }
 
 
@@ -70,6 +134,7 @@ namespace IceMilkTea.Core
             // 関数の参照を殺す
             onApplicationFocusFunction = null;
             onApplicationPauseFunction = null;
+            onEndOfFrame = null;
         }
 
 
@@ -92,6 +157,22 @@ namespace IceMilkTea.Core
         {
             // 本来実行したい関数を叩く
             onApplicationPauseFunction(pause);
+        }
+
+
+        /// <summary>
+        /// UnityのWaitForEndOfFrameの処理を永遠に実行し続けます
+        /// </summary>
+        /// <returns>WaitForEndOfFrame のインスタンスを常に返し続けます</returns>
+        private IEnumerator DoEndOfFrameLoop()
+        {
+            // 無限ループ
+            while (true)
+            {
+                // フレームの終端まで待機（描画の終端でゲームループの終端ではない）して関数を叩く
+                yield return waitForEndOfFrame;
+                onEndOfFrame();
+            }
         }
     }
 }

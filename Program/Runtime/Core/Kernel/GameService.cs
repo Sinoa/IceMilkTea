@@ -294,6 +294,12 @@ namespace IceMilkTea.Core
         /// さらに、スレッドはメインスレッド上におけるタイミングとなります。
         /// </summary>
         CameraPostRendering = (1 << 22),
+
+        /// <summary>
+        /// UnityプレイヤーのWaitForEndOfFrameの継続するタイミング。
+        /// {yield return endOfFrame; OnEndOfFrame;}
+        /// </summary>
+        OnEndOfFrame = (1 << 23),
     }
 
 
@@ -507,7 +513,10 @@ namespace IceMilkTea.Core
 
             // 永続ゲームオブジェクトを生成してアプリケーションのフォーカス、ポーズのハンドラを登録する
             var persistentGameObject = ImtUnityUtility.CreatePersistentGameObject();
-            MonoBehaviourEventBridge.Attach(persistentGameObject, OnApplicationFocus, OnApplicationPause);
+            var eventBridge = MonoBehaviourEventBridge.Attach(persistentGameObject);
+            eventBridge.SetApplicationFocusFunction(OnApplicationFocus);
+            eventBridge.SetApplicationPauseFunction(OnApplicationPause);
+            eventBridge.SetEndOfFrameFunction(OnEndOfFrame);
 
 
             // カメラのハンドラを登録する
@@ -972,6 +981,16 @@ namespace IceMilkTea.Core
 
             // Resumeのサービス呼び出しをする
             DoUpdateService(GameServiceUpdateTiming.OnApplicationResume);
+        }
+
+
+        /// <summary>
+        /// UnityプレイヤーのWaitForEndOfFrameの継続処理を行います
+        /// </summary>
+        private void OnEndOfFrame()
+        {
+            // EndOfFrameのサービス呼び出しをする
+            DoUpdateService(GameServiceUpdateTiming.OnEndOfFrame);
         }
 
 
