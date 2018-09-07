@@ -21,8 +21,23 @@ namespace IceMilkTea.Core
     public static class StringExtensions
     {
         // クラス変数宣言
-        private static readonly Crc64TextCoder crc64TextCorder = new Crc64TextCoder();
+        private static readonly Crc64TextCoder crc64TextCorder;
+        private static readonly char[] integerToAsciiArray;
 
+
+
+        /// <summary>
+        /// StringExtensions クラスの初期化をします
+        /// </summary>
+        static StringExtensions()
+        {
+            // CRCテキストコーダの生成
+            crc64TextCorder = new Crc64TextCoder();
+
+
+            // 整数から16進数変換用配列の初期化
+            integerToAsciiArray = new char[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+        }
 
 
         /// <summary>
@@ -34,6 +49,32 @@ namespace IceMilkTea.Core
         {
             // CRC64で符号化したものを返す
             return crc64TextCorder.GetCode(text);
+        }
+
+
+        /// <summary>
+        /// 文字列からCRC64計算された符号値の16進数表記へ変換します
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        public static string ToCrc64HexText(this string text)
+        {
+            // まずは普通にCRC計算をする
+            var code = ToCrc64Code(text);
+
+
+            // 16桁の文字バッファを用意してループする
+            var buffer = new char[16];
+            for (int i = 0; i < buffer.Length; ++i)
+            {
+                // 最下位4bitから16進数の文字へ変換しバッファの後ろから詰めて、ビットシフトして繰り返す
+                buffer[buffer.Length - (i + 1)] = integerToAsciiArray[code & 0x0F];
+                code >>= 4;
+            }
+
+
+            // 出来上がったバッファを文字列として返す
+            return new string(buffer);
         }
     }
 }
