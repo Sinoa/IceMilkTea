@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace IceMilkTea.Core
 {
@@ -134,7 +135,7 @@ namespace IceMilkTea.Core
     internal class DirectStreamingAssetsReadStream : StreamingAssetsReader
     {
         // メンバ変数定義
-        private FileStream fileStream;
+        protected FileStream fileStream;
         private bool disposed;
 
 
@@ -274,37 +275,146 @@ namespace IceMilkTea.Core
     /// <summary>
     /// 一時領域にコピーされた StreamingAsset へアクセスするストリームクラスです
     /// </summary>
-    internal class CopyedTempStreamingAssetsReadStream : StreamingAssetsReader
+    internal class CopyedTempStreamingAssetsReadStream : DirectStreamingAssetsReadStream
     {
-        public override long Length => 0;
+        // メンバ変数定義
+        private ImtAwaitableManualReset<StreamingAssetsReader> waitHandle;
+
+
 
         /// <summary>
-        /// ファイルの位置の取得設定をします
+        /// 指定された StreamingAssetパス のファイルを非同期に開きます
         /// </summary>
-        public override long Position
-        {
-            get { return 0; }
-            set { }//value; }
-        }
-
+        /// <param name="fullAssetPath">開く StreamingAsset へのフルパス</param>
+        /// <returns>ファイルを非同期に開くのを待機する IAwaitable インスタンスを返します</returns>
         protected override IAwaitable<StreamingAssetsReader> InternalOpenAsync(string fullAssetPath)
         {
-            throw new NotImplementedException();
+            // ファイルパスからCRC64ファイル名を作り出して、一時フォルダへのパスを用意する
+            var fileName = string.Concat(fullAssetPath.ToCrc64HexText(), ".dat");
+            var filePath = Path.Combine(Application.temporaryCachePath, fileName);
+
+
+            // 待機ハンドルを生成して、一時ファイルコピーとオープンを非同期に行って、ハンドルを返す
+            waitHandle = new ImtAwaitableManualReset<StreamingAssetsReader>(false);
+            CopyAndOpenTemporaryFile(fullAssetPath, filePath);
+            return waitHandle;
         }
 
-        public override void Flush()
+
+        /// <summary>
+        /// 非同期で StreamingAsset のファイルを一度一時ファイルとしてコピーしてから、コピーした一時ファイルを開きます
+        /// </summary>
+        /// <param name="fullAssetPath">StreamingAsset へのフルパス</param>
+        /// <param name="temporaryFilePath">コピーする先の一時ファイルパス</param>
+        private async void CopyAndOpenTemporaryFile(string fullAssetPath, string temporaryFilePath)
         {
-            throw new NotImplementedException();
+            // ストリーミングアセットのファイルを一度 UniWebRequest として開いて
+            // StreamingDownloadHandler を設定して、非同期ダウンロードで待機する
+            var request = UnityWebRequest.Get(fullAssetPath);
+            request.downloadHandler = new StreamingDownloadHandler(temporaryFilePath);
+            await request.SendWebRequest();
+
+
+            // ダウンロードしたファイルを開いて、待機ハンドルのシグナルを設定する
+            fileStream = new FileStream(temporaryFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            waitHandle.Set(this);
         }
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            throw new NotImplementedException();
-        }
 
-        public override long Seek(long offset, SeekOrigin origin)
+
+        /// <summary>
+        /// 指定されたファイルへダウンロードデータを書き込みます
+        /// </summary>
+        private class StreamingDownloadHandler : DownloadHandlerScript
         {
-            throw new NotImplementedException();
+            // メンバ変数定義
+            private FileStream fileStream;
+            private int contentLength;
+            private int downloadedLength;
+
+
+
+            /// <summary>
+            /// StreamingDownloadHandler のインスタンスを初期化します
+            /// </summary>
+            /// <param name="filePath">ダウンロードする先のファイルパス</param>
+            public StreamingDownloadHandler(string filePath)
+            {
+                // ファイルを書き込みとして開く
+                fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+            }
+
+
+            /// <summary>
+            /// ダウンロードするべきサイズを受け取ります
+            /// </summary>
+            /// <param name="contentLength">ダウンロードするべきコンテンツの長さ</param>
+            protected override void ReceiveContentLength(int contentLength)
+            {
+                // コンテンツの最大長を覚えると共にファイルも伸長しておく
+                this.contentLength = contentLength;
+                fileStream.SetLength(contentLength);
+            }
+
+
+            /// <summary>
+            /// ダウンロードするデータを受信します
+            /// </summary>
+            /// <param name="data">ダウンロードしたデータへのバッファ</param>
+            /// <param name="dataLength">ダウンロードした長さ</param>
+            /// <returns>ダウンロードを継続する場合は true を、中断する場合は false を返します</returns>
+            protected override bool ReceiveData(byte[] data, int dataLength)
+            {
+                // ダウンロード済みの長さを加算してファイルにもデータを書き込んで続行
+                downloadedLength += dataLength;
+                fileStream.Write(data, 0, dataLength);
+                return true;
+            }
+
+
+            /// <summary>
+            /// ダウンロードの完了を受け付けます
+            /// </summary>
+            protected override void CompleteContent()
+            {
+                // ファイルを閉じる
+                fileStream.Dispose();
+            }
+
+
+            /// <summary>
+            /// 現在のダウンロード進捗を取得します
+            /// </summary>
+            /// <returns>現在のダウンロード進捗を返します</returns>
+            protected override float GetProgress()
+            {
+                // 現在のダウンロード済みサイズと、最大長の割合を返す
+                return downloadedLength / (float)contentLength;
+            }
+
+
+            /// <summary>
+            /// ダウンロードしたデータを取得しますが
+            /// このクラスでは、常に長さ0のbyteを返します
+            /// </summary>
+            /// <returns>長さ0のbyte配列を返します</returns>
+            protected override byte[] GetData()
+            {
+                // 空の配列を返す
+                return Array.Empty<byte>();
+            }
+
+
+            /// <summary>
+            /// ダウンロードしたデータから文字列を取得しますが
+            /// このクラスでは、常に空文字列を返します
+            /// </summary>
+            /// <returns>空文字列を返します</returns>
+            protected override string GetText()
+            {
+                // 空文字列を返す
+                return string.Empty;
+            }
         }
     }
 }
