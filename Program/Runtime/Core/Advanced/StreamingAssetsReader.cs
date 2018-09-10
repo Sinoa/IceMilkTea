@@ -179,7 +179,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 基本クラスのDisposeも呼ぶ
+            // 解放済みマークをつけて基本クラスのDisposeも呼ぶ
+            disposed = true;
             base.Dispose(disposing);
         }
 
