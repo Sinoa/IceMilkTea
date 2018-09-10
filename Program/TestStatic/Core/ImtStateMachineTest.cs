@@ -638,10 +638,13 @@ namespace IceMilkTeaTestStatic.Core
             // ステートマシンが起動していない状態で、プッシュやポップをしようとすると例外が吐かれることを確認する
             Assert.Throws<InvalidOperationException>(() => stateMachine.PushState());
             Assert.Throws<InvalidOperationException>(() => stateMachine.PopState());
+            Assert.Throws<InvalidOperationException>(() => stateMachine.PopAndDirectSetState());
 
 
             // ステートマシンを起動すれば例外が吐かれない事を確認する
             stateMachine.Update();
+            Assert.DoesNotThrow(() => stateMachine.PushState());
+            Assert.DoesNotThrow(() => stateMachine.PopAndDirectSetState());
             Assert.DoesNotThrow(() => stateMachine.PushState());
             Assert.DoesNotThrow(() => stateMachine.PopState());
 
