@@ -18,9 +18,9 @@ using IceMilkTea.Core;
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// ゲームアセットをゲームで利用できるようにするために取り込む機能を提供するサービスクラスです
+    /// ゲーム自身が利用するゲームアセットを貯蔵しておき、確認が行える機能を提供するサービスクラスです
     /// </summary>
-    public class AssetFetchService : GameService
+    public class AssetRepositoryService : GameService
     {
     }
 }
