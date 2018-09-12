@@ -54,10 +54,11 @@ namespace IceMilkTea.Core
     /// </summary>
     public struct UnityWebRequestAsyncOperationAwaiter : INotifyCompletion
     {
+        // 定数定義
+        private const string DefaultErrorMessage = "不明な'UniWebRequet'のエラーが発生しました";
+
         // 構造体変数宣言
         private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
-
 
         // メンバ変数定義
         private UnityWebRequestAsyncOperation operation;
@@ -109,8 +110,28 @@ namespace IceMilkTea.Core
         /// <returns>タスクの結果を返します</returns>
         public UnityWebRequest GetResult()
         {
+            // 結果を受け取る
+            var result = operation.webRequest;
+
+
+            // もしネットワークエラーが発生していたのなら
+            if (result.isNetworkError)
+            {
+                // エラー文字列を受け取って例外を吐く（NetworkならIOエラーでええか）
+                throw new System.IO.IOException(result.error ?? DefaultErrorMessage);
+            }
+
+
+            // もしHttpエラーが発生していたのなら
+            if (result.isHttpError)
+            {
+                // エラー文字列を受け取って例外を吐く（HTTPならWebExceptionでええか）
+                throw new System.Net.WebException(result.error ?? DefaultErrorMessage);
+            }
+
+
             // 結果を返す
-            return operation.webRequest;
+            return result;
         }
     }
 }
