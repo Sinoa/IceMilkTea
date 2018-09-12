@@ -24,11 +24,11 @@ namespace IceMilkTea.Core
     /// <summary>
     /// Unity の StreamingAssets から プラットフォーム共通な読み込みアクセスを提供する抽象ストリームクラスです
     /// </summary>
-    public abstract class StreamingAssetsReader : Stream
+    public abstract class StreamingAssetReader : Stream
     {
         // 読み取り専用クラス変数宣言
-        private static readonly Dictionary<RuntimePlatform, Func<StreamingAssetsReader>> ReaderFactoryTable;
-        private static readonly Func<StreamingAssetsReader> DefaultReaderFactory;
+        private static readonly Dictionary<RuntimePlatform, Func<StreamingAssetReader>> ReaderFactoryTable;
+        private static readonly Func<StreamingAssetReader> DefaultReaderFactory;
 
 
 
@@ -54,10 +54,10 @@ namespace IceMilkTea.Core
         /// <summary>
         /// StreamingAssetsReader の初期化を行います
         /// </summary>
-        static StreamingAssetsReader()
+        static StreamingAssetReader()
         {
             // 各プラットフォーム毎の生成関数を登録
-            ReaderFactoryTable = new Dictionary<RuntimePlatform, Func<StreamingAssetsReader>>()
+            ReaderFactoryTable = new Dictionary<RuntimePlatform, Func<StreamingAssetReader>>()
             {
                 // Android、iOSの追加
                 {RuntimePlatform.Android, () => new CopyedTempStreamingAssetsReadStream()},
@@ -75,14 +75,14 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="assetPath">非同期に開く StreamingAssetパス</param>
         /// <returns>ファイルを非同期に開くのを待機する IAwaitable インスタンスを返します</returns>
-        public static IAwaitable<StreamingAssetsReader> OpenAsync(string assetPath)
+        public static IAwaitable<StreamingAssetReader> OpenAsync(string assetPath)
         {
             // 実際に開くべきアセットへのパスを用意する
             var fullAssetPath = Path.Combine(Application.streamingAssetsPath, assetPath);
 
 
             // 実行しているプラットフォームによって StreamingAssetsReader ファクトリ関数を引っ張る
-            Func<StreamingAssetsReader> createReader;
+            Func<StreamingAssetReader> createReader;
             if (ReaderFactoryTable.TryGetValue(Application.platform, out createReader))
             {
                 // 目的のファクトリ関数が取り出せたのならインスタンスを生成して非同期オープン関数を叩く
@@ -100,7 +100,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="fullAssetPath">開くべき StreamingAsset へのフルパス</param>
         /// <returns>ファイルを非同期に開くのを待機する IAwaitable インスタンスを返します</returns>
-        protected abstract IAwaitable<StreamingAssetsReader> InternalOpenAsync(string fullAssetPath);
+        protected abstract IAwaitable<StreamingAssetReader> InternalOpenAsync(string fullAssetPath);
 
 
         /// <summary>
@@ -132,7 +132,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// StreamingAssets へ直接アクセスするストリームクラスです
     /// </summary>
-    internal class DirectStreamingAssetsReadStream : StreamingAssetsReader
+    internal class DirectStreamingAssetsReadStream : StreamingAssetReader
     {
         // メンバ変数定義
         protected FileStream fileStream;
@@ -190,7 +190,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="fullAssetPath">開く StreamingAsset へのフルパス</param>
         /// <returns>ファイルを非同期に開くのを待機する IAwaitable インスタンスを返します</returns>
-        protected override IAwaitable<StreamingAssetsReader> InternalOpenAsync(string fullAssetPath)
+        protected override IAwaitable<StreamingAssetReader> InternalOpenAsync(string fullAssetPath)
         {
             // 指定されたファイルを開く
             fileStream = new FileStream(fullAssetPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
@@ -198,7 +198,7 @@ namespace IceMilkTea.Core
 
             // 既に直接開けるので完了済みManualResetを生成して返す
             // TODO : ここでも Completed な Awaitable が欲しい
-            var completedWaitHandle = new ImtAwaitableManualReset<StreamingAssetsReader>(true);
+            var completedWaitHandle = new ImtAwaitableManualReset<StreamingAssetReader>(true);
             completedWaitHandle.PrepareResult(this);
             return completedWaitHandle;
         }
@@ -279,7 +279,7 @@ namespace IceMilkTea.Core
     internal class CopyedTempStreamingAssetsReadStream : DirectStreamingAssetsReadStream
     {
         // メンバ変数定義
-        private ImtAwaitableManualReset<StreamingAssetsReader> waitHandle;
+        private ImtAwaitableManualReset<StreamingAssetReader> waitHandle;
 
 
 
@@ -288,7 +288,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="fullAssetPath">開く StreamingAsset へのフルパス</param>
         /// <returns>ファイルを非同期に開くのを待機する IAwaitable インスタンスを返します</returns>
-        protected override IAwaitable<StreamingAssetsReader> InternalOpenAsync(string fullAssetPath)
+        protected override IAwaitable<StreamingAssetReader> InternalOpenAsync(string fullAssetPath)
         {
             // ファイルパスからCRC64ファイル名を作り出して、一時フォルダへのパスを用意する
             var fileName = string.Concat(fullAssetPath.ToCrc64HexText(), ".dat");
@@ -296,7 +296,7 @@ namespace IceMilkTea.Core
 
 
             // 待機ハンドルを生成して、一時ファイルコピーとオープンを非同期に行って、ハンドルを返す
-            waitHandle = new ImtAwaitableManualReset<StreamingAssetsReader>(false);
+            waitHandle = new ImtAwaitableManualReset<StreamingAssetReader>(false);
             CopyAndOpenTemporaryFile(fullAssetPath, filePath);
             return waitHandle;
         }
@@ -317,7 +317,7 @@ namespace IceMilkTea.Core
 
 
             // ダウンロードしたファイルを開いて、待機ハンドルのシグナルを設定する
-            fileStream = new FileStream(temporaryFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            fileStream = new FileStream(temporaryFilePath, FileMode.Open, FileAccess.Read);
             waitHandle.Set(this);
         }
 
