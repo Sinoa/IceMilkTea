@@ -418,6 +418,35 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// ステートスタックに積まれているステートを取り出し、現在のステートとして直ちに直接設定します。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は PopState() 関数と違い、ポップされたステートがそのまま現在処理中のステートとして直ちに設定するため、
+        /// 状態の遷移処理は行われず、ポップされたステートの Enter() は呼び出されずそのまま次回から Update() が呼び出されるようになります。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ、現在のステートとして設定出来た場合は true を、ポップするステートが無いか、ポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public virtual bool PopAndDirectSetState()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            IfNotRunningThrowException();
+
+
+            // そもそもスタックが空であるか、ポップする前に現在のステートにガードされたのなら
+            if (stateStack.Count == 0 || currentState.GuardPop())
+            {
+                // ポップ自体出来ないのでfalseを返す
+                return false;
+            }
+
+
+            // ステートをスタックから取り出して現在のステートとして設定して成功を返す
+            currentState = stateStack.Pop();
+            return true;
+        }
+
+
+        /// <summary>
         /// ステートスタックに積まれているステートを一つ取り出し、そのまま捨てます。
         /// </summary>
         /// <remarks>
@@ -1090,6 +1119,35 @@ namespace IceMilkTea.Core
 
             // ステートをスタックから取り出して次のステートへ遷移するようにして成功を返す
             nextState = stateStack.Pop();
+            return true;
+        }
+
+
+        /// <summary>
+        /// ステートスタックに積まれているステートを取り出し、現在のステートとして直ちに直接設定します。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は PopState() 関数と違い、ポップされたステートがそのまま現在処理中のステートとして直ちに設定するため、
+        /// 状態の遷移処理は行われず、ポップされたステートの Enter() は呼び出されずそのまま次回から Update() が呼び出されるようになります。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ、現在のステートとして設定出来た場合は true を、ポップするステートが無いか、ポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        public virtual bool PopAndDirectSetState()
+        {
+            // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
+            ThrowIfNotRunning();
+
+
+            // そもそもスタックが空であるか、ポップする前に現在のステートにガードされたのなら
+            if (stateStack.Count == 0 || currentState.GuardPop(this))
+            {
+                // ポップ自体出来ないのでfalseを返す
+                return false;
+            }
+
+
+            // ステートをスタックから取り出して現在のステートとして設定して成功を返す
+            currentState = stateTable[stateStack.Pop()];
             return true;
         }
 
@@ -1846,6 +1904,41 @@ namespace IceMilkTea.Core
             SynchronizationContext.SetSynchronizationContext(previousContext);
             return result;
         }
+
+
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、ステートスタックに積まれているステートを取り出し、現在のステートとして直ちに直接設定します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は PopState() 関数と違い、ポップされたステートがそのまま現在処理中のステートとして直ちに設定するため、
+        /// 状態の遷移処理は行われず、ポップされたステートの Enter() は呼び出されずそのまま次回から Update() が呼び出されるようになります。
+        /// さらに、この状態更新処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ、現在のステートとして設定出来た場合は true を、ポップするステートが無いか、ポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override bool PopAndDirectSetState()
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のPopAndDirectSetStateを呼び出す
+            var result = base.PopAndDirectSetState();
+
+
+            // 本来の同期コンテキストに戻して結果を返す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+            return result;
+        }
         #endregion
 
 
@@ -2138,6 +2231,41 @@ namespace IceMilkTea.Core
 
             // 通常のPopStateを呼び出す
             var result = base.PopState();
+
+
+            // 本来の同期コンテキストに戻して結果を返す
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+            return result;
+        }
+
+
+        /// <summary>
+        /// このステートマシンに同期コンテキストをスイッチしてから、ステートスタックに積まれているステートを取り出し、現在のステートとして直ちに直接設定します。
+        /// 操作が完了した時は、本来の同期コンテキストに戻ります。
+        /// </summary>
+        /// <remarks>
+        /// この関数の挙動は PopState() 関数と違い、ポップされたステートがそのまま現在処理中のステートとして直ちに設定するため、
+        /// 状態の遷移処理は行われず、ポップされたステートの Enter() は呼び出されずそのまま次回から Update() が呼び出されるようになります。
+        /// さらに、この状態更新処理中に呼び出された非同期処理を継続するためには DoProcessMessage 関数を呼び出して下さい。
+        /// </remarks>
+        /// <returns>スタックからステートがポップされ、現在のステートとして設定出来た場合は true を、ポップするステートが無いか、ポップがガードされた場合は false を返します</returns>
+        /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
+        /// <exception cref="ObjectDisposedException">オブジェクトは解放済みです</exception>
+        /// <see cref="DoProcessMessage"/>
+        /// <see cref="DoProcessMessageWithUpdate"/>
+        public override bool PopAndDirectSetState()
+        {
+            // 解放済み例外送出関数を叩く
+            ThrowIfDisposed();
+
+
+            // もとに戻すために現在の同期コンテキストを拾ってから自身の同期コンテキストに切り替える
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+
+
+            // 通常のPopAndDirectSetStateを呼び出す
+            var result = base.PopAndDirectSetState();
 
 
             // 本来の同期コンテキストに戻して結果を返す
