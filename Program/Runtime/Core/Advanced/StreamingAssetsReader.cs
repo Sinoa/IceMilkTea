@@ -309,113 +309,15 @@ namespace IceMilkTea.Core
         /// <param name="temporaryFilePath">コピーする先の一時ファイルパス</param>
         private async void CopyAndOpenTemporaryFile(string fullAssetPath, string temporaryFilePath)
         {
-            // ストリーミングアセットのファイルを一度 UniWebRequest として開いて
-            // StreamingDownloadHandler を設定して、非同期ダウンロードで待機する
+            // ストリーミングアセットのファイルを一度 UniWebRequest として開いて非同期ダウンロードで待機する
             var request = UnityWebRequest.Get(fullAssetPath);
-            request.downloadHandler = new StreamingDownloadHandler(temporaryFilePath);
+            request.downloadHandler = new DownloadHandlerFile(temporaryFilePath);
             await request.SendWebRequest();
 
 
             // ダウンロードしたファイルを開いて、待機ハンドルのシグナルを設定する
             fileStream = new FileStream(temporaryFilePath, FileMode.Open, FileAccess.Read);
             waitHandle.Set(this);
-        }
-
-
-
-        /// <summary>
-        /// 指定されたファイルへダウンロードデータを書き込みます
-        /// </summary>
-        private class StreamingDownloadHandler : DownloadHandlerScript
-        {
-            // メンバ変数定義
-            private FileStream fileStream;
-            private int contentLength;
-            private int downloadedLength;
-
-
-
-            /// <summary>
-            /// StreamingDownloadHandler のインスタンスを初期化します
-            /// </summary>
-            /// <param name="filePath">ダウンロードする先のファイルパス</param>
-            public StreamingDownloadHandler(string filePath)
-            {
-                // ファイルを書き込みとして開く
-                fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-            }
-
-
-            /// <summary>
-            /// ダウンロードするべきサイズを受け取ります
-            /// </summary>
-            /// <param name="contentLength">ダウンロードするべきコンテンツの長さ</param>
-            protected override void ReceiveContentLength(int contentLength)
-            {
-                // コンテンツの最大長を覚えると共にファイルも伸長しておく
-                this.contentLength = contentLength;
-                fileStream.SetLength(contentLength);
-            }
-
-
-            /// <summary>
-            /// ダウンロードするデータを受信します
-            /// </summary>
-            /// <param name="data">ダウンロードしたデータへのバッファ</param>
-            /// <param name="dataLength">ダウンロードした長さ</param>
-            /// <returns>ダウンロードを継続する場合は true を、中断する場合は false を返します</returns>
-            protected override bool ReceiveData(byte[] data, int dataLength)
-            {
-                // ダウンロード済みの長さを加算してファイルにもデータを書き込んで続行
-                downloadedLength += dataLength;
-                fileStream.Write(data, 0, dataLength);
-                return true;
-            }
-
-
-            /// <summary>
-            /// ダウンロードの完了を受け付けます
-            /// </summary>
-            protected override void CompleteContent()
-            {
-                // ファイルを閉じる
-                fileStream.Dispose();
-            }
-
-
-            /// <summary>
-            /// 現在のダウンロード進捗を取得します
-            /// </summary>
-            /// <returns>現在のダウンロード進捗を返します</returns>
-            protected override float GetProgress()
-            {
-                // 現在のダウンロード済みサイズと、最大長の割合を返す
-                return downloadedLength / (float)contentLength;
-            }
-
-
-            /// <summary>
-            /// ダウンロードしたデータを取得しますが
-            /// このクラスでは、常に長さ0のbyteを返します
-            /// </summary>
-            /// <returns>長さ0のbyte配列を返します</returns>
-            protected override byte[] GetData()
-            {
-                // 空の配列を返す
-                return Array.Empty<byte>();
-            }
-
-
-            /// <summary>
-            /// ダウンロードしたデータから文字列を取得しますが
-            /// このクラスでは、常に空文字列を返します
-            /// </summary>
-            /// <returns>空文字列を返します</returns>
-            protected override string GetText()
-            {
-                // 空文字列を返す
-                return string.Empty;
-            }
         }
     }
 }
