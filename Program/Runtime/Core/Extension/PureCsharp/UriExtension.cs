@@ -62,5 +62,26 @@ namespace IceMilkTea.Core
                 result[keyValue[0]] = keyValue[1];
             }
         }
+
+
+        /// <summary>
+        /// URIのスキームがHTTP系かどうかを確認します。
+        /// 判定されるスキームは "http" または "https" です。
+        /// </summary>
+        /// <param name="uri">HTTPスキームかどうか調べるURI</param>
+        /// <returns>HTTPスキームである場合は true を、違う場合は false を返します</returns>
+        public static bool IsHttpScheme(this Uri uri)
+        {
+            // そもそも絶対パスでないなら
+            if (!uri.IsAbsoluteUri)
+            {
+                // 判定は出来ない
+                return false;
+            }
+
+
+            // スキームがHTTPかHTTPSかの判定を返す
+            return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+        }
     }
 }
