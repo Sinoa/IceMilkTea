@@ -403,8 +403,29 @@ namespace IceMilkTea.Service
         private const string FileStreamHostName = "filestream";
 
         // メンバ変数定義
+        private DirectoryInfo baseDirectoryInfo;
         private FileStream fileStream;
 
+
+
+        /// <summary>
+        /// FileStreamAssetInstaller のインスタンスを初期化します
+        /// </summary>
+        /// <param name="baseDirectoryPath">インストールする先のベースディレクトリパス</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public FileStreamAssetInstaller(string baseDirectoryPath)
+        {
+            // nullを渡されたら
+            if (baseDirectoryPath == null)
+            {
+                // 流石にインストールできない
+                throw new ArgumentNullException(nameof(baseDirectoryPath));
+            }
+
+
+            // DirectoryInfoとしてパスを覚える
+            baseDirectoryInfo = new DirectoryInfo(baseDirectoryPath);
+        }
 
 
         /// <summary>
@@ -434,8 +455,21 @@ namespace IceMilkTea.Service
         /// <returns>指定されたインストールURLに対して開いたストリームを返します</returns>
         public override Stream Open(Uri installUrl)
         {
+            // 最終的なインストールファイル情報を用意する
+            var installFilePath = Path.Combine(baseDirectoryInfo.FullName, installUrl.LocalPath.TrimStart('/'));
+            var installFileInfo = new FileInfo(installFilePath);
+
+
+            // ディレクトリが存在しないなら
+            if (!installFileInfo.Directory.Exists)
+            {
+                // ディレクトリを作成する
+                installFileInfo.Directory.Create();
+            }
+
+
             // ローカルパスに対して書き込みのファイルストリームを開いて返す
-            return fileStream = new FileStream(installUrl.LocalPath, FileMode.Create, FileAccess.Write);
+            return fileStream = installFileInfo.OpenWrite();
         }
 
 
