@@ -18,7 +18,7 @@ using IceMilkTea.Core;
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// ゲーム自身が利用するゲームアセットを貯蔵しておき、確認が行える機能を提供するサービスクラスです
+    /// ゲーム自身が利用するゲームアセットの貯蔵状況の確認が行える機能を提供するサービスクラスです
     /// </summary>
     public class AssetRepositoryService : GameService
     {
