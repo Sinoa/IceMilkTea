@@ -15,7 +15,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine.Networking;
 
@@ -635,16 +638,164 @@ namespace IceMilkTea.Service
 
 
     #region AssetFetcher for WebRequest
+    /// <summary>
+    /// C#の純粋なWebRequestを使ったアセットフェッチを行うフェッチャークラスです
+    /// </summary>
     public class WebRequestAssetFetcher : AssetFetcher
     {
-        public override bool CanResolve(Uri fetchUrl)
+        // 定数定義
+        private const long ProgressNotifyIntervalTime = 125;
+        private const int DefaultTimeoutTime = 5000;
+
+        // メンバ変数定義
+        private int timeoutTime;
+
+
+
+        /// <summary>
+        /// WebRequestAssetFetcher のインスタンスを既定値で初期化します
+        /// </summary>
+        public WebRequestAssetFetcher() : this(DefaultTimeoutTime)
         {
-            throw new NotImplementedException();
         }
 
+
+        /// <summary>
+        /// WebRequestAssetFetcher のインスタンスを初期化します
+        /// </summary>
+        /// <param name="timeoutTime">リクエストがタイムアウトするまでの時間（ミリ秒）</param>
+        /// <exception cref="ArgumentOutOfRangeException">タイムアウトの時間に負の値は利用できません</exception>
+        public WebRequestAssetFetcher(int timeoutTime)
+        {
+            // もしタイムアウトの時間が0未満なら
+            if (timeoutTime < 0)
+            {
+                // 流石に負の世界にはいけない
+                throw new ArgumentOutOfRangeException(nameof(timeoutTime), "タイムアウトの時間に負の値は利用できません");
+            }
+
+
+            // タイムアウトの時間を覚える
+            this.timeoutTime = timeoutTime;
+        }
+
+
+        /// <summary>
+        /// 指定されたフェッチURLが対応可能かどうか判断します
+        /// </summary>
+        /// <param name="fetchUrl">対応するフェッチURL</param>
+        /// <returns>対応可能な場合は true を、不可能な場合は false を返します</returns>
+        public override bool CanResolve(Uri fetchUrl)
+        {
+            // HTTP系スキームなら
+            if (fetchUrl.IsHttpScheme())
+            {
+                // わりといける
+                return true;
+            }
+
+
+            // HTTP以外はお断り
+            return false;
+        }
+
+
+        /// <summary>
+        /// 非同期に、指定されたフェッチURLからアセットフェッチします
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
+        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
+        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
+        /// <returns>アセットのフェッチを非同期操作しているタスクを返します</returns>
         public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
         {
-            throw new NotImplementedException();
+            // 待機ハンドルを作ってダウンロードを非同期に開始して、その待機ハンドルを返す
+            var waitHandle = new ImtAwaitableManualReset(false);
+            DoFetchAssetAsync(fetchUrl, installStream, progress, waitHandle);
+            return waitHandle;
+        }
+
+
+        /// <summary>
+        /// 非同期に、指定されたフェッチURLからアセットフェッチを実際に行います
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
+        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
+        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
+        /// <param name="waitHandle">アセットフェッチが完了するまでの待機ハンドル</param>
+        private async void DoFetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress, ImtAwaitableManualReset waitHandle)
+        {
+            // WebRequestでまずはHTTPリクエストとタイムアウト用タスクの用意
+            var request = WebRequest.CreateHttp(fetchUrl);
+            var responseTask = request.GetResponseAsync();
+            var timeoutTask = Task.Delay(timeoutTime);
+
+
+            // レスポンスタスクとタイムアウトタスクの2つを待機してもしタイムアウトが先に終了したら
+            var finishedTask = await Task.WhenAny(responseTask, timeoutTask);
+            if (finishedTask == timeoutTask)
+            {
+                // リクエストを中止して、待機ハンドルのシグナルを設定して終了
+                request.Abort();
+                waitHandle.Set();
+                return;
+            }
+
+
+            // ここまで来たのならレスポンスが先に返ってきたということで結果を受け取る
+            var response = (HttpWebResponse)responseTask.Result;
+
+
+            // もしステータスコードでOK以外が返ってきたら
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                // レスポンスを破棄
+                response.Dispose();
+
+
+                // 継続はせず待機ハンドルのシグナルを設定して終了
+                waitHandle.Set();
+                return;
+            }
+
+
+            // コンテンツの長さを拾う（念の為コンテンツ長が取り出せないヘッダが返ってきた場合はlongMaxでごまかす）
+            var contentLength = response.ContentLength;
+            contentLength = contentLength > 0 ? contentLength : long.MaxValue;
+
+
+            // 読み書き用バッファと書き込みトータル数通知用判定タイマーの宣言
+            var judgeNotifyTimer = Stopwatch.StartNew();
+            var buffer = new byte[4 << 10];
+            var writeTotal = 0L;
+
+
+            // ネットワークストリームを取得
+            using (var networkStream = response.GetResponseStream())
+            {
+                // 非同期で読み込んで、読み込みの長さが0になるまでループ
+                var readSize = 0;
+                while ((readSize = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    // 読み込まれたデータを非同期で書き込んで書き込んだトータルにも加算
+                    await installStream.WriteAsync(buffer, 0, readSize);
+                    writeTotal += readSize;
+
+
+                    // もし通知するための時間が経過していたら
+                    if (judgeNotifyTimer.ElapsedMilliseconds >= ProgressNotifyIntervalTime)
+                    {
+                        // 通知用データを作って通知して、タイマーをリスタート
+                        progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), writeTotal / (double)contentLength));
+                        judgeNotifyTimer.Restart();
+                    }
+                }
+            }
+
+
+            // インストールが完了したらレスポンスを破棄して、待機ハンドルにシグナルを設定する
+            response.Dispose();
+            waitHandle.Set();
         }
     }
     #endregion
