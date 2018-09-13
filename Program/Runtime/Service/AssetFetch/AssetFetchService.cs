@@ -119,12 +119,25 @@ namespace IceMilkTea.Service
 
             // インストーラからインストールストリームを開いてもらい、フェッチャーに渡してアセットフェッチを開始
             var installStream = installer.Open(installUri);
-            var result = fetcher.FetchAssetAsync(fetchUri, installStream, progress ?? DefaultProgress);
+            var waitHandle = fetcher.FetchAssetAsync(fetchUri, installStream, progress ?? DefaultProgress);
+
+
+            // クリーンアップ作業を非同期的に行いながら非同期操作タスクを返す
+            DoCleanupAsync(installer, waitHandle);
+            return waitHandle;
+        }
+
+
+        /// <summary>
+        /// フェッチが終わったときのクリーンアップを非同期に行います
+        /// </summary>
+        /// <param name="installer">クリーンアップするインストーラ</param>
+        /// <param name="waitHandle">フェッチャーからの待機ハンドル</param>
+        private async void DoCleanupAsync(AssetInstaller installer, IAwaitable waitHandle)
+        {
+            // フェッチが終わるまでまって、終わったらインストーラを閉じる
+            await waitHandle;
             installer.Close();
-
-
-            // 非同期操作タスクを返す
-            return result;
         }
     }
     #endregion
