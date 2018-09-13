@@ -93,8 +93,13 @@ namespace IceMilkTea.Service
             }
 
 
+            // フェッチURLとインストールURLのインスタンスを生成
+            var fetchUri = new Uri(fetchUrl);
+            var installUri = new Uri(installUrl);
+
+
             // フェッチURLからアセットフェッチするフェッチャーを取得するが、担当が見つからなかったら
-            var fetcher = fetcherProvider.GetFetcher(fetchUrl);
+            var fetcher = fetcherProvider.GetFetcher(fetchUri);
             if (fetcher == null)
             {
                 // ごめんなさい、フェッチ出来ません
@@ -103,7 +108,7 @@ namespace IceMilkTea.Service
 
 
             // インストールURLからアセットのインストーラを取得するが、担当が見つからなかったら
-            var installer = installerProvider.GetInstaller(installUrl);
+            var installer = installerProvider.GetInstaller(installUri);
             if (installer == null)
             {
                 // ごめんなさい、インストールできません
@@ -112,8 +117,8 @@ namespace IceMilkTea.Service
 
 
             // インストーラからインストールストリームを開いてもらい、フェッチャーに渡してアセットフェッチを開始
-            var installStream = installer.Open(installUrl);
-            var result = fetcher.FetchAssetAsync(fetchUrl, installStream, progress ?? DefaultProgress);
+            var installStream = installer.Open(installUri);
+            var result = fetcher.FetchAssetAsync(fetchUri, installStream, progress ?? DefaultProgress);
             installer.Close(installStream);
 
 
@@ -207,14 +212,14 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="url">インストールする予定のインストールURL</param>
         /// <returns>対応可能な AssetInstaller のインスタンスを返しますが、見つからなかった場合は null を返します</returns>
-        /// <exception cref="ArgumentException">指定された URL はインストールURLとして正しくありません</exception>
-        public AssetInstaller GetInstaller(string url)
+        /// <exception cref="ArgumentNullException">url が null です</exception>
+        public AssetInstaller GetInstaller(Uri url)
         {
-            // 文字列として不適切なデータなら
-            if (string.IsNullOrWhiteSpace(url))
+            // null を渡されていたら
+            if (url == null)
             {
-                // そもそも対応出来ません
-                throw new ArgumentException("指定された URL はインストールURLとして正しくありません", nameof(url));
+                // どんなインストーラをご所望ですか
+                throw new ArgumentNullException(nameof(url));
             }
 
 
@@ -247,7 +252,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="installUrl">要求されているインストールURL</param>
         /// <returns>要求されているURLのインストールが可能な場合は true を、不可能であれば false を返します</returns>
-        public abstract bool CanResolve(string installUrl);
+        public abstract bool CanResolve(Uri installUrl);
 
 
         /// <summary>
@@ -255,7 +260,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="installUrl">要求されているインストールURL</param>
         /// <returns>指定されたインストールURLにインストールするためのストリームインスタンスを返します</returns>
-        public abstract Stream Open(string installUrl);
+        public abstract Stream Open(Uri installUrl);
 
 
         /// <summary>
@@ -322,8 +327,17 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="url">要求されているフェッチURL</param>
         /// <returns>対応可能な AssetFetcher のインスタンスを返しますが、見つからなかった場合は null を返します</returns>
-        public AssetFetcher GetFetcher(string url)
+        /// <exception cref="ArgumentNullException">url が null です</exception>
+        public AssetFetcher GetFetcher(Uri url)
         {
+            // null を渡されたら
+            if (url == null)
+            {
+                // どんなフェッチャーがお望みですか
+                throw new ArgumentNullException(nameof(url));
+            }
+
+
             // 管理しているフェッチャーの数分ループする
             foreach (var fetcher in fetcherList)
             {
@@ -353,7 +367,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="fetchUrl">要求されているフェッチURL</param>
         /// <returns>要求されているフェッチURLの対応が可能な場合は true を、不可能の場合は false を返します</returns>
-        public abstract bool CanResolve(string fetchUrl);
+        public abstract bool CanResolve(Uri fetchUrl);
 
 
         /// <summary>
@@ -363,7 +377,88 @@ namespace IceMilkTea.Service
         /// <param name="installStream">フェッチしたデータを書き込むインストーラが開いたインストールストリーム</param>
         /// <param name="progress">フェッチ状況の進捗通知をする IProgress</param>
         /// <returns>アセットのフェッチを非同期しているタスクを返します</returns>
-        public abstract IAwaitable FetchAssetAsync(string fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress);
+        public abstract IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress);
+    }
+    #endregion
+
+
+
+    #region AssetInstaller for FileStream
+    public class FileStreamAssetInstaller : AssetInstaller
+    {
+        public override bool CanResolve(Uri installUrl)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Close(Stream stream)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Stream Open(Uri installUrl)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
+
+
+
+    #region AssetFetcher for UnityWebRequest
+    /// <summary>
+    /// UnityのUnityWebRequestを使ったアセットデータのフェッチを行うフェッチャークラスです
+    /// </summary>
+    public class UnityWebRequestAssetFetcher : AssetFetcher
+    {
+        /// <summary>
+        /// 指定されたフェッチURLが対応可能かどうか判断します
+        /// </summary>
+        /// <param name="fetchUrl">対応するフェッチURL</param>
+        /// <returns>対応可能な場合は true を、不可能な場合は false を返します</returns>
+        public override bool CanResolve(Uri fetchUrl)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
+
+
+
+    #region AssetFetcher for WebRequest
+    public class WebRequestAssetFetcher : AssetFetcher
+    {
+        public override bool CanResolve(Uri fetchUrl)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
+
+
+
+    #region AssetFetcher for StreamingAssetReader
+    public class StreamingAssetReaderAssetFetcher : AssetFetcher
+    {
+        public override bool CanResolve(Uri fetchUrl)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
+        {
+            throw new NotImplementedException();
+        }
     }
     #endregion
 }
