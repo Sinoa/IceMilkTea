@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using IceMilkTea.Core;
+using UnityEngine.Networking;
 
 namespace IceMilkTea.Service
 {
@@ -139,13 +140,27 @@ namespace IceMilkTea.Service
         /// <summary>
         /// フェッチ中のフェッチURL
         /// </summary>
-        public string FetchUrl { get; set; }
+        public string FetchUrl { get; private set; }
 
 
         /// <summary>
         /// アセットのフェッチ進捗率を正規化した値
         /// </summary>
-        public double Progress { get; set; }
+        public double Progress { get; private set; }
+
+
+
+        /// <summary>
+        /// AssetFetchProgressInfo のインスタンスを初期化します
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするURL</param>
+        /// <param name="progress">フェッチ進捗</param>
+        public AssetFetchProgressInfo(string fetchUrl, double progress)
+        {
+            // 受け取った値をそのまま受ける
+            FetchUrl = fetchUrl;
+            Progress = progress;
+        }
     }
     #endregion
 
@@ -412,12 +427,121 @@ namespace IceMilkTea.Service
         /// <returns>対応可能な場合は true を、不可能な場合は false を返します</returns>
         public override bool CanResolve(Uri fetchUrl)
         {
-            throw new NotImplementedException();
+            // HTTP系スキームなら
+            if (fetchUrl.IsHttpScheme())
+            {
+                // わりといける
+                return true;
+            }
+
+
+            // HTTP以外はお断り
+            return false;
         }
 
+
+        /// <summary>
+        /// 非同期に、指定されたフェッチURLからアセットフェッチします
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
+        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
+        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
+        /// <returns>アセットのフェッチを非同期操作しているタスクを返します</returns>
         public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
         {
-            throw new NotImplementedException();
+            // 待機ハンドルを作ってダウンロードを非同期に開始して、その待機ハンドルを返す
+            var waitHandle = new ImtAwaitableManualReset(false);
+            DoFetchAssetAsync(fetchUrl, installStream, progress, waitHandle);
+            return waitHandle;
+        }
+
+
+        /// <summary>
+        /// 非同期に、指定されたフェッチURLからアセットフェッチを実際に行います
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
+        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
+        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
+        /// <param name="waitHandle">アセットフェッチが完了するまでの待機ハンドル</param>
+        private async void DoFetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress, ImtAwaitableManualReset waitHandle)
+        {
+            // UnityWebRequestでダウンロードをするためのインスタンスを生成し初期化をする
+            var request = UnityWebRequest.Get(fetchUrl);
+            request.downloadHandler = new DownloadHandlerStream(installStream);
+
+
+            // 非同期にダウンロードを開始する
+            await request.SendWebRequest()
+                .ToAwaitable(new Progress<float>(currentProgress =>
+                {
+                    // 現在の進捗状態を通知する
+                    progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), currentProgress));
+                }));
+
+
+            // 非同期ダウンロードが完了したら待機ハンドルのシグナルを設定
+            waitHandle.Set();
+        }
+
+
+
+        /// <summary>
+        /// UnityWebRequestによってダウンロードされたデータを、指定されたストリームに書き込んでいくハンドラクラスです
+        /// </summary>
+        private sealed class DownloadHandlerStream : DownloadHandlerScript
+        {
+            // メンバ変数定義
+            private Stream installStream;
+            private int contentLength;
+            private int downloadedLength;
+
+
+
+            /// <summary>
+            /// DownloadHandlerStream のインスタンスを初期化します
+            /// </summary>
+            /// <param name="installStream">インストーラによって渡された書き込むべき先のストリーム</param>
+            public DownloadHandlerStream(Stream installStream) : base(new byte[4 << 10])
+            {
+                // ストリームを受け取る
+                this.installStream = installStream;
+            }
+
+
+            /// <summary>
+            /// コンテンツサイズを受け取ったハンドリングを行います
+            /// </summary>
+            /// <param name="contentLength">受信したコンテンツサイズ</param>
+            protected override void ReceiveContentLength(int contentLength)
+            {
+                // コンテンツの大きさを覚える
+                this.contentLength = contentLength;
+            }
+
+
+            /// <summary>
+            /// データを受け取ったハンドリングを行います
+            /// </summary>
+            /// <param name="data">受け取ったデータバッファ</param>
+            /// <param name="dataLength">実際に受け取ったサイズ</param>
+            /// <returns>ダウンロードを継続する場合は true を、中断する場合は false を返します</returns>
+            protected override bool ReceiveData(byte[] data, int dataLength)
+            {
+                // ストリームにデータを書き込んで継続する
+                downloadedLength += dataLength;
+                installStream.Write(data, 0, dataLength);
+                return true;
+            }
+
+
+            /// <summary>
+            /// 現在の進捗を取得します
+            /// </summary>
+            /// <returns>現在の進捗を返します</returns>
+            protected override float GetProgress()
+            {
+                return downloadedLength / (float)contentLength;
+            }
         }
     }
     #endregion
