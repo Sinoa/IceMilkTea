@@ -803,16 +803,94 @@ namespace IceMilkTea.Service
 
 
     #region AssetFetcher for StreamingAssetReader
+    /// <summary>
+    /// UnityのStreamingAssetsに含まれるデータからアセットをフェッチするフェッチャークラスです
+    /// </summary>
     public class StreamingAssetReaderAssetFetcher : AssetFetcher
     {
+        // 定数定義
+        private const string FetcherSchemeName = "fetch";
+        private const string StreamingAssetsHostName = "streamingassets";
+        private const long ProgressNotifyIntervalTime = 125;
+
+
+
+        /// <summary>
+        /// 指定されたフェッチURLが対応可能かどうか判断します
+        /// </summary>
+        /// <param name="fetchUrl">対応するフェッチURL</param>
+        /// <returns>対応可能な場合は true を、不可能な場合は false を返します</returns>
         public override bool CanResolve(Uri fetchUrl)
         {
-            throw new NotImplementedException();
+            // スキームとホスト名が対応可能な文字列なら
+            if (fetchUrl.Scheme == FetcherSchemeName && fetchUrl.Host == StreamingAssetsHostName)
+            {
+                // 対応可能
+                return true;
+            }
+
+
+            // そうでないなら対応不可
+            return false;
         }
 
+
+        /// <summary>
+        /// 非同期に、指定されたフェッチURLからアセットフェッチします
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
+        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
+        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
+        /// <returns>アセットのフェッチを非同期操作しているタスクを返します</returns>
         public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
         {
-            throw new NotImplementedException();
+            // 待機ハンドルを作ってダウンロードを非同期に開始して、その待機ハンドルを返す
+            var waitHandle = new ImtAwaitableManualReset(false);
+            DoFetchAssetAsync(fetchUrl, installStream, progress, waitHandle);
+            return waitHandle;
+        }
+
+
+        /// <summary>
+        /// 非同期に、指定されたフェッチURLからアセットフェッチを実際に行います
+        /// </summary>
+        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
+        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
+        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
+        /// <param name="waitHandle">アセットフェッチが完了するまでの待機ハンドル</param>
+        private async void DoFetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress, ImtAwaitableManualReset waitHandle)
+        {
+            // 読み書き用バッファと書き込みトータル数通知用判定タイマーの宣言
+            var judgeNotifyTimer = Stopwatch.StartNew();
+            var buffer = new byte[4 << 10];
+            var writeTotal = 0L;
+
+
+            // ストリーミングアセットを開く
+            using (var stream = await StreamingAssetReader.OpenAsync(fetchUrl.LocalPath))
+            {
+                // 非同期で読み込んで、読み込みの長さが0になるまでループ
+                var readSize = 0;
+                while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    // 読み込まれたデータを非同期で書き込んで書き込んだトータルにも加算
+                    await installStream.WriteAsync(buffer, 0, readSize);
+                    writeTotal += readSize;
+
+
+                    // もし通知するための時間が経過していたら
+                    if (judgeNotifyTimer.ElapsedMilliseconds >= ProgressNotifyIntervalTime)
+                    {
+                        // 通知用データを作って通知して、タイマーをリスタート（ストリーミングアセットはサイズの最大長が取り出せないので0.0進行率として通知）
+                        progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), 0.0));
+                        judgeNotifyTimer.Restart();
+                    }
+                }
+            }
+
+
+            // 待機ハンドルにシグナルを設定する
+            waitHandle.Set();
         }
     }
     #endregion
