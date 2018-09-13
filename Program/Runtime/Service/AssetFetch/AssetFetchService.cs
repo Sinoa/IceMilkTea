@@ -120,7 +120,7 @@ namespace IceMilkTea.Service
             // インストーラからインストールストリームを開いてもらい、フェッチャーに渡してアセットフェッチを開始
             var installStream = installer.Open(installUri);
             var result = fetcher.FetchAssetAsync(fetchUri, installStream, progress ?? DefaultProgress);
-            installer.Close(installStream);
+            installer.Close();
 
 
             // 非同期操作タスクを返す
@@ -275,7 +275,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 開いたインストールストリームを閉じます
         /// </summary>
-        public abstract void Close(Stream stream);
+        public abstract void Close();
     }
     #endregion
 
@@ -393,21 +393,60 @@ namespace IceMilkTea.Service
 
 
     #region AssetInstaller for FileStream
+    /// <summary>
+    /// ファイルストリームを使った比較的単純なインストーラクラスです
+    /// </summary>
     public class FileStreamAssetInstaller : AssetInstaller
     {
+        // 定数定義
+        private const string InstallSchemeName = "install";
+        private const string FileStreamHostName = "filestream";
+
+        // メンバ変数定義
+        private FileStream fileStream;
+
+
+
+        /// <summary>
+        /// 指定されたインストールURLが対応可能かどうかを判断します
+        /// </summary>
+        /// <param name="installUrl">対応するインストールURL</param>
+        /// <returns>対応可能な場合は true を、不可能な場合は false を返します</returns>
         public override bool CanResolve(Uri installUrl)
         {
-            throw new NotImplementedException();
+            // スキーム名とホスト名が対応できる文字列なら
+            if (installUrl.Scheme == InstallSchemeName && installUrl.Host == FileStreamHostName)
+            {
+                // 対応できるとして返す
+                return true;
+            }
+
+
+            // 対応出来ない
+            return false;
         }
 
-        public override void Close(Stream stream)
-        {
-            throw new NotImplementedException();
-        }
 
+        /// <summary>
+        /// インストールをするために、インストールストリームを開きます
+        /// </summary>
+        /// <param name="installUrl">インストールする先のURL</param>
+        /// <returns>指定されたインストールURLに対して開いたストリームを返します</returns>
         public override Stream Open(Uri installUrl)
         {
-            throw new NotImplementedException();
+            // ローカルパスに対して書き込みのファイルストリームを開いて返す
+            return fileStream = new FileStream(installUrl.LocalPath, FileMode.Create, FileAccess.Write);
+        }
+
+
+        /// <summary>
+        /// 開いたインストールストリームを閉じます
+        /// </summary>
+        public override void Close()
+        {
+            // ファイルストリームを閉じる
+            fileStream?.Dispose();
+            fileStream = null;
         }
     }
     #endregion
