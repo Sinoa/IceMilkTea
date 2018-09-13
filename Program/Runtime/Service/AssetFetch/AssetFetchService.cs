@@ -143,12 +143,6 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// フェッチ中のインストールURL
-        /// </summary>
-        public string InstallUrl { get; set; }
-
-
-        /// <summary>
         /// アセットのフェッチ進捗率を正規化した値
         /// </summary>
         public double Progress { get; set; }
