@@ -64,7 +64,12 @@ namespace IceMilkTea.Service
         /// <summary>
         /// マニフェスト名
         /// </summary>
-        public string ManifestName;
+        public string Name;
+
+        /// <summary>
+        /// マニフェストバージョン
+        /// </summary>
+        public int Version;
 
         /// <summary>
         /// マニフェストを生成したUNIXタイムスタンプ（ミリ秒）
