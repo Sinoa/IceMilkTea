@@ -122,12 +122,12 @@ namespace IceMilkTea.Service
 
             // インストーラからインストールストリームを開いてもらい、フェッチャーに渡してアセットフェッチを開始
             var installStream = installer.Open(installUri);
-            var waitHandle = fetcher.FetchAssetAsync(fetchUri, installStream, progress ?? DefaultProgress);
+            var fetchTask = fetcher.FetchAssetAsync(fetchUri, installStream, progress ?? DefaultProgress);
 
 
             // クリーンアップ作業を非同期的に行いながら非同期操作タスクを返す
-            DoCleanupAsync(installer, waitHandle);
-            return waitHandle;
+            DoCleanupAsync(installer, fetchTask);
+            return fetchTask;
         }
 
 
@@ -135,11 +135,11 @@ namespace IceMilkTea.Service
         /// フェッチが終わったときのクリーンアップを非同期に行います
         /// </summary>
         /// <param name="installer">クリーンアップするインストーラ</param>
-        /// <param name="waitHandle">フェッチャーからの待機ハンドル</param>
-        private async void DoCleanupAsync(AssetInstaller installer, IAwaitable waitHandle)
+        /// <param name="fetchTask">フェッチャーのフェッチタスク</param>
+        private async void DoCleanupAsync(AssetInstaller installer, IAwaitable fetchTask)
         {
             // フェッチが終わるまでまって、終わったらインストーラを閉じる
-            await waitHandle;
+            await fetchTask;
             installer.Close();
         }
     }
@@ -538,38 +538,23 @@ namespace IceMilkTea.Service
         /// <returns>アセットのフェッチを非同期操作しているタスクを返します</returns>
         public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
         {
-            // 待機ハンドルを作ってダウンロードを非同期に開始して、その待機ハンドルを返す
-            var waitHandle = new ImtAwaitableManualReset(false);
-            DoFetchAssetAsync(fetchUrl, installStream, progress, waitHandle);
-            return waitHandle;
-        }
+            // 非同期タスクを生成して返す
+            return new ImtTask(async () =>
+            {
+                // UnityWebRequestでダウンロードをするためのインスタンスを生成し初期化をする
+                var request = UnityWebRequest.Get(fetchUrl);
+                request.downloadHandler = new DownloadHandlerStream(installStream);
 
 
-        /// <summary>
-        /// 非同期に、指定されたフェッチURLからアセットフェッチを実際に行います
-        /// </summary>
-        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
-        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
-        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
-        /// <param name="waitHandle">アセットフェッチが完了するまでの待機ハンドル</param>
-        private async void DoFetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress, ImtAwaitableManualReset waitHandle)
-        {
-            // UnityWebRequestでダウンロードをするためのインスタンスを生成し初期化をする
-            var request = UnityWebRequest.Get(fetchUrl);
-            request.downloadHandler = new DownloadHandlerStream(installStream);
-
-
-            // 非同期にダウンロードを開始する
-            await request.SendWebRequest()
-                .ToAwaitable(new Progress<float>(currentProgress =>
-                {
-                    // 現在の進捗状態を通知する
-                    progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), currentProgress));
-                }));
-
-
-            // 非同期ダウンロードが完了したら待機ハンドルのシグナルを設定
-            waitHandle.Set();
+                // 非同期にダウンロードを開始する
+                await request.SendWebRequest()
+                    .ToAwaitable(new Progress<float>(currentProgress =>
+                    {
+                        // 現在の進捗状態を通知する
+                        progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), currentProgress));
+                    }));
+            })
+            .Run();
         }
 
 
@@ -709,93 +694,76 @@ namespace IceMilkTea.Service
         /// <returns>アセットのフェッチを非同期操作しているタスクを返します</returns>
         public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
         {
-            // 待機ハンドルを作ってダウンロードを非同期に開始して、その待機ハンドルを返す
-            var waitHandle = new ImtAwaitableManualReset(false);
-            DoFetchAssetAsync(fetchUrl, installStream, progress, waitHandle);
-            return waitHandle;
-        }
-
-
-        /// <summary>
-        /// 非同期に、指定されたフェッチURLからアセットフェッチを実際に行います
-        /// </summary>
-        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
-        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
-        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
-        /// <param name="waitHandle">アセットフェッチが完了するまでの待機ハンドル</param>
-        private async void DoFetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress, ImtAwaitableManualReset waitHandle)
-        {
-            // WebRequestでまずはHTTPリクエストとタイムアウト用タスクの用意
-            var request = WebRequest.CreateHttp(fetchUrl);
-            var responseTask = request.GetResponseAsync();
-            var timeoutTask = Task.Delay(timeoutTime);
-
-
-            // レスポンスタスクとタイムアウトタスクの2つを待機してもしタイムアウトが先に終了したら
-            var finishedTask = await Task.WhenAny(responseTask, timeoutTask);
-            if (finishedTask == timeoutTask)
+            // 非同期タスクを生成して返す
+            return new ImtTask(async () =>
             {
-                // リクエストを中止して、待機ハンドルのシグナルを設定して終了
-                request.Abort();
-                waitHandle.Set();
-                return;
-            }
+                // WebRequestでまずはHTTPリクエストとタイムアウト用タスクの用意
+                var request = WebRequest.CreateHttp(fetchUrl);
+                var responseTask = request.GetResponseAsync();
+                var timeoutTask = Task.Delay(timeoutTime);
 
 
-            // ここまで来たのならレスポンスが先に返ってきたということで結果を受け取る
-            var response = (HttpWebResponse)responseTask.Result;
-
-
-            // もしステータスコードでOK以外が返ってきたら
-            if (response.StatusCode != HttpStatusCode.OK)
-            {
-                // レスポンスを破棄
-                response.Dispose();
-
-
-                // 継続はせず待機ハンドルのシグナルを設定して終了
-                waitHandle.Set();
-                return;
-            }
-
-
-            // コンテンツの長さを拾う（念の為コンテンツ長が取り出せないヘッダが返ってきた場合はlongMaxでごまかす）
-            var contentLength = response.ContentLength;
-            contentLength = contentLength > 0 ? contentLength : long.MaxValue;
-
-
-            // 読み書き用バッファと書き込みトータル数通知用判定タイマーの宣言
-            var judgeNotifyTimer = Stopwatch.StartNew();
-            var buffer = new byte[4 << 10];
-            var writeTotal = 0L;
-
-
-            // ネットワークストリームを取得
-            using (var networkStream = response.GetResponseStream())
-            {
-                // 非同期で読み込んで、読み込みの長さが0になるまでループ
-                var readSize = 0;
-                while ((readSize = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                // レスポンスタスクとタイムアウトタスクの2つを待機してもしタイムアウトが先に終了したら
+                var finishedTask = await Task.WhenAny(responseTask, timeoutTask);
+                if (finishedTask == timeoutTask)
                 {
-                    // 読み込まれたデータを非同期で書き込んで書き込んだトータルにも加算
-                    await installStream.WriteAsync(buffer, 0, readSize);
-                    writeTotal += readSize;
+                    // リクエストを中止して終了
+                    request.Abort();
+                    return;
+                }
 
 
-                    // もし通知するための時間が経過していたら
-                    if (judgeNotifyTimer.ElapsedMilliseconds >= ProgressNotifyIntervalTime)
+                // ここまで来たのならレスポンスが先に返ってきたということで結果を受け取る
+                var response = (HttpWebResponse)responseTask.Result;
+
+
+                // もしステータスコードでOK以外が返ってきたら
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    // レスポンスを破棄して終了
+                    response.Dispose();
+                    return;
+                }
+
+
+                // コンテンツの長さを拾う（念の為コンテンツ長が取り出せないヘッダが返ってきた場合はlongMaxでごまかす）
+                var contentLength = response.ContentLength;
+                contentLength = contentLength > 0 ? contentLength : long.MaxValue;
+
+
+                // 読み書き用バッファと書き込みトータル数通知用判定タイマーの宣言
+                var judgeNotifyTimer = Stopwatch.StartNew();
+                var buffer = new byte[4 << 10];
+                var writeTotal = 0L;
+
+
+                // ネットワークストリームを取得
+                using (var networkStream = response.GetResponseStream())
+                {
+                    // 非同期で読み込んで、読み込みの長さが0になるまでループ
+                    var readSize = 0;
+                    while ((readSize = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                     {
-                        // 通知用データを作って通知して、タイマーをリスタート
-                        progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), writeTotal / (double)contentLength));
-                        judgeNotifyTimer.Restart();
+                        // 読み込まれたデータを非同期で書き込んで書き込んだトータルにも加算
+                        await installStream.WriteAsync(buffer, 0, readSize);
+                        writeTotal += readSize;
+
+
+                        // もし通知するための時間が経過していたら
+                        if (judgeNotifyTimer.ElapsedMilliseconds >= ProgressNotifyIntervalTime)
+                        {
+                            // 通知用データを作って通知して、タイマーをリスタート
+                            progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), writeTotal / (double)contentLength));
+                            judgeNotifyTimer.Restart();
+                        }
                     }
                 }
-            }
 
 
-            // インストールが完了したらレスポンスを破棄して、待機ハンドルにシグナルを設定する
-            response.Dispose();
-            waitHandle.Set();
+                // インストールが完了したらレスポンスを破棄
+                response.Dispose();
+            })
+            .Run();
         }
     }
     #endregion
@@ -844,53 +812,38 @@ namespace IceMilkTea.Service
         /// <returns>アセットのフェッチを非同期操作しているタスクを返します</returns>
         public override IAwaitable FetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress)
         {
-            // 待機ハンドルを作ってダウンロードを非同期に開始して、その待機ハンドルを返す
-            var waitHandle = new ImtAwaitableManualReset(false);
-            DoFetchAssetAsync(fetchUrl, installStream, progress, waitHandle);
-            return waitHandle;
-        }
-
-
-        /// <summary>
-        /// 非同期に、指定されたフェッチURLからアセットフェッチを実際に行います
-        /// </summary>
-        /// <param name="fetchUrl">フェッチするアセットがあるフェッチURL</param>
-        /// <param name="installStream">フェッチしたアセットを書き込むインストールストリーム</param>
-        /// <param name="progress">フェッチ進捗を通知する IProgress</param>
-        /// <param name="waitHandle">アセットフェッチが完了するまでの待機ハンドル</param>
-        private async void DoFetchAssetAsync(Uri fetchUrl, Stream installStream, IProgress<AssetFetchProgressInfo> progress, ImtAwaitableManualReset waitHandle)
-        {
-            // 読み書き用バッファと書き込みトータル数通知用判定タイマーの宣言
-            var judgeNotifyTimer = Stopwatch.StartNew();
-            var buffer = new byte[4 << 10];
-            var writeTotal = 0L;
-
-
-            // ストリーミングアセットを開く
-            using (var stream = await StreamingAssetReader.OpenAsync(fetchUrl.LocalPath))
+            // 非同期タスクを生成して返す
+            return new ImtTask(async () =>
             {
-                // 非同期で読み込んで、読み込みの長さが0になるまでループ
-                var readSize = 0;
-                while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                // 読み書き用バッファと書き込みトータル数通知用判定タイマーの宣言
+                var judgeNotifyTimer = Stopwatch.StartNew();
+                var buffer = new byte[4 << 10];
+                var writeTotal = 0L;
+
+
+                // ストリーミングアセットを開く
+                using (var stream = await StreamingAssetReader.OpenAsync(fetchUrl.LocalPath))
                 {
-                    // 読み込まれたデータを非同期で書き込んで書き込んだトータルにも加算
-                    await installStream.WriteAsync(buffer, 0, readSize);
-                    writeTotal += readSize;
-
-
-                    // もし通知するための時間が経過していたら
-                    if (judgeNotifyTimer.ElapsedMilliseconds >= ProgressNotifyIntervalTime)
+                    // 非同期で読み込んで、読み込みの長さが0になるまでループ
+                    var readSize = 0;
+                    while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                     {
-                        // 通知用データを作って通知して、タイマーをリスタート（ストリーミングアセットはサイズの最大長が取り出せないので0.0進行率として通知）
-                        progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), 0.0));
-                        judgeNotifyTimer.Restart();
+                        // 読み込まれたデータを非同期で書き込んで書き込んだトータルにも加算
+                        await installStream.WriteAsync(buffer, 0, readSize);
+                        writeTotal += readSize;
+
+
+                        // もし通知するための時間が経過していたら
+                        if (judgeNotifyTimer.ElapsedMilliseconds >= ProgressNotifyIntervalTime)
+                        {
+                            // 通知用データを作って通知して、タイマーをリスタート（ストリーミングアセットはサイズの最大長が取り出せないので0.0進行率として通知）
+                            progress.Report(new AssetFetchProgressInfo(fetchUrl.ToString(), 0.0));
+                            judgeNotifyTimer.Restart();
+                        }
                     }
                 }
-            }
-
-
-            // 待機ハンドルにシグナルを設定する
-            waitHandle.Set();
+            })
+            .Run();
         }
     }
     #endregion
