@@ -1230,6 +1230,7 @@ namespace IceMilkTea.Core
                     {
                         // 内部更新関数をポストする
                         context.Post(updateCache, targetParameter);
+                        return;
                     }
 
 
@@ -1264,6 +1265,7 @@ namespace IceMilkTea.Core
                     {
                         // ふたたび更新関数をポストする
                         context.Post(updateCache, targetParameter);
+                        return;
                     }
 
 
@@ -1541,9 +1543,8 @@ namespace IceMilkTea.Core
         /// 指定された作業を非同期で行うための ImtTask のインスタンスを初期化します。
         /// </summary>
         /// <param name="work">非同期で作業を行う関数の内容</param>
-        /// <param name="status">work に渡す状態オブジェクト</param>
         /// <exception cref="ArgumentNullException">work が null です</exception>
-        public ImtTask(Func<object, Task> work, object status) : this((Delegate)work, status)
+        public ImtTask(Func<Task> work) : this((Delegate)work, null)
         {
         }
 
@@ -1582,10 +1583,10 @@ namespace IceMilkTea.Core
                 // ただの Action<object> なら、タスクを処理して状態を更新
                 ((Action<object>)work)(status);
             }
-            else if (work is Func<object, Task>)
+            else if (work is Func<Task>)
             {
-                // 非同期操作 Func<object, Task> なら、タスクを拾って状態を更新開始
-                asyncWorker = ((Func<object, Task>)work)(status);
+                // 非同期操作 Func<Task> なら、タスクを拾って状態を更新開始
+                asyncWorker = ((Func<Task>)work)();
             }
         }
 
@@ -1665,9 +1666,8 @@ namespace IceMilkTea.Core
         /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
         /// </summary>
         /// <param name="work">作業を行う関数の内容</param>
-        /// <param name="status">work に渡す状態オブジェクト</param>
         /// <exception cref="ArgumentNullException">work が null です</exception>
-        public ImtTask(Func<object, Task<TResult>> work, object status) : base(work, status)
+        public ImtTask(Func<Task<TResult>> work) : base(work, null)
         {
         }
 
@@ -1712,7 +1712,7 @@ namespace IceMilkTea.Core
             else if (work is Func<object, Task<TResult>>)
             {
                 // 非同期操作 Func<object, Task<TResult>> なら、タスクを拾って状態を更新開始
-                asyncWorker = ((Func<object, Task<TResult>>)work)(status);
+                asyncWorker = ((Func<Task<TResult>>)work)();
             }
         }
 
