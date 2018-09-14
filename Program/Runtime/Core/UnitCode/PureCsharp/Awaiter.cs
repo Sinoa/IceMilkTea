@@ -1709,9 +1709,9 @@ namespace IceMilkTea.Core
                 // ただの Func<object, TResult> なら、タスクを処理して状態を更新
                 result = ((Func<object, TResult>)work)(status);
             }
-            else if (work is Func<object, Task<TResult>>)
+            else if (work is Func<Task<TResult>>)
             {
-                // 非同期操作 Func<object, Task<TResult>> なら、タスクを拾って状態を更新開始
+                // 非同期操作 Func<Task<TResult>> なら、タスクを拾って状態を更新開始
                 asyncWorker = ((Func<Task<TResult>>)work)();
             }
         }
