@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using IceMilkTea.Core;
@@ -28,33 +29,13 @@ namespace IceMilkTea.Service
     public class AssetRepositoryService : GameService
     {
         // メンバ変数定義
-        private ManifestSerializer serializer;
-
-
-
-        /// <summary>
-        /// AssetRepositoryService のインスタンスを初期化します
-        /// </summary>
-        /// <param name="serializer">マニフェストの直列データを扱うためのシリアライザ</param>
-        public AssetRepositoryService(ManifestSerializer serializer)
-        {
-            // nullを渡されたら
-            if (serializer == null)
-            {
-                // シリアライザはないとだめ
-                throw new ArgumentNullException(nameof(serializer));
-            }
-
-
-            // シリアライズを受け取る
-            this.serializer = serializer;
-        }
+        private List<AssetEntry> assetEntryList;
     }
     #endregion
 
 
 
-    #region マニフェスト構造体
+    #region マニフェスト関連構造体
     /// <summary>
     /// AssetRepositoryService が扱うマニフェストのルート構造を持った構造体です
     /// </summary>
@@ -93,7 +74,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// アセット名
         /// </summary>
-        public string AssetName;
+        public string Name;
 
         /// <summary>
         /// アセットURL
@@ -109,6 +90,11 @@ namespace IceMilkTea.Service
         /// インストールURL
         /// </summary>
         public string InstallUrl;
+
+        /// <summary>
+        /// アセットサイズ
+        /// </summary>
+        public long Size;
 
         /// <summary>
         /// 分割されたファイルの分割された総数。
