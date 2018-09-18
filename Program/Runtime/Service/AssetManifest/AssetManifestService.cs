@@ -24,12 +24,33 @@ namespace IceMilkTea.Service
 {
     #region サービス本体
     /// <summary>
-    /// ゲーム自身が利用するゲームアセットの貯蔵状況の確認が行える機能を提供するサービスクラスです
+    /// ゲーム自身が利用するゲームアセットの管理方法の状態を確認する機能を提供するサービスクラスです
     /// </summary>
-    public class AssetRepositoryService : GameService
+    public class AssetManifestService : GameService
     {
+        // 定数定義
+        private const int DefaultCapacity = 1 << 10;
+
         // メンバ変数定義
         private List<AssetEntry> assetEntryList;
+        private Dictionary<ulong, int> referenceTable;
+
+
+
+        /// <summary>
+        /// AssetManifestService のインスタンスを初期化します
+        /// </summary>
+        public AssetManifestService()
+        {
+            // アセットエントリのリストとルックアップ用参照テーブルを生成
+            assetEntryList = new List<AssetEntry>(DefaultCapacity);
+            referenceTable = new Dictionary<ulong, int>(DefaultCapacity);
+        }
+
+
+        public void RegisterManifestFetcher()
+        {
+        }
     }
     #endregion
 
@@ -37,7 +58,7 @@ namespace IceMilkTea.Service
 
     #region マニフェスト関連構造体
     /// <summary>
-    /// AssetRepositoryService が扱うマニフェストのルート構造を持った構造体です
+    /// AssetManifestService が扱うマニフェストのルート構造を持った構造体です
     /// </summary>
     [Serializable]
     public struct ManifestRoot
