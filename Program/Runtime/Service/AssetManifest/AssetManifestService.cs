@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
 
@@ -32,8 +33,8 @@ namespace IceMilkTea.Service
         private const int DefaultCapacity = 1 << 10;
 
         // メンバ変数定義
-        private List<AssetEntry> assetEntryList;
-        private Dictionary<ulong, int> referenceTable;
+        private List<AssetManifestFetcher> fetcherList;
+        private Dictionary<ulong, AssetEntry> assetEntryTable;
 
 
 
@@ -42,14 +43,9 @@ namespace IceMilkTea.Service
         /// </summary>
         public AssetManifestService()
         {
-            // アセットエントリのリストとルックアップ用参照テーブルを生成
-            assetEntryList = new List<AssetEntry>(DefaultCapacity);
-            referenceTable = new Dictionary<ulong, int>(DefaultCapacity);
-        }
-
-
-        public void RegisterManifestFetcher()
-        {
+            // もろもろ初期化
+            fetcherList = new List<AssetManifestFetcher>();
+            assetEntryTable = new Dictionary<ulong, AssetEntry>(DefaultCapacity);
         }
     }
     #endregion
@@ -61,7 +57,7 @@ namespace IceMilkTea.Service
     /// AssetManifestService が扱うマニフェストのルート構造を持った構造体です
     /// </summary>
     [Serializable]
-    public struct ManifestRoot
+    public struct AssetManifestRoot
     {
         /// <summary>
         /// マニフェスト名
@@ -136,6 +132,22 @@ namespace IceMilkTea.Service
 
 
 
+    #region ManifestFetcher
+    /// <summary>
+    /// AssetManifestRoot をフェッチするフェッチャー抽象クラスです
+    /// </summary>
+    public abstract class AssetManifestFetcher
+    {
+        /// <summary>
+        /// アセットマニフェストを非同期でフェッチします
+        /// </summary>
+        /// <returns>マニフェストを非同期でフェッチするタスクを返します</returns>
+        public abstract Task<AssetManifestRoot> FetchAssetManifestAsync();
+    }
+    #endregion
+
+
+
     #region ManifestSerializer ＆ DefaultSerializer
     /// <summary>
     /// マニフェストのシリアライザ抽象クラスです
@@ -147,7 +159,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="manifest">保存するマニフェストへの参照</param>
         /// <param name="stream">出力先ストリーム</param>
-        public abstract void Save(Stream stream, ref ManifestRoot manifest);
+        public abstract void Save(Stream stream, ref AssetManifestRoot manifest);
 
 
         /// <summary>
@@ -155,7 +167,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="manifest">デシリアライズされたマニフェストを書き込む参照</param>
         /// <param name="stream">入力ストリーム</param>
-        public abstract void Load(Stream stream, out ManifestRoot manifest);
+        public abstract void Load(Stream stream, out AssetManifestRoot manifest);
     }
 
 
@@ -170,7 +182,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="manifest">保存するマニフェストへの参照</param>
         /// <param name="stream">出力先ストリーム</param>
-        public override void Save(Stream stream, ref ManifestRoot manifest)
+        public override void Save(Stream stream, ref AssetManifestRoot manifest)
         {
             // まずはJsonデータとしてシリアライズする
             var jsonData = JsonUtility.ToJson(manifest);
@@ -188,7 +200,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="manifest">デシリアライズされたマニフェストを書き込む参照</param>
         /// <param name="stream">入力ストリーム</param>
-        public override void Load(Stream stream, out ManifestRoot manifest)
+        public override void Load(Stream stream, out AssetManifestRoot manifest)
         {
             // ストリームリーダにストリームを渡して、UTF8BOM無しですべての文字列を読み込む
             var jsonData = string.Empty;
@@ -200,7 +212,7 @@ namespace IceMilkTea.Service
 
 
             // Jsonからマニフェストとしてデシリアライズする
-            manifest = JsonUtility.FromJson<ManifestRoot>(jsonData);
+            manifest = JsonUtility.FromJson<AssetManifestRoot>(jsonData);
         }
     }
     #endregion
