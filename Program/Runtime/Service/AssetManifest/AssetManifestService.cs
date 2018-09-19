@@ -47,6 +47,95 @@ namespace IceMilkTea.Service
             fetcherList = new List<AssetManifestFetcher>();
             assetEntryTable = new Dictionary<ulong, AssetEntry>(DefaultCapacity);
         }
+
+
+        /// <summary>
+        /// AssetManifestFetcher を登録します
+        /// </summary>
+        /// <param name="fetcher">登録する AssetManifestFetcher</param>
+        /// <exception cref="ArgumentNullException">fetcher が null です</exception>
+        /// <exception cref="InvalidOperationException">既に登録済みの fetcher です</exception>
+        public void RegisterAssetManifestFetcher(AssetManifestFetcher fetcher)
+        {
+            // null を渡されたら
+            if (fetcher == null)
+            {
+                // それは受け付けられない
+                throw new ArgumentNullException(nameof(fetcher));
+            }
+
+
+            // 既に同じインスタンスが存在していたら
+            if (fetcherList.Contains(fetcher))
+            {
+                // 同じインスタンスの登録は許されない
+                throw new InvalidOperationException($"既に登録済みの {nameof(fetcher)} です");
+            }
+
+
+            // 追加する
+            fetcherList.Add(fetcher);
+        }
+
+
+        /// <summary>
+        /// マニフェストのフェッチを非同期で行います
+        /// </summary>
+        /// <param name="progress">フェッチの進捗通知を受ける IProgress 不要の場合は null の指定が可能です</param>
+        /// <returns>マニフェストのフェッチを非同期で操作しているタスクを返します</returns>
+        public async Task FetchManifestAsync(IProgress<double> progress)
+        {
+            // 管理しているマニフェストの数で1を割って1フェッチャーあたりの進捗率を求める
+            var unitProgressRate = 1.0 / fetcherList.Count;
+
+
+            // 進捗オフセット及び進捗率を扱う進捗通知受付オブジェクトを生成する
+            var progressOffset = 0.0;
+            var fetcherProgress = new Progress<double>(x => progress?.Report(x * unitProgressRate + progressOffset));
+
+
+            // フェッチャーの数分ループ
+            for (int i = 0; i < fetcherList.Count; ++i)
+            {
+                // 進捗オフセットを求めて、フェッチャーの非同期実行を行う
+                progressOffset = i * unitProgressRate;
+                var manifest = await fetcherList[i].FetchAssetManifestAsync(fetcherProgress);
+
+
+                // アセットエントリが存在しないなら
+                if (manifest.AssetEntries == null)
+                {
+                    // 何事もなかったかのように次へ
+                    continue;
+                }
+
+
+                // アセットエントリの数分回る
+                for (int j = 0; j < manifest.AssetEntries.Length; ++j)
+                {
+                    // アセットエントリの名前からIDを作ってエントリテーブルに設定する
+                    var assetEntryId = manifest.AssetEntries[j].Name.ToCrc64Code();
+                    assetEntryTable[assetEntryId] = manifest.AssetEntries[j];
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたアセット名から、フェッチ済みアセットエントリを取得します。
+        /// </summary>
+        /// <param name="assetName">取得するアセットエントリのアセット名</param>
+        /// <param name="entry">取得されたアセットエントリを格納します</param>
+        /// <exception cref="KeyNotFoundException">'{assetName}'のアセットエントリが見つかりませんでした</exception>
+        public void GetAssetEntry(string assetName, out AssetEntry entry)
+        {
+            // アセット名からIDを作って値の取得を試みるが、失敗したら
+            if (!assetEntryTable.TryGetValue(assetName.ToCrc64Code(), out entry))
+            {
+                // 取得出来なかったことを例外で吐く
+                throw new KeyNotFoundException($"'{assetName}'のアセットエントリが見つかりませんでした");
+            }
+        }
     }
     #endregion
 
@@ -141,8 +230,9 @@ namespace IceMilkTea.Service
         /// <summary>
         /// アセットマニフェストを非同期でフェッチします
         /// </summary>
+        /// <param name="progress">マニフェストのフェッチの進捗通知を受ける IProgress</param>
         /// <returns>マニフェストを非同期でフェッチするタスクを返します</returns>
-        public abstract Task<AssetManifestRoot> FetchAssetManifestAsync();
+        public abstract Task<AssetManifestRoot> FetchAssetManifestAsync(IProgress<double> progress);
     }
     #endregion
 
