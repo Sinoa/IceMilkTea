@@ -290,9 +290,9 @@ namespace IceMilkTea.Service
         /// <summary>
         /// AssetManifestService の情報を保存する操作を非同期で行います
         /// </summary>
-        /// <param name="data">保存する情報の参照</param>
+        /// <param name="data">保存する情報そのもの</param>
         /// <returns>保存操作のタスクを返します</returns>
-        public abstract Task SaveAsync(ref AssetManifestServiceData data);
+        public abstract Task SaveAsync(AssetManifestServiceData data);
 
 
         /// <summary>
@@ -318,17 +318,101 @@ namespace IceMilkTea.Service
 
 
     #region Impl DefaultJsonManifestStorageHandler
+    /// <summary>
+    /// Jsonフォーマットに基づいたマニフェストストレージハンドラクラスです。
+    /// また AssetManifestService の既定実装クラスになります。
+    /// </summary>
     public class DefaultJsonManifestStorageHandler : ManifestStorageHandler
     {
-        public override Task SaveAsync(ref AssetManifestServiceData data)
+        // メンバ変数定義
+        private FileInfo configFileInfo;
+
+
+
+        /// <summary>
+        /// DefaultJsonManifestStorageHandler のインスタンスを既定パスを用いて初期化します
+        /// </summary>
+        public DefaultJsonManifestStorageHandler() : this(GetDefaultSaveFilePath())
         {
-            throw new NotImplementedException();
         }
 
 
+        /// <summary>
+        /// DefaultJsonManifestStorageHandler のインスタンスを初期化します
+        /// </summary>
+        /// <param name="saveFilePath">保存する先のファイルパス</param>
+        /// <exception cref="ArgumentException">saveFilePath が 無効な値 または null です</exception>
+        public DefaultJsonManifestStorageHandler(string saveFilePath)
+        {
+            // まともな文字列が渡されていない または 無効なパス文字が含まれていたら
+            if (string.IsNullOrWhiteSpace(saveFilePath) || saveFilePath.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || saveFilePath.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                // そういった文字列を受け付けない
+                throw new ArgumentException($"{nameof(saveFilePath)} が 無効な値 または null です", nameof(saveFilePath));
+            }
+
+
+            // ファイル情報として覚えておく
+            configFileInfo = new FileInfo(saveFilePath);
+        }
+
+
+        /// <summary>
+        /// AssetManifestService の情報を保存する操作を非同期で行います
+        /// </summary>
+        /// <param name="data">保存する情報の参照</param>
+        /// <returns>保存操作のタスクを返します</returns>
+        public override Task SaveAsync(AssetManifestServiceData data)
+        {
+            // データを非同期で保存を行うタスクを実行する
+            return Task.Run(async () =>
+            {
+                // データをJsonデータとしてシリアライズしてUTF8エンコードする
+                var jsonData = JsonUtility.ToJson(data);
+                var encode = new UTF8Encoding(false);
+                var encodedJsonData = encode.GetBytes(jsonData);
+
+
+                // まずはディレクトリが存在しないなら
+                if (!configFileInfo.Directory.Exists)
+                {
+                    // 保存用ディレクトリの作成
+                    configFileInfo.Directory.Create();
+                }
+
+
+                // ファイルを書き込みストリームで開く
+                using (var stream = configFileInfo.OpenWrite())
+                {
+                    // 非同期で書き込む
+                    await stream.WriteAsync(encodedJsonData, 0, encodedJsonData.Length);
+                }
+            });
+        }
+
+
+        /// <summary>
+        /// AssetManifestService を読み込む操作を非同期で行います
+        /// </summary>
+        /// <returns>AssetManifestServiceData の非同期操作タスクを返します</returns>
         public override Task<AssetManifestServiceData> LoadAsync()
         {
-            throw new NotImplementedException();
+            // データを非同期で読み込みを行うタスクを実行する
+            return Task.Run(async () =>
+            {
+                return new AssetManifestServiceData();
+            });
+        }
+
+
+        /// <summary>
+        /// マニフェストルートの既定保存ファイルパスを取得します
+        /// </summary>
+        /// <returns>既定ファイルパスを返します</returns>
+        private static string GetDefaultSaveFilePath()
+        {
+            // Unityが提示する永続保存ディレクトリパスから生成する
+            return Path.Combine(Application.persistentDataPath, "IceMilkTea", "AssetManifestService", "root.json");
         }
     }
     #endregion
