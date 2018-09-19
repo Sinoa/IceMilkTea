@@ -300,6 +300,13 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <returns>AssetManifestServiceData の非同期操作タスクを返します</returns>
         public abstract Task<AssetManifestServiceData> LoadAsync();
+
+
+        /// <summary>
+        /// 保存されているデータが存在しているかどうか確認します
+        /// </summary>
+        /// <returns>存在するなら true を、存在しないなら false を返します</returns>
+        public abstract bool Exists();
     }
     #endregion
 
@@ -422,12 +429,30 @@ namespace IceMilkTea.Service
                 }
 
 
-                // ファイルの長さ分のバッファを用意
-                var buffer = new byte[configFileInfo.Length];
+                // ファイルを読み込みストリームで開く
+                var jsonData = default(string);
+                using (var stream = new StreamReader(configFileInfo.OpenRead(), new UTF8Encoding(false)))
+                {
+                    // 非同期でファイル全体の文字列をすべて読み込む
+                    jsonData = await stream.ReadToEndAsync();
+                }
 
 
-                return new AssetManifestServiceData();
+                // Jsonデータからデシリアライズして返す
+                return JsonUtility.FromJson<AssetManifestServiceData>(jsonData);
             });
+        }
+
+
+        /// <summary>
+        /// 保存されているデータが存在しているかどうか確認します
+        /// </summary>
+        /// <returns>存在するなら true を、存在しないなら false を返します</returns>
+        public override bool Exists()
+        {
+            // ファイル情報を更新してExistsの値をそのまま返す
+            configFileInfo.Refresh();
+            return configFileInfo.Exists;
         }
 
 
