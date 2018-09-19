@@ -33,19 +33,39 @@ namespace IceMilkTea.Service
         private const int DefaultCapacity = 1 << 10;
 
         // メンバ変数定義
+        private ManifestStorageHandler storageHandler;
         private List<AssetManifestFetcher> fetcherList;
         private Dictionary<ulong, AssetEntry> assetEntryTable;
 
 
 
         /// <summary>
+        /// AssetManifestService のインスタンスを既定値を用いて初期化します
+        /// </summary>
+        public AssetManifestService() : this(new DefaultJsonManifestStorageHandler())
+        {
+        }
+
+
+        /// <summary>
         /// AssetManifestService のインスタンスを初期化します
         /// </summary>
-        public AssetManifestService()
+        /// <param name="storageHandler">AssetManifestService の情報をコントロールするハンドラ</param>
+        /// <exception cref="ArgumentNullException">storageHandler が null です</exception>
+        public AssetManifestService(ManifestStorageHandler storageHandler)
         {
+            // nullを渡されたら
+            if (storageHandler == null)
+            {
+                // 情報の保存ができない
+                throw new ArgumentNullException(nameof(storageHandler));
+            }
+
+
             // もろもろ初期化
             fetcherList = new List<AssetManifestFetcher>();
             assetEntryTable = new Dictionary<ulong, AssetEntry>(DefaultCapacity);
+            this.storageHandler = storageHandler;
         }
 
 
@@ -136,6 +156,17 @@ namespace IceMilkTea.Service
                 throw new KeyNotFoundException($"'{assetName}'のアセットエントリが見つかりませんでした");
             }
         }
+
+
+        /// <summary>
+        /// フェッチ済みアセットエントリの列挙可能オブジェクトを取得します
+        /// </summary>
+        /// <returns>アセットエントリの列挙可能なオブジェクトを返します</returns>
+        public IEnumerable<AssetEntry> GetAssetEntryEnumerable()
+        {
+            // アセット管理テーブルの値列挙を返す
+            return assetEntryTable.Values;
+        }
     }
     #endregion
 
@@ -217,11 +248,25 @@ namespace IceMilkTea.Service
         /// </summary>
         public byte[] AssetHash;
     }
+
+
+
+    /// <summary>
+    /// AssetManifestService によるデータをシリアライズするための構造体です
+    /// </summary>
+    [Serializable]
+    public struct AssetManifestServiceData
+    {
+        /// <summary>
+        /// 管理しているアセットエントリの配列
+        /// </summary>
+        AssetEntry[] HoldingAssetEntries;
+    }
     #endregion
 
 
 
-    #region ManifestFetcher
+    #region Abstract ManifestFetcher＆ManifestStorageHandler
     /// <summary>
     /// AssetManifestRoot をフェッチするフェッチャー抽象クラスです
     /// </summary>
@@ -233,6 +278,58 @@ namespace IceMilkTea.Service
         /// <param name="progress">マニフェストのフェッチの進捗通知を受ける IProgress</param>
         /// <returns>マニフェストを非同期でフェッチするタスクを返します</returns>
         public abstract Task<AssetManifestRoot> FetchAssetManifestAsync(IProgress<double> progress);
+    }
+
+
+
+    /// <summary>
+    /// AssetManifestService が保持するデータを操作するハンドラ抽象クラスです
+    /// </summary>
+    public abstract class ManifestStorageHandler
+    {
+        /// <summary>
+        /// AssetManifestService の情報を保存する操作を非同期で行います
+        /// </summary>
+        /// <param name="data">保存する情報の参照</param>
+        /// <returns>保存操作のタスクを返します</returns>
+        public abstract Task SaveAsync(ref AssetManifestServiceData data);
+
+
+        /// <summary>
+        /// AssetManifestService を読み込む操作を非同期で行います
+        /// </summary>
+        /// <returns>AssetManifestServiceData の非同期操作タスクを返します</returns>
+        public abstract Task<AssetManifestServiceData> LoadAsync();
+    }
+    #endregion
+
+
+
+    #region Impl DefaultHttpAssetManifestFetcher
+    public class DefaultHttpAssetManifestFetcher : AssetManifestFetcher
+    {
+        public override Task<AssetManifestRoot> FetchAssetManifestAsync(IProgress<double> progress)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
+
+
+
+    #region Impl DefaultJsonManifestStorageHandler
+    public class DefaultJsonManifestStorageHandler : ManifestStorageHandler
+    {
+        public override Task SaveAsync(ref AssetManifestServiceData data)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        public override Task<AssetManifestServiceData> LoadAsync()
+        {
+            throw new NotImplementedException();
+        }
     }
     #endregion
 
