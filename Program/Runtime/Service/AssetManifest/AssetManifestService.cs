@@ -373,6 +373,10 @@ namespace IceMilkTea.Service
                 var encodedJsonData = encode.GetBytes(jsonData);
 
 
+                // 作業前に念の為ファイル情報を最新に更新する
+                configFileInfo.Refresh();
+
+
                 // まずはディレクトリが存在しないなら
                 if (!configFileInfo.Directory.Exists)
                 {
@@ -387,6 +391,10 @@ namespace IceMilkTea.Service
                     // 非同期で書き込む
                     await stream.WriteAsync(encodedJsonData, 0, encodedJsonData.Length);
                 }
+
+
+                // ファイル情報を最新に更新
+                configFileInfo.Refresh();
             });
         }
 
@@ -395,11 +403,29 @@ namespace IceMilkTea.Service
         /// AssetManifestService を読み込む操作を非同期で行います
         /// </summary>
         /// <returns>AssetManifestServiceData の非同期操作タスクを返します</returns>
+        /// <exception cref="AggregateException">非同期操作のタスクに例外が発生しました</exception>
+        /// <exception cref="FileNotFoundException">AssetManifestServiceDataのファイルが見つかりませんでした（AggregateExceptionに内包されます）</exception>
         public override Task<AssetManifestServiceData> LoadAsync()
         {
             // データを非同期で読み込みを行うタスクを実行する
             return Task.Run(async () =>
             {
+                // 作業する前に念の為ファイル情報を最新に更新する
+                configFileInfo.Refresh();
+
+
+                // もしファイルが存在しないなら
+                if (!configFileInfo.Exists)
+                {
+                    // ロードは出来ない例外を吐く
+                    throw new FileNotFoundException("AssetManifestServiceDataのファイルが見つかりませんでした", configFileInfo.FullName);
+                }
+
+
+                // ファイルの長さ分のバッファを用意
+                var buffer = new byte[configFileInfo.Length];
+
+
                 return new AssetManifestServiceData();
             });
         }
