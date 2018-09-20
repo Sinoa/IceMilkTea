@@ -352,7 +352,9 @@ namespace IceMilkTea.Service
         public DefaultJsonManifestStorageHandler(string saveFilePath)
         {
             // まともな文字列が渡されていない または 無効なパス文字が含まれていたら
-            if (string.IsNullOrWhiteSpace(saveFilePath) || saveFilePath.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || saveFilePath.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            var invalidPath = saveFilePath?.IndexOfAny(Path.GetInvalidPathChars()) >= 0;
+            var invalidName = saveFilePath?.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0;
+            if (string.IsNullOrWhiteSpace(saveFilePath) || invalidPath || invalidName)
             {
                 // そういった文字列を受け付けない
                 throw new ArgumentException($"{nameof(saveFilePath)} が 無効な値 または null です", nameof(saveFilePath));
