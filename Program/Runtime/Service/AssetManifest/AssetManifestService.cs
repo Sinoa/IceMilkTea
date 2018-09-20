@@ -20,6 +20,7 @@ using System.Text;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace IceMilkTea.Service
 {
@@ -313,11 +314,198 @@ namespace IceMilkTea.Service
 
 
     #region Impl DefaultHttpAssetManifestFetcher
+    /// <summary>
+    /// HTTPを使った比較的単純なアセットマニフェストフェッチャークラスです
+    /// </summary>
     public class DefaultHttpAssetManifestFetcher : AssetManifestFetcher
     {
-        public override Task<AssetManifestRoot> FetchAssetManifestAsync(IProgress<double> progress)
+        // メンバ変数定義
+        private Serializer serializer;
+        private Uri fetchTargetUrl;
+
+
+
+        /// <summary>
+        /// DefaultHttpAssetManifestFetcher のインスタンスを既定シリアライザで初期化します
+        /// </summary>
+        /// <param name="targetUrl">フェッチするターゲットURL</param>
+        public DefaultHttpAssetManifestFetcher(string targetUrl) : this(targetUrl, new UnityJsonSerializer())
         {
-            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// DefaultHttpAssetManifestFetcher のインスタンスを初期化します
+        /// </summary>
+        /// <param name="targetUrl">フェッチするターゲットURL</param>
+        /// <param name="serializer">フェッチしたデータをシリアライズするシリアライザ</param>
+        /// <exception cref="ArgumentException">フェッチするターゲットURLが無効かnullです</exception>
+        /// <exception cref="ArgumentNullException">serializer が null です</exception>
+        public DefaultHttpAssetManifestFetcher(string targetUrl, Serializer serializer)
+        {
+            // もし targetUrl が無効なら
+            if (string.IsNullOrWhiteSpace(targetUrl))
+            {
+                // どこから引っ張ってくれば良いですか
+                throw new ArgumentException("フェッチするターゲットURLが無効かnullです", nameof(targetUrl));
+            }
+
+
+            // もしシリアライザがnullなら
+            if (serializer == null)
+            {
+                // データが扱えない
+                throw new ArgumentNullException(nameof(serializer));
+            }
+
+
+            // URIを生成してシリアライザを覚える
+            fetchTargetUrl = new Uri(targetUrl);
+            this.serializer = serializer;
+        }
+
+
+        /// <summary>
+        /// マニフェストのフェッチを非同期で行います
+        /// </summary>
+        /// <param name="progress">フェッチの進捗通知を受け取る IProgress 通知を受けない場合は null 指定が可能です</param>
+        /// <returns>フェッチの非同期操作をしているタスクを返します</returns>
+        public override async Task<AssetManifestRoot> FetchAssetManifestAsync(IProgress<double> progress)
+        {
+            // まずはUnityWebRequestでデータを非同期ダウンロードして、進捗通知はそのまま伝える
+            var request = UnityWebRequest.Get(fetchTargetUrl);
+            request.downloadHandler = new DownloadHandlerManageBuffer();
+            await request.SendWebRequest().ToAwaitable(new Progress<float>(downloadProgress => progress?.Report(downloadProgress)));
+
+
+            // ダウンロードされたデータを非同期でデシリアライズして返す
+            return await serializer.DeserializeAsync(request.downloadHandler.data);
+        }
+
+
+
+        /// <summary>
+        /// UnityWebRequest によるC#のマネージバッファに対してダウンロードするダウンロードハンドラクラスです
+        /// </summary>
+        private sealed class DownloadHandlerManageBuffer : DownloadHandlerScript
+        {
+            // メンバ変数定義
+            private byte[] buffer;
+            private int contentLength;
+            private int downloadedLength;
+
+
+
+            /// <summary>
+            /// DownloadHandlerManageBuffer を既定バッファを用いて初期化します
+            /// </summary>
+            public DownloadHandlerManageBuffer() : base(new byte[4 << 10])
+            {
+            }
+
+
+            /// <summary>
+            /// Content-Lengthの値を受信した時のハンドリングを行います
+            /// </summary>
+            /// <param name="contentLength">受信したコンテンツの長さ</param>
+            protected override void ReceiveContentLength(int contentLength)
+            {
+                // コンテンツの長さを覚えてバッファの確保
+                this.contentLength = contentLength;
+                buffer = new byte[contentLength];
+            }
+
+
+            /// <summary>
+            /// データの受信をした時のハンドリングを行います
+            /// </summary>
+            /// <param name="data">受信したデータのバッファ</param>
+            /// <param name="dataLength">受信したデータの有効な長さ</param>
+            /// <returns>受信を継続する場合は true を、中断する場合は false を返します</returns>
+            protected override bool ReceiveData(byte[] data, int dataLength)
+            {
+                // 自身のバッファに受信データをコピーして、ダウンロード済みデータ長に受信長を加算する
+                Array.Copy(data, 0, buffer, downloadedLength, dataLength);
+                downloadedLength += dataLength;
+
+
+                // ダウンロードは継続する
+                return true;
+            }
+
+
+            /// <summary>
+            /// 現在の進捗を取得します
+            /// </summary>
+            /// <returns>現在の進捗を返します</returns>
+            protected override float GetProgress()
+            {
+                // ダウンロード済みの長さをコンテンツの長さで割った割合を返す
+                return downloadedLength / (float)contentLength;
+            }
+
+
+            /// <summary>
+            /// 受信済みのデータのバッファを取得します
+            /// </summary>
+            /// <returns></returns>
+            protected override byte[] GetData()
+            {
+                // 現在保持しているバッファをそのまま返す（コピーはしない）
+                return buffer;
+            }
+        }
+
+
+
+        /// <summary>
+        /// 受信したデータをシリアライズするシリアライザ抽象クラスです
+        /// </summary>
+        public abstract class Serializer
+        {
+            /// <summary>
+            /// マニフェストからバッファにシリアライズを非同期で行います
+            /// </summary>
+            /// <param name="manifest">シリアライズするマニフェスト</param>
+            /// <returns>シリアライズする非同期タスクを返します</returns>
+            public abstract Task<byte[]> SerializeAsync(AssetManifestRoot manifest);
+
+
+            /// <summary>
+            /// バッファから AssetManifestRoot へデシリアライズを非同期で行います
+            /// </summary>
+            /// <param name="buffer">デシリアライズするべき受信データバッファ</param>
+            /// <returns>AssetManifestRoot へデシリアライズする非同期タスクを返します</returns>
+            public abstract Task<AssetManifestRoot> DeserializeAsync(byte[] buffer);
+        }
+
+
+
+        /// <summary>
+        /// UnityのJsonUtilityを用いて AssetManifestRoot をシリアライズするシリアライザクラスです
+        /// </summary>
+        private sealed class UnityJsonSerializer : Serializer
+        {
+            /// <summary>
+            /// バッファから AssetManifestRoot へデシリアライズを非同期で行います
+            /// </summary>
+            /// <param name="buffer">デシリアライズするべき受信データバッファ</param>
+            /// <returns>AssetManifestRoot へデシリアライズする非同期タスクを返します</returns>
+            public override Task<byte[]> SerializeAsync(AssetManifestRoot manifest)
+            {
+                throw new NotImplementedException();
+            }
+
+
+            /// <summary>
+            /// バッファから AssetManifestRoot へデシリアライズを非同期で行います
+            /// </summary>
+            /// <param name="buffer">デシリアライズするべき受信データバッファ</param>
+            /// <returns>AssetManifestRoot へデシリアライズする非同期タスクを返します</returns>
+            public override Task<AssetManifestRoot> DeserializeAsync(byte[] buffer)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
     #endregion
