@@ -56,6 +56,9 @@ namespace IceMilkTea.Core
     /// </summary>
     public class UnityWebRequestAsyncOperationAwaitable : ImtAwaitableUpdateBehaviour<UnityWebRequest>
     {
+        // 定数定義
+        private const string DefaultErrorMessage = "不明な'UniWebRequet'のエラーが発生しました";
+
         // メンバ変数定義
         private UnityWebRequestAsyncOperation operation;
         private IProgress<float> progress;
@@ -126,8 +129,28 @@ namespace IceMilkTea.Core
         /// <returns>待機した結果を返します</returns>
         public override UnityWebRequest GetResult()
         {
+            // 結果を受け取る
+            var result = operation.webRequest;
+
+
+            // もしネットワークエラーが発生していたのなら
+            if (result.isNetworkError)
+            {
+                // エラー文字列を受け取って例外を吐く（NetworkならIOエラーでええか）
+                throw new System.IO.IOException(result.error ?? DefaultErrorMessage);
+            }
+
+
+            // もしHttpエラーが発生していたのなら
+            if (result.isHttpError)
+            {
+                // エラー文字列を受け取って例外を吐く（HTTPならWebExceptionでええか）
+                throw new System.Net.WebException(result.error ?? DefaultErrorMessage);
+            }
+
+
             // 結果を返す
-            return operation.webRequest;
+            return result;
         }
 
 

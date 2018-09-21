@@ -62,6 +62,8 @@ namespace IceMilkTea.Service
         /// 同じインスタンスのリゾルバは重複登録出来ません。
         /// </summary>
         /// <param name="resolver">登録するリゾルバ</param>
+        /// <exception cref="ArgumentNullException">resolver が null です</exception>
+        /// <exception cref="InvalidOperationException">既に登録済みの resolver です</exception>
         public void RegisterResolver(AssetLoaderResolver resolver)
         {
             // ローダプロバイダにそのまま横流しする
@@ -384,6 +386,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="resolver">追加するリゾルバ</param>
         /// <exception cref="ArgumentNullException">resolver が null です</exception>
+        /// <exception cref="InvalidOperationException">既に登録済みの resolver です</exception>
         public void AddResolver(AssetLoaderResolver resolver)
         {
             // nullが渡されたら
@@ -397,8 +400,8 @@ namespace IceMilkTea.Service
             // 既に指定されたリゾルバが存在するなら
             if (resolverList.Contains(resolver))
             {
-                // 何もせず終了
-                return;
+                // 多重登録行為は許されない
+                throw new InvalidOperationException($"既に登録済みの resolver です");
             }
 
 

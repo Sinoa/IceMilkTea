@@ -19,6 +19,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace IceMilkTea.Core
 {
@@ -1229,6 +1230,7 @@ namespace IceMilkTea.Core
                     {
                         // 内部更新関数をポストする
                         context.Post(updateCache, targetParameter);
+                        return;
                     }
 
 
@@ -1263,6 +1265,7 @@ namespace IceMilkTea.Core
                     {
                         // ふたたび更新関数をポストする
                         context.Post(updateCache, targetParameter);
+                        return;
                     }
 
 
@@ -1511,6 +1514,7 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         protected Delegate work;
         protected object status;
+        protected Task asyncWorker;
 
 
 
@@ -1531,6 +1535,16 @@ namespace IceMilkTea.Core
         /// <param name="status">work に渡す状態オブジェクト</param>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         public ImtTask(Action<object> work, object status) : this((Delegate)work, status)
+        {
+        }
+
+
+        /// <summary>
+        /// 指定された作業を非同期で行うための ImtTask のインスタンスを初期化します。
+        /// </summary>
+        /// <param name="work">非同期で作業を行う関数の内容</param>
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        public ImtTask(Func<Task> work) : this((Delegate)work, null)
         {
         }
 
@@ -1562,8 +1576,37 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void Start()
         {
-            // タスクを処理して状態を更新
-            ((Action<object>)work)(status);
+            // TODO : Unityバージョンが上がったらパターンマッチを検討
+            // 型によって呼び出しの仕方を変える
+            if (work is Action<object>)
+            {
+                // ただの Action<object> なら、タスクを処理して状態を更新
+                ((Action<object>)work)(status);
+            }
+            else if (work is Func<Task>)
+            {
+                // 非同期操作 Func<Task> なら、タスクを拾って状態を更新開始
+                asyncWorker = ((Func<Task>)work)();
+            }
+        }
+
+
+        /// <summary>
+        /// 状態の更新処理を行います
+        /// </summary>
+        /// <returns>更新を継続する場合は true を、更新を停止する場合は false を返します</returns>
+        protected internal override bool Update()
+        {
+            // 非同期操作中タスクがないなら
+            if (asyncWorker == null)
+            {
+                // 直ちに終了する
+                return false;
+            }
+
+
+            // タスクの完了状態が未完了の間はUpdateし続ける
+            return !asyncWorker.IsCompleted;
         }
 
 
@@ -1572,6 +1615,15 @@ namespace IceMilkTea.Core
         /// </summary>
         protected override void Stop()
         {
+            // もし非同期操作タスクとして動作して、かつ例外が発生していたのならのなら
+            if (asyncWorker != null && asyncWorker.Exception != null)
+            {
+                // 非同期操作に例外が発生していたとしてシグナルを設定する
+                SetException(asyncWorker.Exception);
+                SetSignalWithCompleted();
+            }
+
+
             // シグナルを設定する
             SetSignalWithCompleted();
         }
@@ -1611,6 +1663,16 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 指定された作業を行うための ImtTask のインスタンスを初期化します。
+        /// </summary>
+        /// <param name="work">作業を行う関数の内容</param>
+        /// <exception cref="ArgumentNullException">work が null です</exception>
+        public ImtTask(Func<Task<TResult>> work) : base(work, null)
+        {
+        }
+
+
+        /// <summary>
         /// 現在のスケジューラを用いて、タスクを開始します。
         /// </summary>
         /// <exception cref="InvalidOperationException">このタスクは起動中です</exception>
@@ -1640,8 +1702,18 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal override void Start()
         {
-            // 作業関数を呼ぶ
-            result = ((Func<object, TResult>)work)(status);
+            // TODO : Unityバージョンが上がったらパターンマッチを検討
+            // 型によって呼び出しの仕方を変える
+            if (work is Func<object, TResult>)
+            {
+                // ただの Func<object, TResult> なら、タスクを処理して状態を更新
+                result = ((Func<object, TResult>)work)(status);
+            }
+            else if (work is Func<Task<TResult>>)
+            {
+                // 非同期操作 Func<Task<TResult>> なら、タスクを拾って状態を更新開始
+                asyncWorker = ((Func<Task<TResult>>)work)();
+            }
         }
 
 
@@ -1662,6 +1734,14 @@ namespace IceMilkTea.Core
         /// <returns>タスクの結果を返します</returns>
         public TResult GetResult()
         {
+            // もし非同期操作タスクが存在していたのなら（例外は基本クラスのStopで収集）
+            if (asyncWorker != null)
+            {
+                // 結果は非同期操作タスクから返す
+                return ((Task<TResult>)asyncWorker).Result;
+            }
+
+
             // 結果を返す
             return result;
         }
