@@ -493,7 +493,14 @@ namespace IceMilkTea.Service
             /// <returns>AssetManifestRoot へデシリアライズする非同期タスクを返します</returns>
             public override Task<byte[]> SerializeAsync(AssetManifestRoot manifest)
             {
-                throw new NotImplementedException();
+                // Jsonシリアライズするタスクを生成して返す
+                return Task.Run(() =>
+                {
+                    // マニフェストをシリアライズしてUTF8エンコードして返す
+                    var jsonData = JsonUtility.ToJson(manifest);
+                    var encode = new UTF8Encoding(false);
+                    return encode.GetBytes(jsonData);
+                });
             }
 
 
@@ -504,7 +511,14 @@ namespace IceMilkTea.Service
             /// <returns>AssetManifestRoot へデシリアライズする非同期タスクを返します</returns>
             public override Task<AssetManifestRoot> DeserializeAsync(byte[] buffer)
             {
-                throw new NotImplementedException();
+                // Jsonデシリアライズするタスクを生成して返す
+                return Task.Run(() =>
+                {
+                    // UTF8デコード後デシリアライズして返す
+                    var encode = new UTF8Encoding(false);
+                    var jsonData = encode.GetString(buffer);
+                    return JsonUtility.FromJson<AssetManifestRoot>(jsonData);
+                });
             }
         }
     }
