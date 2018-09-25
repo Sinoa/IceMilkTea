@@ -30,7 +30,7 @@ namespace IceMilkTea.Service
     /// Unityアセットの参照を保持しておきキャッシュするクラスです。
     /// しかし、どのオブジェクトからも参照されないアセットの場合はキャッシュが外れる可能性があります。
     /// </summary>
-    internal sealed class UnityAssetCache
+    internal class UnityAssetCache
     {
         // 定数定義
         private const int DefaultCapacity = 1 << 10;

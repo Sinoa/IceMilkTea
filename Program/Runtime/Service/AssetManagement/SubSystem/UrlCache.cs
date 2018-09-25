@@ -22,7 +22,7 @@ namespace IceMilkTea.Service
     /// <summary>
     /// Uriインスタンスをキャッシュしておくクラスです
     /// </summary>
-    internal sealed class UrlCache
+    internal class UrlCache
     {
         // 定数定義
         private const int DefaultCapacity = 1 << 10;
