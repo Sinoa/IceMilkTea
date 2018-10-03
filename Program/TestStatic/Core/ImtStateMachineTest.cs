@@ -425,6 +425,9 @@ namespace IceMilkTeaTestStatic.Core
             Assert.IsFalse(stateMachine.SendEvent(1)); // 遷移準備済みなので false が返ってくるはず
             stateMachine.Update(); // A -> B
             Assert.IsTrue(stateMachine.SendEvent(2)); // 初遷移なので true が返ってくるはず
+            stateMachine.AllowRetransition = true; // 再遷移を許可する
+            Assert.IsTrue(stateMachine.SendEvent(2)); // 本来なら遷移済みなので false だが、再遷移を許可しているので true になる
+            stateMachine.AllowRetransition = false; // 再遷移を禁止する
             stateMachine.Update(); // B -> ExitSendEvent
 
 
