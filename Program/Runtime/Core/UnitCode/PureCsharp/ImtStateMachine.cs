@@ -174,6 +174,19 @@ namespace IceMilkTea.Core
         public int StackCount => stateStack.Count;
 
 
+        /// <summary>
+        /// 現在のステートの名前を取得します。
+        /// まだステートマシンが起動していない場合は空文字列になります。
+        /// </summary>
+        public string CurrentStateName => (Running ? currentState.GetType().Name : string.Empty);
+
+
+        /// <summary>
+        /// SendEvent() 関数によって一度、遷移状態になった後に再び SendEvent() による遷移し直しを許可するかどうか
+        /// </summary>
+        public bool AllowRetransition { get; set; }
+
+
 
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
@@ -195,6 +208,7 @@ namespace IceMilkTea.Core
             stateList = new List<State>();
             stateStack = new Stack<State>();
             updateState = UpdateState.Idle;
+            AllowRetransition = false;
 
 
             // この時点で任意ステートのインスタンスを作ってしまう
@@ -403,8 +417,8 @@ namespace IceMilkTea.Core
             IfNotRunningThrowException();
 
 
-            // そもそもスタックが空であるか、次に遷移するステートが存在するか、ポップする前に現在のステートにガードされたのなら
-            if (stateStack.Count == 0 || nextState != null || currentState.GuardPop())
+            // そもそもスタックが空であるか、次に遷移するステートが存在 かつ 再遷移が未許可か、ポップする前に現在のステートにガードされたのなら
+            if (stateStack.Count == 0 || (nextState != null && !AllowRetransition) || currentState.GuardPop())
             {
                 // ポップ自体出来ないのでfalseを返す
                 return false;
@@ -502,6 +516,7 @@ namespace IceMilkTea.Core
         /// <remarks>
         /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
         /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
+        /// ただし AllowRetransition プロパティに true が設定されている場合は、再遷移が許されます。
         /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
         /// 何度も遷移をすることが可能ですが Exit 中でイベントを送ると、遷移中になるため例外が送出されます。
         /// </remarks>
@@ -523,8 +538,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 既に遷移準備をしているなら
-            if (nextState != null)
+            // 既に遷移準備をしていて かつ 再遷移が許可されていないなら
+            if (nextState != null && !AllowRetransition)
             {
                 // イベントの受付が出来なかったことを返す
                 return false;
@@ -888,6 +903,12 @@ namespace IceMilkTea.Core
         public int CurrentStateId => currentState.ID;
 
 
+        /// <summary>
+        /// SendEvent() 関数によって一度、遷移状態になった後に再び SendEvent() による遷移し直しを許可するかどうか
+        /// </summary>
+        public bool AllowRetransition { get; set; }
+
+
 
         /// <summary>
         /// ImtMicroStateMachine のインスタンスを初期化します
@@ -1109,8 +1130,8 @@ namespace IceMilkTea.Core
             ThrowIfNotRunning();
 
 
-            // そもそもスタックが空であるか、次に遷移するステートが存在するか、ポップする前に現在のステートにガードされたのなら
-            if (stateStack.Count == 0 || nextState != null || currentState.GuardPop(this))
+            // そもそもスタックが空であるか、次に遷移するステートが存在 かつ 再遷移が未許可か、ポップする前に現在のステートにガードされたのなら
+            if (stateStack.Count == 0 || (nextState != null && !AllowRetransition) || currentState.GuardPop(this))
             {
                 // ポップ自体出来ないのでfalseを返す
                 return false;
@@ -1208,6 +1229,7 @@ namespace IceMilkTea.Core
         /// <remarks>
         /// ステートの遷移は直ちに行われず、次の Update が実行された時に遷移処理が行われます。
         /// また、この関数によるイベント受付優先順位は、一番最初に遷移を受け入れたイベントのみであり Update によって遷移されるまで、後続のイベントはすべて失敗します。
+        /// ただし AllowRetransition プロパティに true が設定されている場合は、再遷移が許されます。
         /// さらに、イベントはステートの Enter または Update 処理中でも受け付けることが可能で、ステートマシンの Update 中に
         /// 何度も遷移をすることが可能ですが Exit 中でイベントを送ると、遷移中になるため例外が送出されます。
         /// </remarks>
@@ -1229,8 +1251,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 既に遷移準備をしているなら
-            if (nextState != null)
+            // 既に遷移準備をしていて かつ 再遷移が許可されていないなら
+            if (nextState != null && !AllowRetransition)
             {
                 // イベントの受付が出来なかったことを返す
                 return false;
