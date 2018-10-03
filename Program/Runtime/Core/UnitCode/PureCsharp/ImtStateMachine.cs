@@ -174,6 +174,13 @@ namespace IceMilkTea.Core
         public int StackCount => stateStack.Count;
 
 
+        /// <summary>
+        /// 現在のステートの名前を取得します。
+        /// まだステートマシンが起動していない場合は空文字列になります。
+        /// </summary>
+        public string CurrentStateName => (Running ? currentState.GetType().Name : string.Empty);
+
+
 
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
