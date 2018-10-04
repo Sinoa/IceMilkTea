@@ -241,7 +241,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 未処理の例外が発生した際の振る舞いの設定取得をします
         /// </summary>
-        public ImtStateMachineUnhandledExceptionMode UnhandledExceptionMode;
+        public ImtStateMachineUnhandledExceptionMode UnhandledExceptionMode { get; set; }
 
 
 
