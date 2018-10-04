@@ -672,6 +672,11 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception exception)
                 {
+                    // 起動時の復帰は現在のステートにnullが入っていないとまずいので遷移前の状態に戻す
+                    nextState = currentState;
+                    currentState = null;
+
+
                     // 更新状態をアイドリングにして、例外発生時のエラーハンドリングを行い終了する
                     updateState = UpdateState.Idle;
                     DoHandleException(exception);
