@@ -37,7 +37,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
             /// <summary>
-            /// 差うてーと更新時のSampleValue値
+            /// ステート更新時のSampleValue値
             /// </summary>
             public abstract int SampleValueUpdate { get; }
 
@@ -317,6 +317,87 @@ namespace IceMilkTeaTestStatic.Core
                 Context.updateCapture = StateMachine.Updating;
             }
         }
+
+
+        /// <summary>
+        /// Enter時に sampleValue が 0 の場合は、例外を発生させるステートクラスです。
+        /// </summary>
+        private class ForceEnterExceptionState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// ステートの開始処理を行います
+            /// </summary>
+            protected internal override void Enter()
+            {
+                // sampleValue が 0 なら
+                if (Context.sampleValue == 0)
+                {
+                    // 例外を即座に発生
+                    throw new InvalidOperationException("この Enter エラーを拾ってください");
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// Update時に sampleValue が 0 の場合は、例外を発生させるステートクラスです
+        /// また例外モードが CatchStateException の場合は MyEventId の遷移イベントを送出します
+        /// </summary>
+        private class ForceUpdateExceptionState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// CatchStateException 時に送出するイベントID
+            /// </summary>
+            public const int MyEventId = -1;
+
+
+
+            /// <summary>
+            /// ステートの更新処理を行います
+            /// </summary>
+            protected internal override void Update()
+            {
+                // sampleValue が 0 なら
+                if (Context.sampleValue == 0)
+                {
+                    // 例外を即座に発生
+                    throw new InvalidOperationException("この Update エラーを拾ってください");
+                }
+            }
+
+
+            /// <summary>
+            /// ステートのエラーハンドリングを行います
+            /// </summary>
+            /// <param name="exception">発生した例外</param>
+            /// <returns>例外をハンドリングした場合は true を、ハンドリング出来なかった場合は false を返します</returns>
+            protected internal override bool Error(Exception exception)
+            {
+                // 自分の遷移IDを送出してハンドリング済みを返す
+                stateMachine.SendEvent(MyEventId);
+                return true;
+            }
+        }
+
+
+        /// <summary>
+        /// Exit時に sampleValue が 0 の場合は、例外を発生させるステートクラスです
+        /// </summary>
+        private class ForceExitExceptionState : ImtStateMachine<ImtStateMachineTest>.State
+        {
+            /// <summary>
+            /// ステートの終了処理を行います
+            /// </summary>
+            protected internal override void Exit()
+            {
+                // sampleValue が 0 なら
+                if (Context.sampleValue == 0)
+                {
+                    // 例外を即座に発生
+                    throw new InvalidOperationException("この Exit エラーを拾ってください");
+                }
+            }
+        }
         #endregion
 
 
@@ -425,6 +506,9 @@ namespace IceMilkTeaTestStatic.Core
             Assert.IsFalse(stateMachine.SendEvent(1)); // 遷移準備済みなので false が返ってくるはず
             stateMachine.Update(); // A -> B
             Assert.IsTrue(stateMachine.SendEvent(2)); // 初遷移なので true が返ってくるはず
+            stateMachine.AllowRetransition = true; // 再遷移を許可する
+            Assert.IsTrue(stateMachine.SendEvent(2)); // 本来なら遷移済みなので false だが、再遷移を許可しているので true になる
+            stateMachine.AllowRetransition = false; // 再遷移を禁止する
             stateMachine.Update(); // B -> ExitSendEvent
 
 
@@ -872,17 +956,106 @@ namespace IceMilkTeaTestStatic.Core
 
             // このステート更新は自爆ステートによって例外が吐かれるので例外チェックを行う
             // また Update 中に例外により死んだステートマシンは、もうどうにもならないのでインスタンスの生成し直しが必要
+            // このチェックは（UnhandledExceptionModeがThrowException（既定）である場合の挙動）
             Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
 
 
+            // MENO : UnhandledExceptionモード周りが実装された事により、死ぬことはなくなりました。
             // ステートマシンが死んだ状態プロパティ検証
             // もちろんステートマシンが死んでいるのでこのタイミングでも Updating は true を示す
-            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
-            Assert.AreEqual(this, stateMachine.Context);
+            //Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            //Assert.AreEqual(this, stateMachine.Context);
+            //Assert.IsTrue(stateMachine.Running);
+            //Assert.IsTrue(stateMachine.Updating);
+            //Assert.IsFalse(updateCapture);
+            //Assert.AreEqual(0, stateMachine.StackCount);
+        }
+
+
+        /// <summary>
+        /// ステートマシンのUpdateで発生した例外のハンドリングを行うテスト
+        /// </summary>
+        [Test]
+        public void UnhandledExceptionTest()
+        {
+            // 念の為検査用メンバ変数の初期化を行う
+            sampleValue = 0;
+
+
+            // ステートマシンのインスタンスを生成して、この救いようのない例外発生しまくり遷移テーブルを構築する
+            var stateMachine = new ImtStateMachine<ImtStateMachineTest>(this);
+            stateMachine.AddTransition<ForceEnterExceptionState, ForceUpdateExceptionState>(1);
+            stateMachine.AddTransition<ForceUpdateExceptionState, ForceExitExceptionState>(1);
+            stateMachine.AddTransition<ForceUpdateExceptionState, ForceExitExceptionState>(ForceUpdateExceptionState.MyEventId);
+            stateMachine.AddTransition<ForceExitExceptionState, ForceEnterExceptionState>(1);
+            stateMachine.SetStartState<ForceEnterExceptionState>();
+
+
+            // まずは起動するが例外が発生するのと起動が未起動かチェック（例外が発生した場合は起動は失敗する）
+            Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
+            Assert.IsFalse(stateMachine.Running);
+
+
+            // 起動可能状態にして起動して確認
+            sampleValue = 1;
+            Assert.DoesNotThrow(() => stateMachine.Update());
             Assert.IsTrue(stateMachine.Running);
-            Assert.IsTrue(stateMachine.Updating);
-            Assert.IsFalse(updateCapture);
-            Assert.AreEqual(0, stateMachine.StackCount);
+            sampleValue = 0;
+
+
+            // 遷移してUpdateへ
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+
+
+            // Updateで例外が発生するかどうか（既定は ThrowException）
+            Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
+
+
+            // CatchExceptionモードに変えても例外が発生するかどうか（イベント未設定時は ThrowException と同等の動作）
+            stateMachine.UnhandledExceptionMode = ImtStateMachineUnhandledExceptionMode.CatchException;
+            Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
+
+
+            // イベントを設定しても false を返したら例外が発生するかどうか
+            var returnValue = false;
+            stateMachine.UnhandledException += error => returnValue;
+            Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
+
+
+            // trueを返せば例外は発生しないはず
+            returnValue = true;
+            Assert.DoesNotThrow(() => stateMachine.Update());
+
+
+            // 例外を発生させない様にして遷移する
+            sampleValue = 1;
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+
+
+            // Exit時に例外が発生するのを確認する
+            stateMachine.UnhandledExceptionMode = ImtStateMachineUnhandledExceptionMode.ThrowException;
+            sampleValue = 0;
+            stateMachine.SendEvent(1);
+            Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
+
+
+            // 例外が出ないようにしてUpdateまで遷移する
+            sampleValue = 1;
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+            stateMachine.SendEvent(1);
+            stateMachine.Update();
+
+
+            // ステート側エラーハンドリングモードにして例外が発生してもステート内でエラーハンドリングして遷移されることを確認
+            stateMachine.UnhandledExceptionMode = ImtStateMachineUnhandledExceptionMode.CatchStateException;
+            sampleValue = 0;
+            stateMachine.SendEvent(1);
+            Assert.DoesNotThrow(() => stateMachine.Update()); // ステート側でエラーハンドリングしているためココでは例外は発生しない
+            stateMachine.Update();
+            Assert.IsTrue(stateMachine.IsCurrentState<ForceExitExceptionState>());
         }
     }
 }
