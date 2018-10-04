@@ -875,17 +875,19 @@ namespace IceMilkTeaTestStatic.Core
 
             // このステート更新は自爆ステートによって例外が吐かれるので例外チェックを行う
             // また Update 中に例外により死んだステートマシンは、もうどうにもならないのでインスタンスの生成し直しが必要
+            // このチェックは（UnhandledExceptionModeがThrowException（既定）である場合の挙動）
             Assert.Throws<InvalidOperationException>(() => stateMachine.Update());
 
 
+            // MENO : UnhandledExceptionモード周りが実装された事により、死ぬことはなくなりました。
             // ステートマシンが死んだ状態プロパティ検証
             // もちろんステートマシンが死んでいるのでこのタイミングでも Updating は true を示す
-            Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
-            Assert.AreEqual(this, stateMachine.Context);
-            Assert.IsTrue(stateMachine.Running);
-            Assert.IsTrue(stateMachine.Updating);
-            Assert.IsFalse(updateCapture);
-            Assert.AreEqual(0, stateMachine.StackCount);
+            //Assert.IsInstanceOf<ImtStateMachineTest>(stateMachine.Context);
+            //Assert.AreEqual(this, stateMachine.Context);
+            //Assert.IsTrue(stateMachine.Running);
+            //Assert.IsTrue(stateMachine.Updating);
+            //Assert.IsFalse(updateCapture);
+            //Assert.AreEqual(0, stateMachine.StackCount);
         }
     }
 }
