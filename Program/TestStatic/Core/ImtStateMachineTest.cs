@@ -37,7 +37,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
             /// <summary>
-            /// 差うてーと更新時のSampleValue値
+            /// ステート更新時のSampleValue値
             /// </summary>
             public abstract int SampleValueUpdate { get; }
 
