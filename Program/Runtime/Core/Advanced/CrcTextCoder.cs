@@ -24,65 +24,18 @@ namespace IceMilkTea.Core
     /// <typeparam name="TPrimitiveType">符号化する整数の型</typeparam>
     public abstract class CrcTextCoder<TPrimitiveType>
     {
-        /// <summary>
-        /// 内部の文字列エンコーダに使用するバッファの既定サイズです
-        /// </summary>
-        public const int DefaultEncodeBufferSize = 1 << 10;
-
-        /// <summary>
-        /// 内部の文字列エンコーダに使用するバッファの最低サイズです
-        /// </summary>
-        public const int MinEncodeBufferSize = 128;
-
         // メンバ変数定義
         private Encoding utf8Encode;
-        private byte[] encodeBuffer;
 
 
 
         /// <summary>
-        /// CrcTextCoder を内部の既定バッファサイズを用いて初期化します
+        /// CrcTextCoder のインスタンスを初期化します
         /// </summary>
-        public CrcTextCoder() : this(DefaultEncodeBufferSize)
-        {
-        }
-
-
-        /// <summary>
-        /// CrcTextCoder を指定されたバッファサイズで初期化します。
-        /// ただし MinEncodeBufferSize 未満のサイズが指定された場合は、サイズが調整されます。
-        /// </summary>
-        /// <param name="bufferSize">エンコーダに使用するバッファの初期サイズ</param>
-        public CrcTextCoder(int bufferSize)
+        public CrcTextCoder()
         {
             // エンコーディングとバッファの生成
             utf8Encode = new UTF8Encoding(false);
-            encodeBuffer = new byte[Math.Max(MinEncodeBufferSize, bufferSize)];
-        }
-
-
-        /// <summary>
-        /// 指定された文字列のエンコードを行い、エンコードされたバイト配列を取得します。
-        /// このバイト配列は内部のバッファへ直接参照されます。
-        /// </summary>
-        /// <param name="text">エンコードする文字列</param>
-        /// <param name="buffer">エンコードされたバイト配列の参照（配列の長さとエンコードされた長さは異なります）</param>
-        /// <returns>エンコードされたサイズを返します</returns>
-        protected int GetTextEncodedBinaries(string text, out byte[] buffer)
-        {
-            // もし現状のバッファサイズが、これから必要とされるサイズを満たさないなら
-            var needEncodeSize = utf8Encode.GetByteCount(text);
-            if (encodeBuffer.Length < needEncodeSize)
-            {
-                // 新しくバッファを生成する
-                encodeBuffer = new byte[needEncodeSize];
-            }
-
-
-            // 既に用意してあるバッファを用いてエンコードして、結果を返す
-            var encodedSize = utf8Encode.GetBytes(text, 0, text.Length, encodeBuffer, 0);
-            buffer = encodeBuffer;
-            return encodedSize;
         }
 
 
@@ -138,18 +91,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// Crc32TextCoder のインスタンスを既定バッファサイズで初期化します
+        /// Crc32TextCoder のインスタンスを初期化します
         /// </summary>
-        public Crc32TextCoder() : this(DefaultEncodeBufferSize)
-        {
-        }
-
-
-        /// <summary>
-        /// Crc32TextCoder のインスタンスを指定されたバッファサイズで初期化します
-        /// </summary>
-        /// <param name="bufferSize">バッファサイズ</param>
-        public Crc32TextCoder(int bufferSize) : base(bufferSize)
+        public Crc32TextCoder()
         {
             // CRCのインスタンスを生成する
             crc = new Crc32();
@@ -174,8 +118,17 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="text">符号化する文字列</param>
         /// <returns>符号化された値を返します</returns>
+        /// <exception cref="ArgumentNullException">text が null です</exception>
         public override uint GetCode(string text)
         {
+            // null を渡されたら
+            if (text == null)
+            {
+                // 処理は出来ない
+                throw new ArgumentNullException(nameof(text));
+            }
+
+
             // エンコードとCRC計算した結果を返す
             return ExecuteEncodeAndCalculate(text);
         }
@@ -194,18 +147,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// Crc64TextCoder のインスタンスを既定バッファサイズで初期化します
+        /// Crc64TextCoder のインスタンスを初期化します
         /// </summary>
-        public Crc64TextCoder() : this(DefaultEncodeBufferSize)
-        {
-        }
-
-
-        /// <summary>
-        /// Crc64TextCoder のインスタンスを指定されたバッファサイズで初期化します
-        /// </summary>
-        /// <param name="bufferSize">バッファサイズ</param>
-        public Crc64TextCoder(int bufferSize) : base(bufferSize)
+        public Crc64TextCoder()
         {
             // CRCのインスタンスを生成する
             crc = new Crc64Ecma();
@@ -230,8 +174,17 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="text">符号化する文字列</param>
         /// <returns>符号化された値を返します</returns>
+        /// <exception cref="ArgumentNullException">text が null です</exception>
         public override ulong GetCode(string text)
         {
+            // null を渡されたら
+            if (text == null)
+            {
+                // 処理は出来ない
+                throw new ArgumentNullException(nameof(text));
+            }
+
+
             // エンコードとCRC計算した結果を返す
             return ExecuteEncodeAndCalculate(text);
         }
