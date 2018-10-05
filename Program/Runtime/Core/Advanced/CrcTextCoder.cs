@@ -87,6 +87,37 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 文字列のエンコードを行ってからCRC計算を行います
+        /// </summary>
+        /// <param name="text">エンコードとCRC計算を行う文字列</param>
+        /// <returns>計算された結果を返します</returns>
+        unsafe protected TPrimitiveType ExecuteEncodeAndCalculate(string text)
+        {
+            // 文字列のポインタを拾う
+            fixed (char* p = text)
+            {
+                // 必要とされるバッファのサイズを求めてバッファを確保する
+                var needEncodeSize = utf8Encode.GetByteCount(text);
+                var encodeBuffer = stackalloc byte[needEncodeSize];
+
+
+                // エンコードをしてからCRC計算をして返す
+                var encodedSize = utf8Encode.GetBytes(p, text.Length, encodeBuffer, needEncodeSize);
+                return DoCrcCalculate(encodeBuffer, encodedSize);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファからCRC計算を行います
+        /// </summary>
+        /// <param name="buffer">計算対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>計算されたCRCの値を返します</returns>
+        unsafe protected abstract TPrimitiveType DoCrcCalculate(byte* buffer, int count);
+
+
+        /// <summary>
         /// 指定された文字列の符号値を取得します
         /// </summary>
         /// <param name="text">符号化する文字列</param>
@@ -126,19 +157,27 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 指定されたバッファからCRC計算を行います
+        /// </summary>
+        /// <param name="buffer">計算対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>計算されたCRCの値を返します</returns>
+        unsafe protected override uint DoCrcCalculate(byte* buffer, int count)
+        {
+            // CRC計算した結果を返す
+            return crc.Calculate(buffer, count);
+        }
+
+
+        /// <summary>
         /// 指定された文字列の符号値を取得します
         /// </summary>
         /// <param name="text">符号化する文字列</param>
         /// <returns>符号化された値を返します</returns>
         public override uint GetCode(string text)
         {
-            // バッファをもらう
-            byte[] buffer;
-            var encodeSize = GetTextEncodedBinaries(text, out buffer);
-
-
-            // CRC計算した結果を返す
-            return crc.Calculate(buffer, 0, encodeSize);
+            // エンコードとCRC計算した結果を返す
+            return ExecuteEncodeAndCalculate(text);
         }
     }
 
@@ -174,19 +213,27 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 指定されたバッファからCRC計算を行います
+        /// </summary>
+        /// <param name="buffer">計算対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>計算されたCRCの値を返します</returns>
+        unsafe protected override ulong DoCrcCalculate(byte* buffer, int count)
+        {
+            // CRC計算した結果を返す
+            return crc.Calculate(buffer, count);
+        }
+
+
+        /// <summary>
         /// 指定された文字列の符号値を取得します
         /// </summary>
         /// <param name="text">符号化する文字列</param>
         /// <returns>符号化された値を返します</returns>
         public override ulong GetCode(string text)
         {
-            // バッファをもらう
-            byte[] buffer;
-            var encodeSize = GetTextEncodedBinaries(text, out buffer);
-
-
-            // CRC計算した結果を返す
-            return crc.Calculate(buffer, 0, encodeSize);
+            // エンコードとCRC計算した結果を返す
+            return ExecuteEncodeAndCalculate(text);
         }
     }
 }
