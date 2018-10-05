@@ -39,5 +39,12 @@ namespace IceMilkTea.Service
             assetCache = new UnityAssetCache();
             assetBundleCache = new AssetBundleCache();
         }
+
+
+        // コンパイルエラーが出ないようにするための雑対応
+        public System.Threading.Tasks.Task<T> LoadAssetAsync<T>(string name) where T : UnityEngine.Object
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }
