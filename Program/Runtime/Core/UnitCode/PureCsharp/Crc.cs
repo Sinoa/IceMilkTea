@@ -160,14 +160,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">buffer が null です</exception>
         unsafe public override uint Calculate(uint continusHash, byte[] buffer)
         {
-            // もし buffer が null なら
-            if (buffer == null)
-            {
-                // そもそも計算が出来ない
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-
             // バッファのアドレスを取得
             fixed (byte* p = buffer)
             {
@@ -316,14 +308,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">buffer が null です</exception>
         unsafe public override ulong Calculate(ulong continusHash, byte[] buffer)
         {
-            // もし buffer が null なら
-            if (buffer == null)
-            {
-                // そもそも計算が出来ない
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-
             // バッファのアドレスを取得
             fixed (byte* p = buffer)
             {
@@ -459,14 +443,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">buffer が null です</exception>
         unsafe public override uint Calculate(byte[] buffer)
         {
-            // もし buffer が null なら
-            if (buffer == null)
-            {
-                // そもそも計算が出来ない
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-
             // バッファのアドレスを取得
             fixed (byte* p = buffer)
             {
@@ -581,14 +557,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">buffer が null です</exception>
         unsafe public override ulong Calculate(byte[] buffer)
         {
-            // もし buffer が null なら
-            if (buffer == null)
-            {
-                // そもそも計算が出来ない
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-
             // バッファのアドレスを取得
             fixed (byte* p = buffer)
             {
@@ -703,14 +671,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">buffer が null です</exception>
         unsafe public override ulong Calculate(byte[] buffer)
         {
-            // もし buffer が null なら
-            if (buffer == null)
-            {
-                // そもそも計算が出来ない
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-
             // バッファのアドレスを取得
             fixed (byte* p = buffer)
             {
