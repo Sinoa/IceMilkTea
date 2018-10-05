@@ -194,7 +194,7 @@ namespace IceMilkTea.Core
 
 
             // 指定された index と count で境界を超えないか確認して、超えるなら
-            if (index < 0 || buffer.Length >= index + count)
+            if (index < 0 || buffer.Length <= index + count)
             {
                 // 境界を超えるアクセスは非常に危険
                 throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
@@ -342,7 +342,7 @@ namespace IceMilkTea.Core
 
 
             // 指定された index と count で境界を超えないか確認して、超えるなら
-            if (index < 0 || buffer.Length >= index + count)
+            if (index < 0 || buffer.Length <= index + count)
             {
                 // 境界を超えるアクセスは非常に危険
                 throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
@@ -475,7 +475,7 @@ namespace IceMilkTea.Core
 
 
             // 指定された index と count で境界を超えないか確認して、超えるなら
-            if (index < 0 || buffer.Length >= index + count)
+            if (index < 0 || buffer.Length <= index + count)
             {
                 // 境界を超えるアクセスは非常に危険
                 throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
@@ -589,7 +589,7 @@ namespace IceMilkTea.Core
 
 
             // 指定された index と count で境界を超えないか確認して、超えるなら
-            if (index < 0 || buffer.Length >= index + count)
+            if (index < 0 || buffer.Length <= index + count)
             {
                 // 境界を超えるアクセスは非常に危険
                 throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
@@ -703,7 +703,7 @@ namespace IceMilkTea.Core
 
 
             // 指定された index と count で境界を超えないか確認して、超えるなら
-            if (index < 0 || buffer.Length >= index + count)
+            if (index < 0 || buffer.Length <= index + count)
             {
                 // 境界を超えるアクセスは非常に危険
                 throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
