@@ -15,20 +15,19 @@
 
 using System;
 using System.Collections.Generic;
-using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// Uriインスタンスをキャッシュしておくクラスです
+    /// Uriインスタンスの生成コストを回避するために、極力キャッシュから取り出せるようにするためのキャッシュクラスです。
     /// </summary>
     internal class UrlCache
     {
         // 定数定義
-        private const int DefaultCapacity = 1 << 10;
+        private const int DefaultCapacity = 2 << 10;
 
         // メンバ変数定義
-        private Dictionary<ulong, Uri> urlCacheTable;
+        private Dictionary<string, Uri> urlCacheTable;
 
 
 
@@ -38,62 +37,48 @@ namespace IceMilkTea.Service
         public UrlCache()
         {
             // キャッシュ用テーブルを生成
-            urlCacheTable = new Dictionary<ulong, Uri>(DefaultCapacity);
+            urlCacheTable = new Dictionary<string, Uri>(DefaultCapacity);
         }
 
 
         /// <summary>
-        /// Url文字列からURLIDを取得します
+        /// 指定されたURL文字列から、生成経験のあるUriインスタンスが存在すれば取得し、
+        /// まだ生成経験がない場合は、新しくインスタンスを生成します。
         /// </summary>
-        /// <param name="urlText">IDの取得をするURL文字列</param>
-        /// <returns>URL文字列から取得されたIDを返します</returns>
+        /// <param name="urlText">Uriのインスタンスを取得または生成するURL文字列</param>
+        /// <returns>取得または生成したUriインスタンスを返します</returns>
         /// <exception cref="ArgumentNullException">urlText が null です</exception>
-        public ulong GetUrlId(string urlText)
+        /// <exception cref="ArgumentException">有効なURL書式ではありません</exception>
+        public Uri GetOrCreateUri(string urlText)
         {
-            // null を渡されたら
+            // もし null を渡されたら
             if (urlText == null)
             {
-                // 何のIDを求めればよいのか
+                // nullは取り扱えない
                 throw new ArgumentNullException(nameof(urlText));
             }
 
 
-            // CRC64計算した結果をそのまま返す
-            return urlText.ToCrc64Code();
-        }
-
-
-        /// <summary>
-        /// 指定されたIDでUriインスタンスをキャッシュします
-        /// </summary>
-        /// <param name="urlId">キャッシュするURLのID</param>
-        /// <param name="url">キャッシュするUriインスタンス</param>
-        /// <exception cref="ArgumentNullException">url が null です</exception>
-        public void CacheUrl(ulong urlId, Uri url)
-        {
-            // null を渡されたら
-            if (url == null)
+            // キャッシュテーブルから生成済みUriインスタンスの取得を試みて、取得できたのなら
+            Uri uri;
+            if (urlCacheTable.TryGetValue(urlText, out uri))
             {
-                // 何をキャッシュするのか
-                throw new ArgumentNullException(nameof(url));
+                // 取得できたインスタンスを返す
+                return uri;
             }
 
 
-            // 指定されたIDにUriを打ち込む
-            urlCacheTable[urlId] = url;
-        }
+            // 新しくUriインスタンスの生成を試みるが出来ないなら
+            if (Uri.TryCreate(urlText, UriKind.Absolute, out uri))
+            {
+                // 正しいURLである必要がある例外を吐く
+                throw new ArgumentException($"指定されたURLは有効なURL書式ではありません urlText='{urlText}'");
+            }
 
 
-        /// <summary>
-        /// 指定されたIDのキャッシュされたUriインスタンスの取得を試みます
-        /// </summary>
-        /// <param name="urlId">取得したいURLのID</param>
-        /// <param name="url">取得されたUriインスタンスを格納します</param>
-        /// <returns>指定されたIDのUriインスタンスが存在し取得ができた場合は true を、取得できなかった場合は false を返します</returns>
-        public bool TryGetUrl(ulong urlId, out Uri url)
-        {
-            // 指定されたIDのUriインスタンスの取得を試みる
-            return urlCacheTable.TryGetValue(urlId, out url);
+            // 生成されたインスタンスを覚えて返す
+            urlCacheTable[urlText] = uri;
+            return uri;
         }
     }
 }
