@@ -69,7 +69,7 @@ namespace IceMilkTea.Service
 
 
             // 新しくUriインスタンスの生成を試みるが出来ないなら
-            if (Uri.TryCreate(urlText, UriKind.Absolute, out uri))
+            if (!Uri.TryCreate(urlText, UriKind.Absolute, out uri))
             {
                 // 正しいURLである必要がある例外を吐く
                 throw new ArgumentException($"指定されたURLは有効なURL書式ではありません urlText='{urlText}'");
