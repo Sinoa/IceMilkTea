@@ -23,7 +23,7 @@ namespace IceMilkTea.Service
     public class AssetManagementService : GameService
     {
         // メンバ変数定義
-        private UrlCache urlCache;
+        private UriCache urlCache;
         private UnityAssetCache assetCache;
         private AssetBundleCache assetBundleCache;
 
@@ -35,7 +35,7 @@ namespace IceMilkTea.Service
         public AssetManagementService()
         {
             // サブシステムなどの初期化をする
-            urlCache = new UrlCache();
+            urlCache = new UriCache();
             assetCache = new UnityAssetCache();
             assetBundleCache = new AssetBundleCache();
         }
