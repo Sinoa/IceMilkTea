@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using IceMilkTea.Core;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -26,10 +25,10 @@ namespace IceMilkTea.Service
     internal class AssetBundleCache
     {
         // 定数定義
-        private const int DefaultCapacity = 1 << 10;
+        private const int DefaultCapacity = 2 << 10;
 
         // メンバ変数定義
-        private Dictionary<ulong, AssetBundle> assetBundleCacheTable;
+        private Dictionary<string, AssetBundle> assetBundleCacheTable;
 
 
 
@@ -39,28 +38,7 @@ namespace IceMilkTea.Service
         public AssetBundleCache()
         {
             // キャッシュテーブルの生成
-            assetBundleCacheTable = new Dictionary<ulong, AssetBundle>(DefaultCapacity);
-        }
-
-
-        /// <summary>
-        /// アセットバンドル名からアセットバンドルIDを取得します
-        /// </summary>
-        /// <param name="assetBundleName">アセットバンドルIDを取得したいアセットバンドル名</param>
-        /// <returns>取得されたアセットバンドルIDを返します</returns>
-        /// <exception cref="ArgumentNullException">assetBundleName が null です</exception>
-        public ulong GetAssetBundleId(string assetBundleName)
-        {
-            // nullを渡されたら
-            if (assetBundleName == null)
-            {
-                // どんなIDを取得すればよいのか
-                throw new ArgumentNullException(nameof(assetBundleName));
-            }
-
-
-            // CRC64計算結果を返す
-            return assetBundleName.ToCrc64Code();
+            assetBundleCacheTable = new Dictionary<string, AssetBundle>(DefaultCapacity);
         }
 
 
@@ -68,12 +46,21 @@ namespace IceMilkTea.Service
         /// 指定されたIDでアセットバンドルをキャッシュします。
         /// また、既にキャッシュ済みのアセットバンドルが存在する場合、キャッシュ済みアセットバンドルはアンロードされます。
         /// </summary>
-        /// <param name="assetBundleId">キャッシュするアセットバンドルのID</param>
+        /// <param name="assetBundleName">キャッシュするアセットバンドルの名前</param>
         /// <param name="assetBundle">キャッシュするアセットバンドル</param>
-        /// <exception cref="ArgumentException">assetBundle が null です</exception>
-        public void CacheAssetBundle(ulong assetBundleId, AssetBundle assetBundle)
+        /// <exception cref="ArgumentNullException">assetBundleName が null です</exception>
+        /// <exception cref="ArgumentNullException">assetBundle が null です</exception>
+        public void CacheAssetBundle(string assetBundleName, AssetBundle assetBundle)
         {
-            // もしnullを渡されたら
+            // もしnullを渡されていたら
+            if (assetBundleName == null)
+            {
+                // キャッシュするアセットバンドル名がわからない
+                throw new ArgumentNullException(nameof(assetBundleName));
+            }
+
+
+            // もしnullを渡されていたら
             if (assetBundle == null)
             {
                 // 何をキャッシュするのか
@@ -83,7 +70,7 @@ namespace IceMilkTea.Service
 
             // キャッシュ済みのアセットバンドルが存在する場合は
             AssetBundle cachedAssetBundle;
-            if (assetBundleCacheTable.TryGetValue(assetBundleId, out cachedAssetBundle))
+            if (assetBundleCacheTable.TryGetValue(assetBundleName, out cachedAssetBundle))
             {
                 // アンロードしておく
                 cachedAssetBundle.Unload(false);
@@ -91,20 +78,21 @@ namespace IceMilkTea.Service
 
 
             // IDをキーにアセットバンドルの参照を覚えておく
-            assetBundleCacheTable[assetBundleId] = assetBundle;
+            assetBundleCacheTable[assetBundleName] = assetBundle;
         }
 
 
         /// <summary>
         /// 指定されたアセットバンドルIDからアセットバンドルの取得を試みます。
         /// </summary>
-        /// <param name="assetBundleId">取得するアセットバンドルID</param>
+        /// <param name="assetBundleName">キャッシュするアセットバンドルの名前</param>
         /// <param name="assetBundle">取得したアセットバンドルを格納します</param>
         /// <returns>アセットバンドルの取得に成功したときは true を、取得ができなかった場合は false を返します</returns>
-        public bool TryGetAssetBundle(ulong assetBundleId, out AssetBundle assetBundle)
+        /// <exception cref="ArgumentNullException">assetBundleName が null です</exception>
+        public bool TryGetAssetBundle(string assetBundleName, out AssetBundle assetBundle)
         {
             // DictionaryのTryGetをそのまま呼ぶ
-            return assetBundleCacheTable.TryGetValue(assetBundleId, out assetBundle);
+            return assetBundleCacheTable.TryGetValue(assetBundleName, out assetBundle);
         }
     }
 }
