@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
@@ -28,15 +27,14 @@ namespace IceMilkTea.Service
 
     /// <summary>
     /// Unityアセットの参照を保持しておきキャッシュするクラスです。
-    /// しかし、どのオブジェクトからも参照されないアセットの場合はキャッシュが外れる可能性があります。
     /// </summary>
     internal class UnityAssetCache
     {
         // 定数定義
-        private const int DefaultCapacity = 1 << 10;
+        private const int DefaultCapacity = 2 << 10;
 
         // メンバ変数定義
-        private Dictionary<ulong, WeakUnityAsset> assetCacheTable;
+        private Dictionary<Uri, WeakUnityAsset> assetCacheTable;
 
 
 
@@ -46,39 +44,27 @@ namespace IceMilkTea.Service
         public UnityAssetCache()
         {
             // アセットキャッシュテーブルを生成する
-            assetCacheTable = new Dictionary<ulong, WeakUnityAsset>(DefaultCapacity);
+            assetCacheTable = new Dictionary<Uri, WeakUnityAsset>(DefaultCapacity);
         }
 
 
         /// <summary>
-        /// アセットURLからアセットIDを取得します
+        /// 指定されたアセットUrlとアセットでキャッシュします
         /// </summary>
-        /// <param name="assetUrl">IDを取得したいアセットURL文字列</param>
-        /// <returns>取得されたアセットIDを返します</returns>
+        /// <param name="assetUrl">キャッシュするアセットのUrl</param>
+        /// <param name="asset">キャッシュするアセット</param>
         /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
-        public ulong GetAssetId(string assetUrl)
+        /// <exception cref="ArgumentNullException">asset が null です</exception>
+        public void CacheAsset(Uri assetUrl, UnityAsset asset)
         {
-            // null を渡されたら
+            // もしnullを渡されていたら
             if (assetUrl == null)
             {
-                // 計算できない
+                // キャッシュするキーがわからない
                 throw new ArgumentNullException(nameof(assetUrl));
             }
 
 
-            // CRC64計算した結果をそのまま返す
-            return assetUrl.ToCrc64Code();
-        }
-
-
-        /// <summary>
-        /// 指定されたアセットIDとアセットでキャッシュします
-        /// </summary>
-        /// <param name="assetId">キャッシュするアセットのID</param>
-        /// <param name="asset">キャッシュするアセット</param>
-        /// <exception cref="ArgumentNullException">asset が null です</exception>
-        public void CacheAsset(ulong assetId, UnityAsset asset)
-        {
             // もしnullを渡されていたら
             if (asset == null)
             {
@@ -89,7 +75,7 @@ namespace IceMilkTea.Service
 
             // まずはキャッシュテーブルから参照が取得できるのなら
             WeakUnityAsset weakUnityAsset;
-            if (assetCacheTable.TryGetValue(assetId, out weakUnityAsset))
+            if (assetCacheTable.TryGetValue(assetUrl, out weakUnityAsset))
             {
                 // 参照の更新だけして終了
                 weakUnityAsset.SetTarget(asset);
@@ -98,7 +84,7 @@ namespace IceMilkTea.Service
 
 
             // キャッシュテーブルにもキャッシュすらない場合は新しい参照を追加する
-            assetCacheTable[assetId] = new WeakUnityAsset(asset);
+            assetCacheTable[assetUrl] = new WeakUnityAsset(asset);
         }
 
 
@@ -106,14 +92,14 @@ namespace IceMilkTea.Service
         /// 指定されたアセットIDからアセットの取得を行います。
         /// 過去にキャッシュされたアセットでも参照が途切れている場合はキャッシュが取得出来ない場合があります。
         /// </summary>
-        /// <param name="assetId">取得したいアセットのID</param>
+        /// <param name="assetUrl">取得したいアセットのUrl</param>
         /// <param name="asset">取得されたアセットの参照を設定します</param>
         /// <returns>指定されたアセットIDからアセットキャッシュの取得ができた場合は true を、出来なかった場合は false を返します</returns>
-        public bool TryGetAsset(ulong assetId, out UnityAsset asset)
+        public bool TryGetAsset(Uri assetUrl, out UnityAsset asset)
         {
             // キャッシュテーブルから参照の取得ができなかった場合は
             WeakUnityAsset weakUnityAsset;
-            if (!assetCacheTable.TryGetValue(assetId, out weakUnityAsset))
+            if (!assetCacheTable.TryGetValue(assetUrl, out weakUnityAsset))
             {
                 // 参照を初期化して取得に失敗を返す
                 asset = null;
@@ -125,7 +111,7 @@ namespace IceMilkTea.Service
             if (!weakUnityAsset.TryGetTarget(out asset))
             {
                 // キャッシュテーブルから参照変数まるごと削除して取得に失敗を返す
-                assetCacheTable.Remove(assetId);
+                assetCacheTable.Remove(assetUrl);
                 return false;
             }
 
@@ -142,7 +128,7 @@ namespace IceMilkTea.Service
         public void CleanupUnreferencedCache()
         {
             // 削除するべきアセットIDリストをリストアップするためにテーブル全体を舐める
-            var removeTargetList = new List<ulong>(assetCacheTable.Count);
+            var removeTargetList = new List<Uri>(assetCacheTable.Count);
             foreach (var kvp in assetCacheTable)
             {
                 // 参照からキャッシュの参照が取得できるのなら
