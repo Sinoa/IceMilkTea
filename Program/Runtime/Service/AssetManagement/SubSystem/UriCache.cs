@@ -21,47 +21,47 @@ namespace IceMilkTea.Service
     /// <summary>
     /// Uriインスタンスの生成コストを回避するために、極力キャッシュから取り出せるようにするためのキャッシュクラスです。
     /// </summary>
-    internal class UrlCache
+    internal class UriCache
     {
         // 定数定義
         private const int DefaultCapacity = 2 << 10;
 
         // メンバ変数定義
-        private Dictionary<string, Uri> urlCacheTable;
+        private Dictionary<string, Uri> uriCacheTable;
 
 
 
         /// <summary>
-        /// UrlCache のインスタンスを初期化します
+        /// UriCache のインスタンスを初期化します
         /// </summary>
-        public UrlCache()
+        public UriCache()
         {
             // キャッシュ用テーブルを生成
-            urlCacheTable = new Dictionary<string, Uri>(DefaultCapacity);
+            uriCacheTable = new Dictionary<string, Uri>(DefaultCapacity);
         }
 
 
         /// <summary>
-        /// 指定されたURL文字列から、生成経験のあるUriインスタンスが存在すれば取得し、
+        /// 指定されたURI文字列から、生成経験のあるUriインスタンスが存在すれば取得し、
         /// まだ生成経験がない場合は、新しくインスタンスを生成します。
         /// </summary>
-        /// <param name="urlText">Uriのインスタンスを取得または生成するURL文字列</param>
+        /// <param name="uriText">Uriのインスタンスを取得または生成するURI文字列</param>
         /// <returns>取得または生成したUriインスタンスを返します</returns>
-        /// <exception cref="ArgumentNullException">urlText が null です</exception>
-        /// <exception cref="ArgumentException">有効なURL書式ではありません</exception>
-        public Uri GetOrCreateUri(string urlText)
+        /// <exception cref="ArgumentNullException">uriText が null です</exception>
+        /// <exception cref="ArgumentException">指定されたURIは有効な書式ではありません</exception>
+        public Uri GetOrCreateUri(string uriText)
         {
             // もし null を渡されたら
-            if (urlText == null)
+            if (uriText == null)
             {
                 // nullは取り扱えない
-                throw new ArgumentNullException(nameof(urlText));
+                throw new ArgumentNullException(nameof(uriText));
             }
 
 
             // キャッシュテーブルから生成済みUriインスタンスの取得を試みて、取得できたのなら
             Uri uri;
-            if (urlCacheTable.TryGetValue(urlText, out uri))
+            if (uriCacheTable.TryGetValue(uriText, out uri))
             {
                 // 取得できたインスタンスを返す
                 return uri;
@@ -69,15 +69,15 @@ namespace IceMilkTea.Service
 
 
             // 新しくUriインスタンスの生成を試みるが出来ないなら
-            if (!Uri.TryCreate(urlText, UriKind.Absolute, out uri))
+            if (!Uri.TryCreate(uriText, UriKind.Absolute, out uri))
             {
-                // 正しいURLである必要がある例外を吐く
-                throw new ArgumentException($"指定されたURLは有効なURL書式ではありません urlText='{urlText}'");
+                // 正しいURIである必要がある例外を吐く
+                throw new ArgumentException($"指定されたURIは有効な書式ではありません urlText='{uriText}'");
             }
 
 
             // 生成されたインスタンスを覚えて返す
-            urlCacheTable[urlText] = uri;
+            uriCacheTable[uriText] = uri;
             return uri;
         }
     }
