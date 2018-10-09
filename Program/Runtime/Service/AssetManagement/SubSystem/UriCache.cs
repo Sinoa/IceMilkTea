@@ -15,9 +15,43 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
+    /// <summary>
+    /// Uriとクエリの情報を持つクラスです
+    /// </summary>
+    internal class UriInfo
+    {
+        /// <summary>
+        /// Uriインスタンスへの参照
+        /// </summary>
+        public Uri Uri { get; private set; }
+
+
+        /// <summary>
+        /// Uriインスタンスに含まれるクエリのテーブルアクセス
+        /// </summary>
+        public ReadOnlyDictionary<string, string> QueryTable { get; private set; }
+
+
+
+        /// <summary>
+        /// UriInfo インスタンスの初期化を行います
+        /// </summary>
+        /// <param name="uri">情報として保持するUriインスタンス</param>
+        public UriInfo(Uri uri)
+        {
+            // Uriのインスタンスを覚えて、読み込み専用クエリテーブルのインスタンスを生成する
+            Uri = uri;
+            QueryTable = new ReadOnlyDictionary<string, string>(uri.GetQueryDictionary());
+        }
+    }
+
+
+
     /// <summary>
     /// Uriインスタンスの生成コストを回避するために、極力キャッシュから取り出せるようにするためのキャッシュクラスです。
     /// </summary>
@@ -27,7 +61,7 @@ namespace IceMilkTea.Service
         private const int DefaultCapacity = 2 << 10;
 
         // メンバ変数定義
-        private Dictionary<string, Uri> uriCacheTable;
+        private Dictionary<string, UriInfo> uriCacheTable;
 
 
 
@@ -37,7 +71,7 @@ namespace IceMilkTea.Service
         public UriCache()
         {
             // キャッシュ用テーブルを生成
-            uriCacheTable = new Dictionary<string, Uri>(DefaultCapacity);
+            uriCacheTable = new Dictionary<string, UriInfo>(DefaultCapacity);
         }
 
 
@@ -45,11 +79,11 @@ namespace IceMilkTea.Service
         /// 指定されたURI文字列から、生成経験のあるUriインスタンスが存在すれば取得し、
         /// まだ生成経験がない場合は、新しくインスタンスを生成します。
         /// </summary>
-        /// <param name="uriText">Uriのインスタンスを取得または生成するURI文字列</param>
-        /// <returns>取得または生成したUriインスタンスを返します</returns>
+        /// <param name="uriText">Uri のインスタンスを取得または生成するURI文字列</param>
+        /// <returns>取得または生成した Uri インスタンスを含む UriInfo インスタンスを返します</returns>
         /// <exception cref="ArgumentNullException">uriText が null です</exception>
         /// <exception cref="ArgumentException">指定されたURIは有効な書式ではありません</exception>
-        public Uri GetOrCreateUri(string uriText)
+        public UriInfo GetOrCreateUri(string uriText)
         {
             // もし null を渡されたら
             if (uriText == null)
@@ -60,15 +94,16 @@ namespace IceMilkTea.Service
 
 
             // キャッシュテーブルから生成済みUriインスタンスの取得を試みて、取得できたのなら
-            Uri uri;
-            if (uriCacheTable.TryGetValue(uriText, out uri))
+            UriInfo uriInfo;
+            if (uriCacheTable.TryGetValue(uriText, out uriInfo))
             {
                 // 取得できたインスタンスを返す
-                return uri;
+                return uriInfo;
             }
 
 
             // 新しくUriインスタンスの生成を試みるが出来ないなら
+            Uri uri;
             if (!Uri.TryCreate(uriText, UriKind.Absolute, out uri))
             {
                 // 正しいURIである必要がある例外を吐く
@@ -77,8 +112,9 @@ namespace IceMilkTea.Service
 
 
             // 生成されたインスタンスを覚えて返す
-            uriCacheTable[uriText] = uri;
-            return uri;
+            uriInfo = new UriInfo(uri);
+            uriCacheTable[uriText] = uriInfo;
+            return uriInfo;
         }
     }
 }
