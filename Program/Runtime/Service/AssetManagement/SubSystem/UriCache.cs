@@ -48,6 +48,17 @@ namespace IceMilkTea.Service
             Uri = uri;
             QueryTable = new ReadOnlyDictionary<string, string>(uri.GetQueryDictionary());
         }
+
+
+        /// <summary>
+        /// UriInfo インスタンスのハッシュ値を取得します
+        /// </summary>
+        /// <returns>UriInfo インスタンスのハッシュ値を返します</returns>
+        public override int GetHashCode()
+        {
+            // UriのGetHashCodeを使う
+            return Uri.GetHashCode();
+        }
     }
 
 
