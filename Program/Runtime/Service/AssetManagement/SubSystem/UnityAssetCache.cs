@@ -34,7 +34,7 @@ namespace IceMilkTea.Service
         private const int DefaultCapacity = 2 << 10;
 
         // メンバ変数定義
-        private Dictionary<Uri, WeakUnityAsset> assetCacheTable;
+        private Dictionary<UriInfo, WeakUnityAsset> assetCacheTable;
 
 
 
@@ -44,7 +44,7 @@ namespace IceMilkTea.Service
         public UnityAssetCache()
         {
             // アセットキャッシュテーブルを生成する
-            assetCacheTable = new Dictionary<Uri, WeakUnityAsset>(DefaultCapacity);
+            assetCacheTable = new Dictionary<UriInfo, WeakUnityAsset>(DefaultCapacity);
         }
 
 
@@ -55,7 +55,7 @@ namespace IceMilkTea.Service
         /// <param name="asset">キャッシュするアセット</param>
         /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
         /// <exception cref="ArgumentNullException">asset が null です</exception>
-        public void CacheAsset(Uri assetUrl, UnityAsset asset)
+        public void CacheAsset(UriInfo assetUrl, UnityAsset asset)
         {
             // もしnullを渡されていたら
             if (assetUrl == null)
@@ -95,7 +95,7 @@ namespace IceMilkTea.Service
         /// <param name="assetUrl">取得したいアセットのUrl</param>
         /// <param name="asset">取得されたアセットの参照を設定します</param>
         /// <returns>指定されたアセットIDからアセットキャッシュの取得ができた場合は true を、出来なかった場合は false を返します</returns>
-        public bool TryGetAsset(Uri assetUrl, out UnityAsset asset)
+        public bool TryGetAsset(UriInfo assetUrl, out UnityAsset asset)
         {
             // キャッシュテーブルから参照の取得ができなかった場合は
             WeakUnityAsset weakUnityAsset;
@@ -128,7 +128,7 @@ namespace IceMilkTea.Service
         public void CleanupUnreferencedCache()
         {
             // 削除するべきアセットIDリストをリストアップするためにテーブル全体を舐める
-            var removeTargetList = new List<Uri>(assetCacheTable.Count);
+            var removeTargetList = new List<UriInfo>(assetCacheTable.Count);
             foreach (var kvp in assetCacheTable)
             {
                 // 参照からキャッシュの参照が取得できるのなら
