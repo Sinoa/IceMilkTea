@@ -46,17 +46,17 @@ namespace IceMilkTea.Service
         /// 指定されたIDでアセットバンドルをキャッシュします。
         /// また、既にキャッシュ済みのアセットバンドルが存在する場合、キャッシュ済みアセットバンドルはアンロードされます。
         /// </summary>
-        /// <param name="assetBundleName">キャッシュするアセットバンドルの名前</param>
+        /// <param name="assetBundlePath">キャッシュするアセットバンドルのパス</param>
         /// <param name="assetBundle">キャッシュするアセットバンドル</param>
-        /// <exception cref="ArgumentNullException">assetBundleName が null です</exception>
+        /// <exception cref="ArgumentNullException">assetBundlePath が null です</exception>
         /// <exception cref="ArgumentNullException">assetBundle が null です</exception>
-        public void CacheAssetBundle(string assetBundleName, AssetBundle assetBundle)
+        public void CacheAssetBundle(string assetBundlePath, AssetBundle assetBundle)
         {
             // もしnullを渡されていたら
-            if (assetBundleName == null)
+            if (assetBundlePath == null)
             {
                 // キャッシュするアセットバンドル名がわからない
-                throw new ArgumentNullException(nameof(assetBundleName));
+                throw new ArgumentNullException(nameof(assetBundlePath));
             }
 
 
@@ -70,7 +70,7 @@ namespace IceMilkTea.Service
 
             // キャッシュ済みのアセットバンドルが存在する場合は
             AssetBundle cachedAssetBundle;
-            if (assetBundleCacheTable.TryGetValue(assetBundleName, out cachedAssetBundle))
+            if (assetBundleCacheTable.TryGetValue(assetBundlePath, out cachedAssetBundle))
             {
                 // アンロードしておく
                 cachedAssetBundle.Unload(false);
@@ -78,21 +78,21 @@ namespace IceMilkTea.Service
 
 
             // IDをキーにアセットバンドルの参照を覚えておく
-            assetBundleCacheTable[assetBundleName] = assetBundle;
+            assetBundleCacheTable[assetBundlePath] = assetBundle;
         }
 
 
         /// <summary>
         /// 指定されたアセットバンドルIDからアセットバンドルの取得を試みます。
         /// </summary>
-        /// <param name="assetBundleName">キャッシュするアセットバンドルの名前</param>
+        /// <param name="assetBundlePath">キャッシュするアセットバンドルの名前</param>
         /// <param name="assetBundle">取得したアセットバンドルを格納します</param>
         /// <returns>アセットバンドルの取得に成功したときは true を、取得ができなかった場合は false を返します</returns>
-        /// <exception cref="ArgumentNullException">assetBundleName が null です</exception>
-        public bool TryGetAssetBundle(string assetBundleName, out AssetBundle assetBundle)
+        /// <exception cref="ArgumentNullException">assetBundlePath が null です</exception>
+        public bool TryGetAssetBundle(string assetBundlePath, out AssetBundle assetBundle)
         {
             // DictionaryのTryGetをそのまま呼ぶ
-            return assetBundleCacheTable.TryGetValue(assetBundleName, out assetBundle);
+            return assetBundleCacheTable.TryGetValue(assetBundlePath, out assetBundle);
         }
     }
 }
