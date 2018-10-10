@@ -27,6 +27,12 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// アセットバンドルを取り扱うホスト名
+        /// </summary>
+        public string HostName;
+
+
+        /// <summary>
         /// アセットバンドル名を含まない、アセットバンドルへアクセスするためのローカルパス
         /// </summary>
         public string LocalPath;
