@@ -30,14 +30,6 @@ namespace IceMilkTea.Service
     public abstract class AssetStorageManager
     {
         /// <summary>
-        /// 指定されたアセットURLをこのマネージャが制御出来るかどうか確認をします
-        /// </summary>
-        /// <param name="assetUrl">対応するアセットURL</param>
-        /// <returns>指定されたアセットURLの制御が可能なら true を、出来ない場合は false を返します</returns>
-        public abstract bool CanHandling(Uri assetUrl);
-
-
-        /// <summary>
         /// 指定されたアセットURLのアセットがロードできる位置に存在するかどうかを確認します
         /// </summary>
         /// <param name="assetUrl">存在の確認を行うアセットURL</param>
