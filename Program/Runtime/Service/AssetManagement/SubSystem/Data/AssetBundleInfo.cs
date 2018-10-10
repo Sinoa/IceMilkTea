@@ -27,9 +27,15 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// アセットバンドル名を含まない、アセットバンドルへアクセスするためのパス
+        /// アセットバンドル名を含まない、アセットバンドルへアクセスするためのローカルパス
         /// </summary>
-        public string AccessPath;
+        public string LocalPath;
+
+
+        /// <summary>
+        /// アセットバンドル名を含まない、アセットバンドルへアクセスするためのリモートパス
+        /// </summary>
+        public string RemotePath;
 
 
         /// <summary>
