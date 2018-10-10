@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
@@ -24,8 +25,14 @@ namespace IceMilkTea.Service
     /// </summary>
     public class AssetManagementService : GameService
     {
+        // 定数定義
+        private const string ResourcesHostName = "resources";
+
+        // 読み取り専用クラス変数宣言
+        private static readonly IProgress<double> EmptyProgress = new Progress<double>(_ => { });
+
         // メンバ変数定義
-        private UriInfoCache urlCache;
+        private UriInfoCache uriCache;
         private UnityAssetCache assetCache;
         private AssetBundleCache assetBundleCache;
         private List<AssetBundleManifestFetcher> manifestFetcherList;
@@ -40,7 +47,7 @@ namespace IceMilkTea.Service
         public AssetManagementService()
         {
             // サブシステムなどの初期化をする
-            urlCache = new UriInfoCache();
+            uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
             assetBundleCache = new AssetBundleCache();
             manifestFetcherList = new List<AssetBundleManifestFetcher>();
@@ -134,10 +141,79 @@ namespace IceMilkTea.Service
         }
 
 
-        // コンパイルエラーが出ないようにするための雑対応
-        public System.Threading.Tasks.Task<T> LoadAssetAsync<T>(string name) where T : UnityEngine.Object
+        /// <summary>
+        /// 指定されたアセットURLのアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="T">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットのURL</param>
+        /// <param name="progress">アセットロードの進捗通知を受ける IProgress</param>
+        /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
+        /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
+        public async Task<T> LoadAssetAsync<T>(string assetUrl, IProgress<double> progress) where T : UnityEngine.Object
         {
-            throw new System.NotImplementedException();
+            // もしURLがnullなら
+            if (assetUrl == null)
+            {
+                // 何をロードするのか不明
+                throw new ArgumentNullException(nameof(assetUrl));
+            }
+
+
+            // UriキャッシュからUri情報を取得する
+            var uriInfo = uriCache.GetOrCreateUri(assetUrl);
+
+
+            // もしアセットキャッシュからアセットを取り出せるのなら
+            UnityEngine.Object asset;
+            if (assetCache.TryGetAsset(uriInfo, out asset))
+            {
+                // このアセットを返す
+                return (T)asset;
+            }
+
+
+            // プログレスが null なら空のプログレスを設定する
+            progress = progress ?? EmptyProgress;
+
+
+            // ホスト名（ストレージ名）を取得してもし Resources なら.
+            var storageName = uriInfo.Uri.Host;
+            if (storageName == ResourcesHostName)
+            {
+                // Resoucesからアセットをロードする
+                asset = await LoadResourcesAssetAsync<T>(uriInfo, progress);
+            }
+            else
+            {
+                // Resourcesでないならアセットバンドル側からロードする
+                asset = await LoadAssetBundleAssetAsync<T>(storageName, uriInfo, progress);
+            }
+
+
+            // もしアセットのロードに失敗していたら
+            if (asset == null)
+            {
+                // アセットのロードに失敗したことを通知する
+                throw new InvalidOperationException($"指定されたアセットのロードに失敗しました Url={assetUrl}");
+            }
+
+
+            // 読み込まれたアセットをキャッシュに追加して返す
+            assetCache.CacheAsset(uriInfo, asset);
+            return (T)asset;
+        }
+
+
+        private async Task<T> LoadResourcesAssetAsync<T>(UriInfo assetUrl, IProgress<double> progress) where T : UnityEngine.Object
+        {
+            throw new NotImplementedException();
+        }
+
+
+        private async Task<T> LoadAssetBundleAssetAsync<T>(string storageName, UriInfo assetUrl, IProgress<double> progress) where T : UnityEngine.Object
+        {
+            throw new NotImplementedException();
         }
     }
 }
