@@ -18,6 +18,7 @@ namespace IceMilkTea.Service
     /// <summary>
     /// アセットバンドルの情報を保持した構造体です
     /// </summary>
+    [System.Serializable]
     public struct AssetBundleInfo
     {
         /// <summary>

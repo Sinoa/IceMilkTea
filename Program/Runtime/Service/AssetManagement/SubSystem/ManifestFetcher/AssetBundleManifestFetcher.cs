@@ -26,6 +26,6 @@ namespace IceMilkTea.Service
         /// マニフェストのフェッチを非同期で行います
         /// </summary>
         /// <returns>マニフェストフェッチの非同期操作をしているタスクを返します</returns>
-        public abstract Task<AssetBundleManifest> FetchManifestAsync();
+        public abstract Task<ImtAssetBundleManifest> FetchManifestAsync();
     }
 }

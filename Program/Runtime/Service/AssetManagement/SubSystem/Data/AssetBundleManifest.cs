@@ -19,7 +19,8 @@ namespace IceMilkTea.Service
     /// 1つ以上のアセットバンドル情報を保持した構造体です。
     /// アセットバンドルの管理情報なども一部含みます。
     /// </summary>
-    public struct AssetBundleManifest
+    [System.Serializable]
+    public struct ImtAssetBundleManifest
     {
         /// <summary>
         /// マニフェスト名
