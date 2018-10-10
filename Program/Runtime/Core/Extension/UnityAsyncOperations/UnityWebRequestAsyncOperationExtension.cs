@@ -128,7 +128,7 @@ namespace IceMilkTea.Core
 
 
             // 同期コンテキストを取得して、イベントハンドラ経由から継続関数を叩いてもらうように登録する
-            var context = SynchronizationContext.Current;
+            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
             operation.completed += _ => context.Post(cache, continuation);
         }
 

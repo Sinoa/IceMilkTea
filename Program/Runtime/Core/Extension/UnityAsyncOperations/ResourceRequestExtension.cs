@@ -116,7 +116,7 @@ namespace IceMilkTea.Core
 
 
             // 現在の同期コンテキストを取り出して、同期コンテキストにPostするような非同期完了イベントを登録
-            var context = SynchronizationContext.Current;
+            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
             resourceRequest.completed += _ => context.Post(cache, continuation);
         }
 

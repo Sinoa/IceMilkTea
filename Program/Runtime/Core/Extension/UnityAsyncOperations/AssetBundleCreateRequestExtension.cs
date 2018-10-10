@@ -114,7 +114,7 @@ namespace IceMilkTea.Core
 
 
             // 現在の同期コンテキストを拾い上げて、アセットバンドル読み込み完了イベントでPostするように登録する
-            var context = SynchronizationContext.Current;
+            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
             createRequest.completed += _ => context.Post(cache, continuation);
         }
 

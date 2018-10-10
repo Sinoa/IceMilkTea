@@ -116,7 +116,7 @@ namespace IceMilkTea.Core
 
 
             // 現在の同期コンテキストを取得して、ロード完了イベントからコンテキストにPostするように登録する
-            var context = SynchronizationContext.Current;
+            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
             request.completed += _ => context.Post(cache, continuation);
         }
 

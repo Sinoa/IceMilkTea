@@ -124,7 +124,7 @@ namespace IceMilkTea.Core
 
 
             // 現在の同期コンテキストを取り出して、イベント時に呼び出してもらうようにする
-            var context = SynchronizationContext.Current;
+            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
             asyncOperation.completed += _ => context.Post(cache, continuation);
         }
 
