@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.Collections.Generic;
 using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
@@ -26,6 +28,9 @@ namespace IceMilkTea.Service
         private UriInfoCache urlCache;
         private UnityAssetCache assetCache;
         private AssetBundleCache assetBundleCache;
+        private List<AssetBundleManifestFetcher> manifestFetcherList;
+        private List<AssetBundleStorage> storageList;
+        private List<AssetBundleInstaller> installerList;
 
 
 
@@ -38,6 +43,94 @@ namespace IceMilkTea.Service
             urlCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
             assetBundleCache = new AssetBundleCache();
+            manifestFetcherList = new List<AssetBundleManifestFetcher>();
+            storageList = new List<AssetBundleStorage>();
+            installerList = new List<AssetBundleInstaller>();
+        }
+
+
+        /// <summary>
+        /// マニフェストフェッチャーの追加を行います。
+        /// </summary>
+        /// <param name="fetcher">追加するフェッチャー</param>
+        /// <exception cref="ArgumentNullException">fetcher が null です</exception>
+        /// <exception cref="ArgumentException">既に追加済みの fetcher です</exception>
+        public void AddManifestFetcher(AssetBundleManifestFetcher fetcher)
+        {
+            // null を渡されたら
+            if (fetcher == null)
+            {
+                // nullは許されない
+                throw new ArgumentNullException(nameof(fetcher));
+            }
+
+
+            // 既に追加済みのフェッチャーだったら
+            if (manifestFetcherList.Contains(fetcher))
+            {
+                // 多重追加は許されない
+                throw new ArgumentException($"既に追加済みの {nameof(fetcher)} です");
+            }
+
+
+            // 追加する
+            manifestFetcherList.Add(fetcher);
+        }
+
+
+        /// <summary>
+        /// ストレージの追加を行います。
+        /// </summary>
+        /// <param name="storage">追加するストレージ</param>
+        /// <exception cref="ArgumentNullException">storage が null です</exception>
+        /// <exception cref="ArgumentException">既に追加済みの storage です</exception>
+        public void AddStorage(AssetBundleStorage storage)
+        {
+            // null を渡されたら
+            if (storage == null)
+            {
+                // null は許されない
+                throw new ArgumentNullException(nameof(storage));
+            }
+
+
+            // 既に追加済みのストレージだったら
+            if (storageList.Contains(storage))
+            {
+                // 多重追加は許されない
+                throw new ArgumentException($"既に追加済みの {nameof(storage)} です");
+            }
+
+
+            // 追加する
+            storageList.Add(storage);
+        }
+
+
+        /// <summary>
+        /// インストーラの追加を行います。
+        /// </summary>
+        /// <param name="installer"></param>
+        public void AddInstaller(AssetBundleInstaller installer)
+        {
+            // null を渡されたら
+            if (installer == null)
+            {
+                // null は許されない
+                throw new ArgumentNullException(nameof(installer));
+            }
+
+
+            // 既に追加済みのインストーラだったら
+            if (installerList.Contains(installer))
+            {
+                // 多重追加は許されない
+                throw new ArgumentException($"既に追加済みの {nameof(installer)} です");
+            }
+
+
+            // 追加する
+            installerList.Add(installer);
         }
 
 
