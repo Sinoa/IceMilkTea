@@ -29,12 +29,6 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// アセットバンドルをフェッチする元になるURL
-        /// </summary>
-        public string FetchBaseUrl;
-
-
-        /// <summary>
         /// マニフェストが保持しているアセットバンドル情報の配列
         /// </summary>
         public AssetBundleInfo[] AssetBundleInfos;

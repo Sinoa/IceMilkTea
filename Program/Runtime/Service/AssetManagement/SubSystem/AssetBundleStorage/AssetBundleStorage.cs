@@ -26,9 +26,9 @@ namespace IceMilkTea.Service
     public abstract class AssetBundleStorage
     {
         /// <summary>
-        /// ストレージのホスト名を取得します
+        /// ストレージ名を取得します
         /// </summary>
-        public abstract string HostName { get; }
+        public abstract string StorageName { get; }
 
 
 
