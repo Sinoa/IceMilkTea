@@ -14,16 +14,41 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace IceMilkTea.Core
 {
+    #region Extension Define
     /// <summary>
     /// UnityWebRequestAsyncOperation クラスの拡張関数実装用のクラスです
     /// </summary>
-    public static partial class UnityWebRequestAsyncOperationExtension
+    public static class UnityWebRequestAsyncOperationExtension
     {
+        /// <summary>
+        /// UnityWebRequestAsyncOperation クラスの待機オブジェクトを取得します
+        /// </summary>
+        /// <param name="operation">待機する UnityWebRequestAsyncOperation</param>
+        /// <returns>UnityWebRequestAsyncOperation クラスの待機オブジェクトを返します</returns>
+        public static UnityWebRequestAsyncOperationAwaiter GetAwaiter(this UnityWebRequestAsyncOperation operation)
+        {
+            // UnityWebRequestAsyncOperationAwaiter を生成して返す
+            return new UnityWebRequestAsyncOperationAwaiter(operation);
+        }
+
+
+        /// <summary>
+        /// UnityWebRequestAsyncOperation を FireAndForgetするために警告を潰す関数です
+        /// </summary>
+        /// <param name="operation">FireAndForgetする UnityWebRequestAsyncOperation</param>
+        public static void Forget(this UnityWebRequestAsyncOperation operation)
+        {
+            // 無の境地
+        }
+
+
         /// <summary>
         /// UnityWebRequestAsyncOperation を待機可能にした UnityWebRequestAsyncOperationAwaitable のインスタンスを生成します。
         /// </summary>
@@ -48,9 +73,101 @@ namespace IceMilkTea.Core
             return new UnityWebRequestAsyncOperationAwaitable(operation, progress).Run<UnityWebRequestAsyncOperationAwaitable>();
         }
     }
+    #endregion
 
 
 
+    #region Awaiter
+    /// <summary>
+    /// UnityWebRequestAsyncOperation の待機構造体です
+    /// </summary>
+    public struct UnityWebRequestAsyncOperationAwaiter : INotifyCompletion
+    {
+        // 定数定義
+        private const string DefaultErrorMessage = "不明な'UniWebRequet'のエラーが発生しました";
+
+        // 構造体変数宣言
+        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+        // メンバ変数定義
+        private UnityWebRequestAsyncOperation operation;
+
+
+
+        /// <summary>
+        /// タスクが完了したかどうか
+        /// </summary>
+        public bool IsCompleted => operation.isDone;
+
+
+
+        /// <summary>
+        /// UnityWebRequestAsyncOperationAwaiter のインスタンスを初期化します
+        /// </summary>
+        /// <param name="operation">待機する UnityWebRequestAsyncOperation</param>
+        public UnityWebRequestAsyncOperationAwaiter(UnityWebRequestAsyncOperation operation)
+        {
+            // 覚える
+            this.operation = operation;
+        }
+
+
+        /// <summary>
+        /// タスクの完了処理を行います
+        /// </summary>
+        /// <param name="continuation">タスクの継続関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // すでにタスクが完了しているのなら
+            if (IsCompleted)
+            {
+                // 直ちに継続関数を呼ぶ
+                continuation();
+                return;
+            }
+
+
+            // 同期コンテキストを取得して、イベントハンドラ経由から継続関数を叩いてもらうように登録する
+            var context = SynchronizationContext.Current;
+            operation.completed += _ => context.Post(cache, continuation);
+        }
+
+
+        /// <summary>
+        /// タスクの結果を取得します
+        /// </summary>
+        /// <returns>タスクの結果を返します</returns>
+        public UnityWebRequest GetResult()
+        {
+            // 結果を受け取る
+            var result = operation.webRequest;
+
+
+            // もしネットワークエラーが発生していたのなら
+            if (result.isNetworkError)
+            {
+                // エラー文字列を受け取って例外を吐く（NetworkならIOエラーでええか）
+                throw new System.IO.IOException(result.error ?? DefaultErrorMessage);
+            }
+
+
+            // もしHttpエラーが発生していたのなら
+            if (result.isHttpError)
+            {
+                // エラー文字列を受け取って例外を吐く（HTTPならWebExceptionでええか）
+                throw new System.Net.WebException(result.error ?? DefaultErrorMessage);
+            }
+
+
+            // 結果を返す
+            return result;
+        }
+    }
+    #endregion
+
+
+
+    #region Awaitable
     /// <summary>
     /// UnityWebRequestAsyncOperation を待機可能にした待機可能クラスです。
     /// </summary>
@@ -165,4 +282,5 @@ namespace IceMilkTea.Core
             SetSignal();
         }
     }
+    #endregion
 }
