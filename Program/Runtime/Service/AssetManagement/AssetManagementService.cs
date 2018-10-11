@@ -225,6 +225,7 @@ namespace IceMilkTea.Service
         #endregion
 
 
+        #region Resources Load
         /// <summary>
         /// Resourcesから非同期にアセットのロードを行います
         /// </summary>
@@ -239,7 +240,7 @@ namespace IceMilkTea.Service
 
 
             // Resourcesホストの場合はローカルパスがロードするパスになる
-            var assetPath = assetUrl.Uri.LocalPath;
+            var assetPath = assetUrl.Uri.LocalPath.TrimStart('/');
 
 
             // もしマルチスプライトの方のロード要求なら
@@ -267,6 +268,7 @@ namespace IceMilkTea.Service
             // 結果を返す
             return result;
         }
+        #endregion
 
 
         private async Task<T> LoadAssetBundleAssetAsync<T>(string storageName, UriInfo assetUrl, IProgress<float> progress) where T : UnityEngine.Object
