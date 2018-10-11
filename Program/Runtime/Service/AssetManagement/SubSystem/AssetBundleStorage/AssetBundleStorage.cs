@@ -75,7 +75,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたアセットバンドルを閉じます
         /// </summary>
-        /// <param name="assetBundle">閉じるアセットバンドル</param>
-        public abstract void Close(AssetBundle assetBundle);
+        /// <param name="localPath">閉じるアセットバンドルのローカルパス</param>
+        public abstract void Close(string localPath);
     }
 }
