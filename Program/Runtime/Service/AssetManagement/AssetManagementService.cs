@@ -146,62 +146,81 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <typeparam name="T">ロードするアセットの型</typeparam>
         /// <param name="assetUrl">ロードするアセットのURL</param>
+        /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
+        /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
+        public ImtTask<T> LoadAssetAsync<T>(string assetUrl) where T : UnityEngine.Object
+        {
+            // 進捗通知を受けずに非同期ロードを行う
+            return LoadAssetAsync<T>(assetUrl, null);
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットURLのアセットを非同期でロードします
+        /// </summary>
+        /// <typeparam name="T">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットのURL</param>
         /// <param name="progress">アセットロードの進捗通知を受ける IProgress</param>
         /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
         /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
-        public async Task<T> LoadAssetAsync<T>(string assetUrl, IProgress<double> progress) where T : UnityEngine.Object
+        public ImtTask<T> LoadAssetAsync<T>(string assetUrl, IProgress<double> progress) where T : UnityEngine.Object
         {
-            // もしURLがnullなら
-            if (assetUrl == null)
+            // ロードの非同期タスクを生成して返す
+            return new ImtTask<T>(async () =>
             {
-                // 何をロードするのか不明
-                throw new ArgumentNullException(nameof(assetUrl));
-            }
+                // もしURLがnullなら
+                if (assetUrl == null)
+                {
+                    // 何をロードするのか不明
+                    throw new ArgumentNullException(nameof(assetUrl));
+                }
 
 
-            // UriキャッシュからUri情報を取得する
-            var uriInfo = uriCache.GetOrCreateUri(assetUrl);
+                // UriキャッシュからUri情報を取得する
+                var uriInfo = uriCache.GetOrCreateUri(assetUrl);
 
 
-            // もしアセットキャッシュからアセットを取り出せるのなら
-            UnityEngine.Object asset;
-            if (assetCache.TryGetAsset(uriInfo, out asset))
-            {
-                // このアセットを返す
+                // もしアセットキャッシュからアセットを取り出せるのなら
+                UnityEngine.Object asset;
+                if (assetCache.TryGetAsset(uriInfo, out asset))
+                {
+                    // このアセットを返す
+                    return (T)asset;
+                }
+
+
+                // プログレスが null なら空のプログレスを設定する
+                progress = progress ?? EmptyProgress;
+
+
+                // ホスト名（ストレージ名）を取得してもし Resources なら.
+                var storageName = uriInfo.Uri.Host;
+                if (storageName == ResourcesHostName)
+                {
+                    // Resoucesからアセットをロードする
+                    asset = await LoadResourcesAssetAsync<T>(uriInfo, progress);
+                }
+                else
+                {
+                    // Resourcesでないならアセットバンドル側からロードする
+                    asset = await LoadAssetBundleAssetAsync<T>(storageName, uriInfo, progress);
+                }
+
+
+                // もしアセットのロードに失敗していたら
+                if (asset == null)
+                {
+                    // アセットのロードに失敗したことを通知する
+                    throw new InvalidOperationException($"指定されたアセットのロードに失敗しました Url={assetUrl}");
+                }
+
+
+                // 読み込まれたアセットをキャッシュに追加して返す
+                assetCache.CacheAsset(uriInfo, asset);
                 return (T)asset;
-            }
-
-
-            // プログレスが null なら空のプログレスを設定する
-            progress = progress ?? EmptyProgress;
-
-
-            // ホスト名（ストレージ名）を取得してもし Resources なら.
-            var storageName = uriInfo.Uri.Host;
-            if (storageName == ResourcesHostName)
-            {
-                // Resoucesからアセットをロードする
-                asset = await LoadResourcesAssetAsync<T>(uriInfo, progress);
-            }
-            else
-            {
-                // Resourcesでないならアセットバンドル側からロードする
-                asset = await LoadAssetBundleAssetAsync<T>(storageName, uriInfo, progress);
-            }
-
-
-            // もしアセットのロードに失敗していたら
-            if (asset == null)
-            {
-                // アセットのロードに失敗したことを通知する
-                throw new InvalidOperationException($"指定されたアセットのロードに失敗しました Url={assetUrl}");
-            }
-
-
-            // 読み込まれたアセットをキャッシュに追加して返す
-            assetCache.CacheAsset(uriInfo, asset);
-            return (T)asset;
+            });
         }
 
 
