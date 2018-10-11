@@ -29,6 +29,7 @@ namespace IceMilkTea.Service
         // 定数定義
         private const string AssetScheme = "asset";
         private const string ResourcesHostName = "resources";
+        private const string AssetNameQueryName = "name";
 
         // 読み取り専用クラス変数宣言
         private static readonly IProgress<float> EmptyProgress = new Progress<float>(_ => { });
@@ -36,7 +37,6 @@ namespace IceMilkTea.Service
         // メンバ変数定義
         private UriInfoCache uriCache;
         private UnityAssetCache assetCache;
-        private AssetBundleCache assetBundleCache;
         private List<AssetBundleManifestFetcher> manifestFetcherList;
         private List<AssetBundleStorage> storageList;
         private List<AssetBundleInstaller> installerList;
@@ -51,7 +51,6 @@ namespace IceMilkTea.Service
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
-            assetBundleCache = new AssetBundleCache();
             manifestFetcherList = new List<AssetBundleManifestFetcher>();
             storageList = new List<AssetBundleStorage>();
             installerList = new List<AssetBundleInstaller>();
@@ -253,7 +252,7 @@ namespace IceMilkTea.Service
             var assetPath = assetUrl.Uri.LocalPath.TrimStart('/');
 
 
-            // もしマルチスプライトの方のロード要求なら
+            // もしマルチスプライト型のロード要求なら
             if (typeof(T) == typeof(MultiSprite))
             {
                 // Resourcesには、残念ながらAll系の非同期ロード関数がないのでここで同期読み込みをするが、ロードに失敗したら
@@ -270,7 +269,7 @@ namespace IceMilkTea.Service
             }
             else
             {
-                // 特有型ロードでなければ通常の非同期ロードを行う
+                // 特定型ロードでなければ通常の非同期ロードを行う
                 result = await Resources.LoadAsync<T>(assetPath).ToAwaitable<T>(progress);
             }
 
@@ -281,9 +280,101 @@ namespace IceMilkTea.Service
         #endregion
 
 
+        #region AssetBundle Load
+        /// <summary>
+        /// AssetBundleから非同期にアセットのロードを行います
+        /// </summary>
+        /// <typeparam name="T">ロードするアセットの型</typeparam>
+        /// <param name="storageName">ロードするアセットを含むアセットバンドルを開くストレージ</param>
+        /// <param name="assetUrl">ロードするアセットURL</param>
+        /// <param name="progress">ロードの進捗通知を受ける IProgress</param>
+        /// <returns>ロードに成功した場合は有効なアセットの参照をかえします。ロードに失敗した場合は null を返します。</returns>
+        /// <exception cref="InvalidOperationException">指示されたアセットバンドルストレージ '{storageName}' が見つかりませんでした。</exception>
+        /// <exception cref="InvalidOperationException">アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに 'name' パラメータがあることを確認してください。</exception>
         private async Task<T> LoadAssetBundleAssetAsync<T>(string storageName, UriInfo assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
-            throw new NotImplementedException();
+            // まずはアセットバンドルのローカルパスを取得して担当ストレージを取得が見つけられなかったら
+            var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
+            var storage = GetAssetBundleStorage(localPath);
+            if (storage == null)
+            {
+                // 担当ストレージが居ないことを例外で吐く
+                throw new InvalidOperationException($"指示されたアセットバンドルストレージ '{storageName}' が見つかりませんでした。");
+            }
+
+
+            // ロードするアセット名を取得するが見つけられなかったら
+            var assetPath = default(string);
+            if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath))
+            {
+                // ロードするアセット名が不明である例外を吐く
+                throw new InvalidOperationException($"アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに '{AssetNameQueryName}' パラメータがあることを確認してください。");
+            }
+
+
+            // アセットバンドルを開く
+            var assetBundle = await storage.OpenAsync(localPath);
+
+
+            // 結果を納める変数宣言
+            T result = default(T);
+
+
+            // もしマルチスプライト型のロード要求なら
+            if (typeof(T) == typeof(MultiSprite))
+            {
+                // サブアセット系非同期ロードを行い待機する
+                var requestTask = assetBundle.LoadAssetWithSubAssetsAsync<Sprite>(assetPath);
+                await requestTask;
+
+
+                // もし読み込みが出来なかったのなら
+                if (requestTask.allAssets == null)
+                {
+                    // 読み込めなかったことを結果に入れる
+                    result = null;
+                }
+                else
+                {
+                    // 読み込み結果を格納する
+                    var spriteArray = Array.ConvertAll(requestTask.allAssets, x => (Sprite)x);
+                    result = (T)(UnityEngine.Object)new MultiSprite(spriteArray);
+                }
+            }
+            else
+            {
+                // 特定型ロードでなければ通常の非同期ロードを行う
+                result = await assetBundle.LoadAssetAsync<T>(assetPath).ToAwaitable<T>(progress);
+            }
+
+
+            // 結果を返す
+            return result;
         }
+
+
+        /// <summary>
+        /// ストレージ名からアセットバンドルストレージを取得します
+        /// </summary>
+        /// <param name="storageName">取得するアセットバンドルストレージのストレージ名</param>
+        /// <returns>正しくストレージの取得ができた場合はインスタンスを返します。取得に失敗した場合は null を返します。</returns>
+        private AssetBundleStorage GetAssetBundleStorage(string storageName)
+        {
+            // 現在管理下に置いているストレージの数分回る
+            foreach (var storage in storageList)
+            {
+                // 同じストレージ名なら
+                if (storage.StorageName == storageName)
+                {
+                    // このストレージを返す
+                    return storage;
+                }
+            }
+
+
+            // 見つけられなかったことを返す
+            return null;
+        }
+        #endregion
     }
 }
