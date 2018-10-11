@@ -14,7 +14,6 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
@@ -29,6 +28,7 @@ namespace IceMilkTea.Service
         // 定数定義
         private const string AssetScheme = "asset";
         private const string ResourcesHostName = "resources";
+        private const string AssetBundleHostName = "assetbundle";
         private const string AssetNameQueryName = "name";
 
         // 読み取り専用クラス変数宣言
@@ -37,111 +37,30 @@ namespace IceMilkTea.Service
         // メンバ変数定義
         private UriInfoCache uriCache;
         private UnityAssetCache assetCache;
-        private List<AssetBundleManifestFetcher> manifestFetcherList;
-        private List<AssetBundleStorage> storageList;
-        private List<AssetBundleInstaller> installerList;
+        private AssetBundleStorage storage;
+        private AssetBundleInstaller installer;
+        private AssetBundleManifestFetcher manifestFetcher;
+        private AssetBundleManifestStorage manifestStorage;
 
 
 
         /// <summary>
-        /// AssetManagementService のインスタンスを初期化します
+        /// AssetManagementService のインスタンスを初期化します。
         /// </summary>
-        public AssetManagementService()
+        /// <param name="storage">アセットバンドルを貯蔵するストレージ</param>
+        /// <param name="installer">アセットバンドルをストレージにインストールするインストーラ</param>
+        /// <param name="manifestStorage">マニフェストを貯蔵するストレージ</param>
+        /// <param name="manifestFetcher">マニフェストをフェッチするフェッチャー</param>
+        public AssetManagementService(AssetBundleStorage storage, AssetBundleInstaller installer, AssetBundleManifestStorage manifestStorage, AssetBundleManifestFetcher manifestFetcher)
         {
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
-            manifestFetcherList = new List<AssetBundleManifestFetcher>();
-            storageList = new List<AssetBundleStorage>();
-            installerList = new List<AssetBundleInstaller>();
+            this.storage = storage;
+            this.installer = installer;
+            this.manifestStorage = manifestStorage;
+            this.manifestFetcher = manifestFetcher;
         }
-
-
-        #region サブシステム追加関数群
-        /// <summary>
-        /// マニフェストフェッチャーの追加を行います。
-        /// </summary>
-        /// <param name="fetcher">追加するフェッチャー</param>
-        /// <exception cref="ArgumentNullException">fetcher が null です</exception>
-        /// <exception cref="ArgumentException">既に追加済みの fetcher です</exception>
-        public void AddManifestFetcher(AssetBundleManifestFetcher fetcher)
-        {
-            // null を渡されたら
-            if (fetcher == null)
-            {
-                // nullは許されない
-                throw new ArgumentNullException(nameof(fetcher));
-            }
-
-
-            // 既に追加済みのフェッチャーだったら
-            if (manifestFetcherList.Contains(fetcher))
-            {
-                // 多重追加は許されない
-                throw new ArgumentException($"既に追加済みの {nameof(fetcher)} です");
-            }
-
-
-            // 追加する
-            manifestFetcherList.Add(fetcher);
-        }
-
-
-        /// <summary>
-        /// ストレージの追加を行います。
-        /// </summary>
-        /// <param name="storage">追加するストレージ</param>
-        /// <exception cref="ArgumentNullException">storage が null です</exception>
-        /// <exception cref="ArgumentException">既に追加済みの storage です</exception>
-        public void AddStorage(AssetBundleStorage storage)
-        {
-            // null を渡されたら
-            if (storage == null)
-            {
-                // null は許されない
-                throw new ArgumentNullException(nameof(storage));
-            }
-
-
-            // 既に追加済みのストレージだったら
-            if (storageList.Contains(storage))
-            {
-                // 多重追加は許されない
-                throw new ArgumentException($"既に追加済みの {nameof(storage)} です");
-            }
-
-
-            // 追加する
-            storageList.Add(storage);
-        }
-
-
-        /// <summary>
-        /// インストーラの追加を行います。
-        /// </summary>
-        /// <param name="installer"></param>
-        public void AddInstaller(AssetBundleInstaller installer)
-        {
-            // null を渡されたら
-            if (installer == null)
-            {
-                // null は許されない
-                throw new ArgumentNullException(nameof(installer));
-            }
-
-
-            // 既に追加済みのインストーラだったら
-            if (installerList.Contains(installer))
-            {
-                // 多重追加は許されない
-                throw new ArgumentException($"既に追加済みの {nameof(installer)} です");
-            }
-
-
-            // 追加する
-            installerList.Add(installer);
-        }
-        #endregion
 
 
         #region LoadAsync
@@ -170,6 +89,7 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
         /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
         /// <exception cref="ArgumentException">不明なスキーム '{uriInfo.Uri.Scheme}' が指定されました。AssetManagementServiceは 'asset' スキームのみサポートしています。</exception>
+        /// <exception cref="ArgumentException">不明なストレージホスト '{storageName}' が指定されたました。 'resources' または 'assetbundle' を指定してください。</exception>
         public async Task<T> LoadAssetAsync<T>(string assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
             // もしURLがnullなら
@@ -212,10 +132,15 @@ namespace IceMilkTea.Service
                 // Resoucesからアセットをロードする
                 asset = await LoadResourcesAssetAsync<T>(uriInfo, progress);
             }
-            else
+            else if (storageName == AssetBundleHostName)
             {
                 // Resourcesでないならアセットバンドル側からロードする
                 asset = await LoadAssetBundleAssetAsync<T>(storageName, uriInfo, progress);
+            }
+            else
+            {
+                // どれも違うのなら何でロードすればよいのかわからない例外を吐く
+                throw new ArgumentException($"不明なストレージホスト '{storageName}' が指定されたました。 '{ResourcesHostName}' または '{AssetBundleHostName}' を指定してください。");
             }
 
 
@@ -289,20 +214,9 @@ namespace IceMilkTea.Service
         /// <param name="assetUrl">ロードするアセットURL</param>
         /// <param name="progress">ロードの進捗通知を受ける IProgress</param>
         /// <returns>ロードに成功した場合は有効なアセットの参照をかえします。ロードに失敗した場合は null を返します。</returns>
-        /// <exception cref="InvalidOperationException">指示されたアセットバンドルストレージ '{storageName}' が見つかりませんでした。</exception>
         /// <exception cref="InvalidOperationException">アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに 'name' パラメータがあることを確認してください。</exception>
         private async Task<T> LoadAssetBundleAssetAsync<T>(string storageName, UriInfo assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
-            // まずはアセットバンドルのローカルパスを取得して担当ストレージを取得が見つけられなかったら
-            var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
-            var storage = GetAssetBundleStorage(localPath);
-            if (storage == null)
-            {
-                // 担当ストレージが居ないことを例外で吐く
-                throw new InvalidOperationException($"指示されたアセットバンドルストレージ '{storageName}' が見つかりませんでした。");
-            }
-
-
             // ロードするアセット名を取得するが見つけられなかったら
             var assetPath = default(string);
             if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath))
@@ -312,7 +226,8 @@ namespace IceMilkTea.Service
             }
 
 
-            // アセットバンドルを開く
+            // ローカルパスを取得してアセットバンドルを開く
+            var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
             var assetBundle = await storage.OpenAsync(localPath);
 
 
@@ -350,30 +265,6 @@ namespace IceMilkTea.Service
 
             // 結果を返す
             return result;
-        }
-
-
-        /// <summary>
-        /// ストレージ名からアセットバンドルストレージを取得します
-        /// </summary>
-        /// <param name="storageName">取得するアセットバンドルストレージのストレージ名</param>
-        /// <returns>正しくストレージの取得ができた場合はインスタンスを返します。取得に失敗した場合は null を返します。</returns>
-        private AssetBundleStorage GetAssetBundleStorage(string storageName)
-        {
-            // 現在管理下に置いているストレージの数分回る
-            foreach (var storage in storageList)
-            {
-                // 同じストレージ名なら
-                if (storage.StorageName == storageName)
-                {
-                    // このストレージを返す
-                    return storage;
-                }
-            }
-
-
-            // 見つけられなかったことを返す
-            return null;
         }
         #endregion
     }

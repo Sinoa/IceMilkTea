@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// AssetBundleManifest を取り込むフェッチャー抽象クラスです
+    /// ImtAssetBundleManifest を取り込むフェッチャー抽象クラスです
     /// </summary>
     public abstract class AssetBundleManifestFetcher
     {

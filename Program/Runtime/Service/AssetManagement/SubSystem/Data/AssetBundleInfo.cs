@@ -28,18 +28,6 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// アセットバンドルを貯蔵するストレージ名
-        /// </summary>
-        public string StorageName;
-
-
-        /// <summary>
-        /// アセットバンドルをインストールするインストーラ名
-        /// </summary>
-        public string InstallerName;
-
-
-        /// <summary>
         /// アセットバンドルへアクセスするためのローカルパス
         /// </summary>
         public string LocalPath;
