@@ -27,6 +27,7 @@ namespace IceMilkTea.Service
     public class AssetManagementService : GameService
     {
         // 定数定義
+        private const string AssetScheme = "asset";
         private const string ResourcesHostName = "resources";
 
         // 読み取り専用クラス変数宣言
@@ -169,6 +170,7 @@ namespace IceMilkTea.Service
         /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
         /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
+        /// <exception cref="ArgumentException">不明なスキーム '{uriInfo.Uri.Scheme}' が指定されました。AssetManagementServiceは 'asset' スキームのみサポートしています。</exception>
         public async Task<T> LoadAssetAsync<T>(string assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
             // もしURLがnullなら
@@ -189,6 +191,14 @@ namespace IceMilkTea.Service
             {
                 // このアセットを返す
                 return (T)asset;
+            }
+
+
+            // スキームがassetでなければ
+            if (uriInfo.Uri.Scheme != AssetScheme)
+            {
+                // assetスキーム以外は断るようにする
+                throw new ArgumentException($"不明なスキーム '{uriInfo.Uri.Scheme}' が指定されました。AssetManagementServiceは 'asset' スキームのみサポートしています。");
             }
 
 
