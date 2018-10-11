@@ -34,13 +34,6 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// ストレージ名を取得します
-        /// </summary>
-        public override string StorageName => "assetbundle";
-
-
-
-        /// <summary>
         /// ImtDefaultAssetBundleStorage のインスタンスを初期化します
         /// </summary>
         /// <param name="baseDirectoryPath">アセットバンドルを格納するベースディレクトリパス</param>

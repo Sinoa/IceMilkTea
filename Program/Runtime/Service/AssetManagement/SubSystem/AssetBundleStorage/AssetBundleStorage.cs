@@ -26,13 +26,6 @@ namespace IceMilkTea.Service
     public abstract class AssetBundleStorage
     {
         /// <summary>
-        /// ストレージ名を取得します
-        /// </summary>
-        public abstract string StorageName { get; }
-
-
-
-        /// <summary>
         /// 指定されたアセットバンドル情報のアセットバンドルが存在するか確認をします
         /// </summary>
         /// <param name="info">存在の確認を行うアセットバンドル情報</param>
