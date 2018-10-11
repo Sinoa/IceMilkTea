@@ -25,13 +25,6 @@ namespace IceMilkTea.Service
     public abstract class AssetBundleInstaller
     {
         /// <summary>
-        /// インストーラ名を取得します
-        /// </summary>
-        public abstract string InstallerName { get; }
-
-
-
-        /// <summary>
         /// 指定されたインストールストリームに対して、アセットバンドル情報のアセットバンドルを非同期でインストールします
         /// </summary>
         /// <param name="info">インストールするアセットバンドルの情報</param>
