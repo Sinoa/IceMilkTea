@@ -17,15 +17,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using UnityEngine;
 using IceMilkTea.Core;
+using UnityEngine;
 
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// IceMilkTeaが提供するスタンダードなアセットバンドルストレージクラスです
+    /// IceMilkTeaが提供する単純なアセットバンドルストレージクラスです
     /// </summary>
-    public class ImtDefaultAssetBundleStorage : AssetBundleStorage
+    public class ImtSimpleAssetBundleStorage : AssetBundleStorage
     {
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
@@ -39,7 +39,7 @@ namespace IceMilkTea.Service
         /// <param name="baseDirectoryPath">アセットバンドルを格納するベースディレクトリパス</param>
         /// <exception cref="ArgumentNullException">baseDirectoryPath が null です</exception>
         /// <exception cref="ArgumentException">アセットバンドルストレージディレクトリパスに利用できない文字が含まれています</exception>
-        public ImtDefaultAssetBundleStorage(string baseDirectoryPath)
+        public ImtSimpleAssetBundleStorage(string baseDirectoryPath)
         {
             // もしnullを渡されたら
             if (baseDirectoryInfo == null)
