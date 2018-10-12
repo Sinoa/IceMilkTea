@@ -14,8 +14,12 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.IO;
+using System.Net;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
+using UnityEngine;
 
 namespace IceMilkTea.Service
 {
@@ -33,7 +37,7 @@ namespace IceMilkTea.Service
         private const int InitialRetryWaitTime = 500;
 
         // メンバ変数定義
-        private Uri baseUrl;
+        private Uri manifestUrl;
         private int timeoutTime;
         private int retryCount;
         private byte[] receiveBuffer;
@@ -43,10 +47,10 @@ namespace IceMilkTea.Service
         /// <summary>
         /// ImtWebAssetBundleManifestFetcher のインスタンスを既定の値で初期化します
         /// </summary>
-        /// <param name="baseUrl">フェッチするマニフェストが存在するWebサービスのベースURL</param>
-        /// <exception cref="ArgumentNullException">baseUrl が null です</exception>
+        /// <param name="manifestUrl">フェッチするマニフェストが存在するWebサービスのベースURL</param>
+        /// <exception cref="ArgumentNullException">manifestUrl が null です</exception>
         /// <exception cref="ArgumentException">スキームがHTTPではありません、扱えるスキームは http または https です</exception>
-        public ImtWebAssetBundleManifestFetcher(Uri baseUrl) : this(baseUrl, DefaultTimeoutTime, DefaultRetryCount)
+        public ImtWebAssetBundleManifestFetcher(Uri manifestUrl) : this(manifestUrl, DefaultTimeoutTime, DefaultRetryCount)
         {
         }
 
@@ -54,28 +58,28 @@ namespace IceMilkTea.Service
         /// <summary>
         /// ImtWebAssetBundleManifestFetcher のインスタンスを既定の値で初期化します
         /// </summary>
-        /// <param name="baseUrl">フェッチするマニフェストが存在するWebサービスのベースURL</param>
+        /// <param name="manifestUrl">フェッチするマニフェストが存在するWebサービスのベースURL</param>
         /// <param name="timeoutTime">タイムアウトするまでの時間（ミリ秒）</param>
         /// <param name="retryCount">最大リトライ回数</param>
-        /// <exception cref="ArgumentNullException">baseUrl が null です</exception>
+        /// <exception cref="ArgumentNullException">manifestUrl が null です</exception>
         /// <exception cref="ArgumentException">スキームがHTTPではありません、扱えるスキームは http または https です</exception>
         /// <exception cref="ArgumentOutOfRangeException">timeoutTime は 0 以下の値を設定することが出来ません</exception>
         /// <exception cref="ArgumentOutOfRangeException">retryCount は 0 未満の値を設定することが出来ません</exception>
-        public ImtWebAssetBundleManifestFetcher(Uri baseUrl, int timeoutTime, int retryCount)
+        public ImtWebAssetBundleManifestFetcher(Uri manifestUrl, int timeoutTime, int retryCount)
         {
             // nullが渡されたら
-            if (baseUrl == null)
+            if (manifestUrl == null)
             {
                 // どこからダウンロードすればよいのか
-                throw new ArgumentNullException(nameof(baseUrl));
+                throw new ArgumentNullException(nameof(manifestUrl));
             }
 
 
             // スキームがHTTP系じゃないなら
-            if (!baseUrl.IsHttpScheme())
+            if (!manifestUrl.IsHttpScheme())
             {
                 // http系のスキームを要求する例外を吐く
-                throw new ArgumentException("スキームがHTTPではありません、扱えるスキームは http または https です", nameof(baseUrl));
+                throw new ArgumentException("スキームがHTTPではありません、扱えるスキームは http または https です", nameof(manifestUrl));
             }
 
 
@@ -96,7 +100,7 @@ namespace IceMilkTea.Service
 
 
             // 値を受け取って覚える
-            this.baseUrl = baseUrl;
+            this.manifestUrl = manifestUrl;
             this.timeoutTime = timeoutTime;
             this.retryCount = retryCount;
 
@@ -106,9 +110,100 @@ namespace IceMilkTea.Service
         }
 
 
-        public override Task<ImtAssetBundleManifest[]> FetchManifestAsync()
+        /// <summary>
+        /// マニフェストを非同期で取得します
+        /// </summary>
+        /// <returns>マニフェストの取得を非同期で行っているタスクを返します</returns>
+        public override async Task<ImtAssetBundleManifest[]> FetchManifestAsync()
         {
-            throw new System.NotImplementedException();
+            // 最後に発生した例外を保持する変数を宣言
+            var exception = default(Exception);
+
+
+            // リトライ回数以下の回数分回る
+            for (int i = 0; i <= retryCount; ++i)
+            {
+                try
+                {
+                    // 実際のフェッチを行い関数から戻ってきたらそのまま結果を返す
+                    return await DoFetchManifestAsync();
+                }
+                catch (TimeoutException timeoutException)
+                {
+                    // 最後に発生した例外として覚える
+                    exception = timeoutException;
+                }
+                catch (WebException webException)
+                {
+                    // 発生した原因のステータスコードがサーバー側エラーなら
+                    var httpResponse = (HttpWebResponse)webException.Response;
+                    var statusCode = (int)httpResponse.StatusCode;
+                    var isServerError = statusCode >= 500 && statusCode <= 599;
+                    if (isServerError)
+                    {
+                        // 最後に発生した例外として覚える
+                        exception = webException;
+                    }
+                    else
+                    {
+                        // サーバー側原因で無いのなら例外をキャプチャして再投げ
+                        ExceptionDispatchInfo.Capture(webException).Throw();
+                        return Array.Empty<ImtAssetBundleManifest>();
+                    }
+                }
+
+
+                // リトライする前に少し待機する
+                await Task.Delay(InitialRetryWaitTime * (i + 1));
+                continue;
+            }
+
+
+            // 例外が残っていたら
+            if (exception != null)
+            {
+                // キャプチャして例外を投げる
+                ExceptionDispatchInfo.Capture(exception).Throw();
+            }
+
+
+            // ココまで来たのなら原則エラーなので長さ0の結果を返す
+            return Array.Empty<ImtAssetBundleManifest>();
+        }
+
+
+        /// <summary>
+        /// 実際のマニフェストを非同期で取得します
+        /// </summary>
+        /// <returns>マニフェストの取得を非同期で行っているタスクを返します</returns>
+        private async Task<ImtAssetBundleManifest[]> DoFetchManifestAsync()
+        {
+            // ダウンロードする元のURLをつくってHttpWebRequestを生成する（念の為タイムスタンプクエリ的なものでキャッシュを防ぐ）
+            var targetUrl = new Uri(manifestUrl.ToString() + $"?timestamp={DateTimeOffset.Now.ToUnixTimeMilliseconds()}");
+            var httpRequest = WebRequest.CreateHttp(targetUrl);
+
+
+            // タイムアウト用タスクを用意してWebレスポンスとどっちが先に終わるか待機して、もしタイムアウトが先に終了したら
+            var responseTask = httpRequest.GetResponseAsync();
+            var timeoutTask = Task.Delay(timeoutTime);
+            var firstFinishTask = await Task.WhenAny(responseTask, timeoutTask);
+            if (firstFinishTask == timeoutTask)
+            {
+                // リクエストを中断してタイムアウト例外を吐く
+                httpRequest.Abort();
+                throw new TimeoutException("HTTP要求より先にタイムアウトしました");
+            }
+
+
+            // ダウンロードストリームからストリームリーダのインスタンスを開く
+            var httpResponse = (HttpWebResponse)responseTask.Result;
+            using (var downloadStream = httpResponse.GetResponseStream())
+            using (var streamReader = new StreamReader(downloadStream))
+            {
+                // jsonデータを非同期で読み込んで結果を返す（配列を要求されるので長さ１の配列として返す）
+                var manifest = JsonUtility.FromJson<ImtAssetBundleManifest>(await streamReader.ReadToEndAsync());
+                return new ImtAssetBundleManifest[] { manifest };
+            }
         }
     }
 }
