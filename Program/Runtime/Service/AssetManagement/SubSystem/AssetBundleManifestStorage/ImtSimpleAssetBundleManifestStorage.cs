@@ -215,7 +215,7 @@ namespace IceMilkTea.Service
 
 
                     // ループカウントをインクリメントして進捗通知
-                    progress.Report((float)++loopCount / manifestTable.Count);
+                    progress?.Report((float)++loopCount / manifestTable.Count);
                 }
 
 
