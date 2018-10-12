@@ -829,7 +829,7 @@ namespace IceMilkTeaTestDynamic.Core
 
 
             // 削除対象になってもそのフレームの間は存在チェックが通ることを確認して、フレームを進める
-            manager.RemoveService<ServiceB_2_0>();
+            manager.RemoveService<ServiceA_2_0>();
             manager.RemoveService<ServiceB_1_0>();
             existsPass();
             yield return null;
