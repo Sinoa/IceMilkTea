@@ -642,11 +642,17 @@ namespace IceMilkTea.Core
             }
 
 
-            // サービスの数分ループ
+            // サービスの数分ケツからループ
             for (int i = serviceManageList.Count - 1; i >= 0; --i)
             {
-                // リストからサービスをパージする
-                serviceManageList.RemoveAt(i);
+                // サービスの状態がShutdown系なら
+                var status = serviceManageList[i].Status;
+                var isShutdown = status == ServiceStatus.Shutdown || status == ServiceStatus.SilentShutdown;
+                if (isShutdown)
+                {
+                    // リストからサービスをパージする
+                    serviceManageList.RemoveAt(i);
+                }
             }
         }
         #endregion
