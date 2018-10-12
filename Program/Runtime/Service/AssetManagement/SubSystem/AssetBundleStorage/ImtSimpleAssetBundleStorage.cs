@@ -50,7 +50,7 @@ namespace IceMilkTea.Service
 
 
             // パスに使えない文字が含まれていたら
-            if (baseDirectoryPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+            if (baseDirectoryPath.ContainInvalidPathChars())
             {
                 // パスとして使えない文字が含まれていることを例外として吐く
                 throw new ArgumentException($"アセットバンドルストレージディレクトリパスに利用できない文字が含まれています");

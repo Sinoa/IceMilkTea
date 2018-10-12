@@ -15,7 +15,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
@@ -25,6 +27,7 @@ namespace IceMilkTea.Service
     public class ImtSimpleAssetBundleManifestStorage : AssetBundleManifestStorage
     {
         // メンバ変数定義
+        private DirectoryInfo baseDirectoryInfo;
         private Dictionary<string, ImtAssetBundleManifest> manifestTable;
 
 
@@ -32,8 +35,31 @@ namespace IceMilkTea.Service
         /// <summary>
         /// ImtSimpleAssetBundleManifestStorage のインスタンスを初期化します
         /// </summary>
-        public ImtSimpleAssetBundleManifestStorage()
+        /// <param name="baseDirectoryPath">マニフェストを格納するベースディレクトリパス</param>
+        /// <exception cref="ArgumentNullException">baseDirectoryPath が null です</exception>
+        /// <exception cref="ArgumentException">マニフェストストレージディレクトリパスに利用できない文字が含まれています</exception>
+        public ImtSimpleAssetBundleManifestStorage(string baseDirectoryPath)
         {
+            // もしnullを渡されたら
+            if (baseDirectoryPath == null)
+            {
+                // nullは流石に受け入れられない
+                throw new ArgumentNullException(nameof(baseDirectoryPath));
+            }
+
+
+            // パスに使えない文字が含まれていたら
+            if (baseDirectoryPath.ContainInvalidPathChars())
+            {
+                // パスとして使えない文字が含まれていることを例外として吐く
+                throw new ArgumentException($"マニフェストストレージディレクトリパスに利用できない文字が含まれています");
+            }
+
+
+            // ディレクトリ情報のインスタンスを生成する
+            baseDirectoryInfo = new DirectoryInfo(baseDirectoryPath);
+
+
             // マニフェストテーブルのインスタンスを生成する
             manifestTable = new Dictionary<string, ImtAssetBundleManifest>();
         }
