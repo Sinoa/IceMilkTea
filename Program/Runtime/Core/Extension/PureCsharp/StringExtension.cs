@@ -83,5 +83,41 @@ namespace IceMilkTea.Core
             hexTextBuffer[HexTextBufferSize] = '\0';
             return new string(hexTextBuffer);
         }
+
+
+        /// <summary>
+        /// 文字列にパスとして利用できない文字が含まれているかどうかを確認します
+        /// </summary>
+        /// <param name="path">確認する文字列</param>
+        /// <returns>パスとして利用できない文字が含まれている場合は true を、含まれていない場合は false を返します</returns>
+        public static bool ContainInvalidPathChars(this string path)
+        {
+            // パスとして無効な文字が1つでも見つけたかどうかの結果を返す
+            return path.IndexOfAny(System.IO.Path.GetInvalidPathChars()) >= 0;
+        }
+
+
+        /// <summary>
+        /// 文字列にファイル名として利用できない文字が含まれているかどうかを確認します
+        /// </summary>
+        /// <param name="path">確認する文字列</param>
+        /// <returns>ファイル名として利用できない文字が含まれている場合は true を、含まれていない場合は false を返します</returns>
+        public static bool ContainInvalidFileNameChars(this string path)
+        {
+            // ファイル名として無効な文字が1つでも見つけたかどうかの結果を返す
+            return path.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0;
+        }
+
+
+        /// <summary>
+        /// 文字列にパス及びファイル名として利用できない文字が含まれているかどうかを確認します
+        /// </summary>
+        /// <param name="path">確認する文字列</param>
+        /// <returns>パス及びファイル名として利用できない文字が含まれている場合は true を、含まれていない場合は false を返します</returns>
+        public static bool ContainInvalidPathAndFileNameChars(this string path)
+        {
+            // パスとファイル名の結果をORで返す
+            return ContainInvalidPathChars(path) || ContainInvalidFileNameChars(path);
+        }
     }
 }
