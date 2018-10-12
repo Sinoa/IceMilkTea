@@ -42,7 +42,7 @@ namespace IceMilkTea.Service
         public ImtSimpleAssetBundleStorage(string baseDirectoryPath)
         {
             // もしnullを渡されたら
-            if (baseDirectoryInfo == null)
+            if (baseDirectoryPath == null)
             {
                 // nullは流石に受け入れられない
                 throw new ArgumentNullException(nameof(baseDirectoryPath));
