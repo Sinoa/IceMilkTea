@@ -267,5 +267,12 @@ namespace IceMilkTea.Service
             return result;
         }
         #endregion
+
+
+        #region Manifest
+        public async Task UpdateManifest()
+        {
+        }
+        #endregion
     }
 }
