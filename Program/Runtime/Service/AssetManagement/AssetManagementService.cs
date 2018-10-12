@@ -270,8 +270,49 @@ namespace IceMilkTea.Service
 
 
         #region Manifest
-        public async Task UpdateManifest()
+        /// <summary>
+        /// マニフェストの更新を非同期で行います。
+        /// このサービスを利用する前に最初に呼び出すことを推奨します
+        /// </summary>
+        /// <returns>アセットの更新を非同期で行っているタスクを返します</returns>
+        public async Task UpdateManifestAsync()
         {
+            await manifestStorage.LoadAsync(null);
+
+
+            var manifests = await manifestFetcher.FetchManifestAsync();
+            for (int i = 0; i < manifests.Length; ++i)
+            {
+                manifestStorage.SetManifest(ref manifests[i]);
+            }
+
+
+            await manifestStorage.SaveAsync(null);
+        }
+
+
+        // TODO : 今はフルダウンロードというひどい実装
+        public async Task InstallAssetBundleAsync()
+        {
+            var manifestNames = manifestStorage.GetAllManifestName();
+            foreach (var manifestName in manifestNames)
+            {
+                ImtAssetBundleManifest manifest;
+                if (!manifestStorage.TryGetManifest(manifestName, out manifest))
+                {
+                    continue;
+                }
+
+
+                AssetBundleInfo[] infos = manifest.AssetBundleInfos;
+                for (int i = 0; i < infos.Length; ++i)
+                {
+                    using (var installStream = await storage.GetInstallStreamAsync(infos[i]))
+                    {
+                        await installer.InstallAsync(infos[i], installStream, null);
+                    }
+                }
+            }
         }
         #endregion
     }
