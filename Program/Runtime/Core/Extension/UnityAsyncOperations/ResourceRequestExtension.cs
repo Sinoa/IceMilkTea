@@ -14,15 +14,30 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 
 namespace IceMilkTea.Core
 {
+    #region Extension Define
     /// <summary>
     /// ResourceRequest クラスの拡張関数実装用クラスです
     /// </summary>
-    public static partial class ResourceRequestExtension
+    public static class ResourceRequestExtension
     {
+        /// <summary>
+        /// ResourceRequest の待機可能なオブジェクトを取得します
+        /// </summary>
+        /// <param name="resourceRequest">待機する対象の ResourceRequest</param>
+        /// <returns>ResourceRequest の待機可能なオブジェクトを返します</returns>
+        public static ResourceRequestAwaiter GetAwaiter(this ResourceRequest resourceRequest)
+        {
+            // ResourceRequestのAwaiterのインスタンスを返す
+            return new ResourceRequestAwaiter(resourceRequest);
+        }
+
+
         /// <summary>
         /// ResourceRequest を待機可能にした ResourceRequestAwaitable クラスのインスタンスを生成します。
         /// </summary>
@@ -49,9 +64,77 @@ namespace IceMilkTea.Core
             return new ResourceRequestAwaitable<TResult>(request, progress).Run<ResourceRequestAwaitable<TResult>>();
         }
     }
+    #endregion
 
 
 
+    #region Awaiter
+    /// <summary>
+    /// Unity の ResourceRequest による非同期制御同期オブジェクトを async - await に対応させた Awaiter 構造体です
+    /// </summary>
+    public struct ResourceRequestAwaiter : INotifyCompletion
+    {
+        // 構造体変数宣言
+        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
+
+        // メンバ変数定義
+        private ResourceRequest resourceRequest;
+
+
+
+        /// <summary>
+        /// タスクが完了しているかどうか
+        /// </summary>
+        public bool IsCompleted => resourceRequest.isDone;
+
+
+
+        /// <summary>
+        /// ResourceRequestAwaiter オブジェクトの初期化を行います
+        /// </summary>
+        /// <param name="request">待機処理をする対象の ResourceRequest インスタンス</param>
+        public ResourceRequestAwaiter(ResourceRequest request)
+        {
+            // 覚える
+            resourceRequest = request;
+        }
+
+
+        /// <summary>
+        /// タスクの完了処理を行います
+        /// </summary>
+        /// <param name="continuation">タスク完了後の継続処理を行う対象の関数</param>
+        public void OnCompleted(Action continuation)
+        {
+            // 既に完了状態で呼び出されたのなら
+            if (IsCompleted)
+            {
+                // 直ちに後続処理を叩く
+                continuation();
+                return;
+            }
+
+
+            // 現在の同期コンテキストを取り出して、同期コンテキストにPostするような非同期完了イベントを登録
+            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
+            resourceRequest.completed += _ => context.Post(cache, continuation);
+        }
+
+
+        /// <summary>
+        /// 非同期結果を取得します
+        /// </summary>
+        public UnityEngine.Object GetResult()
+        {
+            // ロード結果を返す
+            return resourceRequest.asset;
+        }
+    }
+    #endregion
+
+
+
+    #region Awaitable
     /// <summary>
     /// ResourceRequest を待機可能にした待機可能クラスです。
     /// </summary>
@@ -144,11 +227,6 @@ namespace IceMilkTea.Core
             request.completed -= OnCompleted;
             SetSignal();
         }
-
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-        }
     }
+    #endregion
 }

@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+
 namespace IceMilkTea.Core
 {
     #region 最基底CRCクラス定義
@@ -75,6 +77,25 @@ namespace IceMilkTea.Core
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>計算された結果を返します</returns>
         public abstract T Calculate(T continusHash, byte[] buffer, int index, int count);
+
+
+        /// <summary>
+        /// 指定されたバッファの、CRC計算を行います
+        /// </summary>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するサイズ</param>
+        /// <returns>計算された結果を返します</returns>
+        unsafe public abstract T Calculate(byte* buffer, int count);
+
+
+        /// <summary>
+        /// 指定されたバッファの、CRC計算を行います
+        /// </summary>
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するサイズ</param>
+        /// <returns>計算された結果を返します</returns>
+        unsafe public abstract T Calculate(T continusHash, byte* buffer, int count);
     }
     #endregion
 
@@ -136,10 +157,15 @@ namespace IceMilkTea.Core
         /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <returns>CRC32計算された結果を返します</returns>
-        public override uint Calculate(uint continusHash, byte[] buffer)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override uint Calculate(uint continusHash, byte[] buffer)
         {
-            // 渡されたバッファ全体を計算する
-            return Calculate(continusHash, buffer, 0, buffer.Length);
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ポインタ版関数を呼ぶ
+                return Calculate(continusHash, p, buffer.Length);
+            }
         }
 
 
@@ -155,14 +181,63 @@ namespace IceMilkTea.Core
         /// <param name="index">バッファの開始位置</param>
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>CRC32計算された結果を返します</returns>
-        public override uint Calculate(uint continusHash, byte[] buffer, int index, int count)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        /// <exception cref="ArgumentOutOfRangeException">index または index, count 合計値がbufferの範囲を超えます</exception>
+        unsafe public override uint Calculate(uint continusHash, byte[] buffer, int index, int count)
         {
-            // 指定バッファ範囲分ループする
-            var limit = index + count;
-            for (int i = index; i < limit; ++i)
+            // もし buffer が null なら
+            if (buffer == null)
             {
-                // 右回りCRC計算をする
-                continusHash = table[(buffer[i] ^ continusHash) & 0xFF] ^ (continusHash >> 8);
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
+            // 指定された index と count で境界を超えないか確認して、超えるなら
+            if (index < 0 || buffer.Length <= index + count)
+            {
+                // 境界を超えるアクセスは非常に危険
+                throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
+            }
+
+
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ポインタ版関数を呼ぶ
+                return Calculate(continusHash, p + index, count);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRC32の計算を行います
+        /// </summary>
+        /// <remarks>
+        /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
+        /// また、初回の計算をする前に continusHash へ uint.MaxValue をセットし、すべてのバッファ処理が終了後 uint.MaxValue の XOR 反転を行って下さい。
+        /// </remarks>
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>CRC32計算された結果を返します</returns>
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override uint Calculate(uint continusHash, byte* buffer, int count)
+        {
+            // もし buffer が null なら
+            if (buffer == null)
+            {
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
+            // 指定バッファ範囲分ループする
+            for (int i = 0; i < count; ++i)
+            {
+                // CRC計算をする
+                continusHash = table[(*buffer ^ continusHash) & 0xFF] ^ (continusHash >> 8);
+                ++buffer;
             }
 
 
@@ -230,10 +305,15 @@ namespace IceMilkTea.Core
         /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <returns>CRC64計算された結果を返します</returns>
-        public override ulong Calculate(ulong continusHash, byte[] buffer)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override ulong Calculate(ulong continusHash, byte[] buffer)
         {
-            // 渡されたバッファ全体を計算する
-            return Calculate(continusHash, buffer, 0, buffer.Length);
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ポインタ版関数を呼ぶ
+                return Calculate(continusHash, p, buffer.Length);
+            }
         }
 
 
@@ -249,14 +329,63 @@ namespace IceMilkTea.Core
         /// <param name="index">バッファの開始位置</param>
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>CRC64計算された結果を返します</returns>
-        public override ulong Calculate(ulong continusHash, byte[] buffer, int index, int count)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        /// <exception cref="ArgumentOutOfRangeException">index または index, count 合計値がbufferの範囲を超えます</exception>
+        unsafe public override ulong Calculate(ulong continusHash, byte[] buffer, int index, int count)
         {
+            // もし buffer が null なら
+            if (buffer == null)
+            {
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
+            // 指定された index と count で境界を超えないか確認して、超えるなら
+            if (index < 0 || buffer.Length <= index + count)
+            {
+                // 境界を超えるアクセスは非常に危険
+                throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
+            }
+
+
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ポインタ版関数を呼ぶ
+                return Calculate(continusHash, p + index, count);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRC64の計算を行います
+        /// </summary>
+        /// <remarks>
+        /// バッファが複数に分かれて、継続して計算する場合は、この関数が返したハッシュ値をそのまま continusHash パラメータに渡して計算を行って下さい。
+        /// また、初回の計算をする前に continusHash へ ulong.MaxValue をセットし、すべてのバッファ処理が終了後 ulong.MaxValue の XOR 反転を行って下さい。
+        /// </remarks>
+        /// <param name="continusHash">前回計算したハッシュ値、存在しない場合は既定値を指定</param>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>CRC64計算された結果を返します</returns>
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override ulong Calculate(ulong continusHash, byte* buffer, int count)
+        {
+            // もし buffer が null なら
+            if (buffer == null)
+            {
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
             // 指定バッファ範囲分ループする
-            var limit = index + count;
-            for (int i = 0; i < limit; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 // 右回りCRC計算をする
-                continusHash = table[(buffer[i] ^ continusHash) & 0xFF] ^ (continusHash >> 8);
+                continusHash = table[(*buffer ^ continusHash) & 0xFF] ^ (continusHash >> 8);
+                ++buffer;
             }
 
 
@@ -311,10 +440,15 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <returns>計算された結果を返します</returns>
-        public override uint Calculate(byte[] buffer)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override uint Calculate(byte[] buffer)
         {
-            // uint.MaxValueによるXOR反転を利用した計算を行い結果を返す
-            return Calculate(uint.MaxValue, buffer, 0, buffer.Length) ^ uint.MaxValue;
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // uint.MaxValueによるXOR反転を利用した計算を行い結果を返す
+                return Calculate(uint.MaxValue, p, buffer.Length) ^ uint.MaxValue;
+            }
         }
 
 
@@ -328,10 +462,49 @@ namespace IceMilkTea.Core
         /// <param name="index">バッファの開始位置</param>
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>計算された結果を返します</returns>
-        public override uint Calculate(byte[] buffer, int index, int count)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        /// <exception cref="ArgumentOutOfRangeException">index または index, count 合計値がbufferの範囲を超えます</exception>
+        unsafe public override uint Calculate(byte[] buffer, int index, int count)
+        {
+            // もし buffer が null なら
+            if (buffer == null)
+            {
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
+            // 指定された index と count で境界を超えないか確認して、超えるなら
+            if (index < 0 || buffer.Length <= index + count)
+            {
+                // 境界を超えるアクセスは非常に危険
+                throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
+            }
+
+
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // uint.MaxValueによるXOR反転を利用した計算を行い結果を返す
+                return Calculate(uint.MaxValue, p + index, count) ^ uint.MaxValue;
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>計算された結果を返します</returns>
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override uint Calculate(byte* buffer, int count)
         {
             // uint.MaxValueによるXOR反転を利用した計算を行い結果を返す
-            return Calculate(uint.MaxValue, buffer, index, count) ^ uint.MaxValue;
+            return Calculate(uint.MaxValue, buffer, count) ^ uint.MaxValue;
         }
     }
     #endregion
@@ -381,10 +554,15 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <returns>計算された結果を返します</returns>
-        public override ulong Calculate(byte[] buffer)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override ulong Calculate(byte[] buffer)
         {
-            // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
-            return Calculate(ulong.MaxValue, buffer, 0, buffer.Length) ^ ulong.MaxValue;
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+                return Calculate(ulong.MaxValue, p, buffer.Length) ^ ulong.MaxValue;
+            }
         }
 
 
@@ -398,10 +576,49 @@ namespace IceMilkTea.Core
         /// <param name="index">バッファの開始位置</param>
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>計算された結果を返します</returns>
-        public override ulong Calculate(byte[] buffer, int index, int count)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        /// <exception cref="ArgumentOutOfRangeException">index または index, count 合計値がbufferの範囲を超えます</exception>
+        unsafe public override ulong Calculate(byte[] buffer, int index, int count)
+        {
+            // もし buffer が null なら
+            if (buffer == null)
+            {
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
+            // 指定された index と count で境界を超えないか確認して、超えるなら
+            if (index < 0 || buffer.Length <= index + count)
+            {
+                // 境界を超えるアクセスは非常に危険
+                throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
+            }
+
+
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+                return Calculate(ulong.MaxValue, p + index, count) ^ ulong.MaxValue;
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>計算された結果を返します</returns>
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override ulong Calculate(byte* buffer, int count)
         {
             // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
-            return Calculate(ulong.MaxValue, buffer, index, count) ^ ulong.MaxValue;
+            return Calculate(ulong.MaxValue, buffer, count) ^ ulong.MaxValue;
         }
     }
     #endregion
@@ -451,10 +668,15 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <param name="buffer">計算する対象のバッファ</param>
         /// <returns>計算された結果を返します</returns>
-        public override ulong Calculate(byte[] buffer)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override ulong Calculate(byte[] buffer)
         {
-            // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
-            return Calculate(ulong.MaxValue, buffer, 0, buffer.Length) ^ ulong.MaxValue;
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+                return Calculate(ulong.MaxValue, p, buffer.Length) ^ ulong.MaxValue;
+            }
         }
 
 
@@ -468,10 +690,49 @@ namespace IceMilkTea.Core
         /// <param name="index">バッファの開始位置</param>
         /// <param name="count">バッファから取り出す量</param>
         /// <returns>計算された結果を返します</returns>
-        public override ulong Calculate(byte[] buffer, int index, int count)
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        /// <exception cref="ArgumentOutOfRangeException">index または index, count 合計値がbufferの範囲を超えます</exception>
+        unsafe public override ulong Calculate(byte[] buffer, int index, int count)
+        {
+            // もし buffer が null なら
+            if (buffer == null)
+            {
+                // そもそも計算が出来ない
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+
+            // 指定された index と count で境界を超えないか確認して、超えるなら
+            if (index < 0 || buffer.Length <= index + count)
+            {
+                // 境界を超えるアクセスは非常に危険
+                throw new ArgumentOutOfRangeException($"{nameof(index)} or {nameof(count)}", $"指定された範囲では {nameof(buffer)} の範囲を超えます");
+            }
+
+
+            // バッファのアドレスを取得
+            fixed (byte* p = buffer)
+            {
+                // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
+                return Calculate(ulong.MaxValue, p + index, count) ^ ulong.MaxValue;
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたバッファの範囲を、CRCの計算を行います
+        /// </summary>
+        /// <remarks>
+        /// この関数は、継続的にCRC計算をするのではなく、この関数の呼び出し一回で終了される事を想定します。
+        /// </remarks>
+        /// <param name="buffer">計算する対象のポインタ</param>
+        /// <param name="count">計算するバイトの数</param>
+        /// <returns>計算された結果を返します</returns>
+        /// <exception cref="ArgumentNullException">buffer が null です</exception>
+        unsafe public override ulong Calculate(byte* buffer, int count)
         {
             // ulong.MaxValueによるXOR反転を利用した計算を行い結果を返す
-            return Calculate(ulong.MaxValue, buffer, index, count) ^ ulong.MaxValue;
+            return Calculate(ulong.MaxValue, buffer, count) ^ ulong.MaxValue;
         }
     }
     #endregion

@@ -13,25 +13,24 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using UnityEngine;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
-namespace IceMilkTea.Core
+namespace IceMilkTea.Service
 {
     /// <summary>
-    /// System.Object(object) クラスの拡張関数実装用クラスです
+    /// アセットバンドルをゲーム内で扱えるようにインストールするインストーラ抽象クラスです
     /// </summary>
-    public static class ObjectExtensions
+    public abstract class AssetBundleInstaller
     {
         /// <summary>
-        /// 対象オブジェクトの ToString() を実行し、その結果をコンソールに出力します
+        /// 指定されたインストールストリームに対して、アセットバンドル情報のアセットバンドルを非同期でインストールします
         /// </summary>
-        /// <typeparam name="T">ToString() を実行する型</typeparam>
-        /// <param name="obj">ToString() を実行するオブジェクト</param>
-        /// <returns>直前のオブジェクトをそのまま返します</returns>
-        public static T Dump<T>(this T obj)
-        {
-            Debug.Log(obj.ToString());
-            return obj;
-        }
+        /// <param name="info">インストールするアセットバンドルの情報</param>
+        /// <param name="installStream">インストールする先のストリーム</param>
+        /// <param name="progress">インストール進捗通知を受ける IProgress</param>
+        /// <returns>アセットバンドルのインストールを非同期で操作しているタスクを返します</returns>
+        public abstract Task InstallAsync(AssetBundleInfo info, Stream installStream, IProgress<double> progress);
     }
 }
