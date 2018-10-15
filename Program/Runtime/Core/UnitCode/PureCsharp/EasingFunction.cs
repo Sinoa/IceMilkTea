@@ -13,713 +13,291 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System.Collections.Generic;
-
-namespace NineTail.Tween
+namespace IceMilkTea.Core
 {
-    //! @brief		補間関数のデリゲータです.
-    //! @details	NtEasingFunction クラスにある各補間関数と同じシグネチャになっています.
-    //! @param[in]	current_time	補間時間の現在時間（秒）.
-    //! @param[in]	duration_time	補間する時間（秒）.
-    //! @param[in]	start			補間値のスタート値.
-    //! @param[in]	end				補間値の目標値.
-    //! @retval		float	補間された結果の値を返します.
-    public delegate float NtEasing(float current_time, float duration_time, float start, float end);
-
-
-
-    //! @brief	補間関数タイプを列挙しています.
-    public enum NtEasingType
+    /// <summary>
+    /// 様々な補間関数を収録したクラスです
+    /// </summary>
+    public static class EasingFunctions
     {
-        Linear,
-        QuadOut, QuadIn, QuadInOut, QuadOutIn,
-        ExpoOut, ExpoIn, ExpoInOut, ExpoOutIn,
-        CubicOut, CubicIn, CubicInOut, CubicOutIn,
-        QuartOut, QuartIn, QuartInOut, QuartOutIn,
-        QuintOut, QuintIn, QuintInOut, QuintOutIn,
-        CircOut, CircIn, CircInOut, CircOutIn,
-        SineOut, SineIn, SineInOut, SineOutIn,
-        ElasticOut, ElasticIn, ElasticInOut, ElasticOutIn,
-        BounceOut, BounceIn, BounceInOut, BounceOutIn,
-        BackOut, BackIn, BackInOut, BackOutIn,
-    }
-
-
-
-    //! @brief	補間関数を収録したクラスです.
-    public static class NtEasingFunction
-    {
-        // 以下静的メンバ変数定義.
-        private static readonly Dictionary<NtEasingType, NtEasing> easing_table_;   //!< 補間関数テーブル.
-
-
-
-        #region Constructor
-        //! @brief	静的コンストラクタです.
-        static NtEasingFunction()
+        public static float Linear(float currentTime, float durationTime, float from, float to)
         {
-            // 補間関数テーブルを初期化する.
-            easing_table_ = new Dictionary<NtEasingType, NtEasing>()
-        {
-            {NtEasingType.Linear, Linear},
-            {NtEasingType.QuadOut, QuadOut},{NtEasingType.QuadIn, QuadIn},{NtEasingType.QuadInOut, QuadInOut},{NtEasingType.QuadOutIn, QuadOutIn},
-            {NtEasingType.ExpoOut, ExpoOut},{NtEasingType.ExpoIn, ExpoIn},{NtEasingType.ExpoInOut, ExpoInOut},{NtEasingType.ExpoOutIn, ExpoOutIn},
-            {NtEasingType.CubicOut, CubicOut},{NtEasingType.CubicIn, CubicIn},{NtEasingType.CubicInOut, CubicInOut},{NtEasingType.CubicOutIn, CubicOutIn},
-            {NtEasingType.QuartOut, QuartOut},{NtEasingType.QuartIn, QuartIn},{NtEasingType.QuartInOut, QuartInOut},{NtEasingType.QuartOutIn, QuartOutIn},
-            {NtEasingType.QuintOut, QuintOut},{NtEasingType.QuintIn, QuintIn},{NtEasingType.QuintInOut, QuintInOut},{NtEasingType.QuintOutIn, QuintOutIn},
-            {NtEasingType.CircOut, CircOut},{NtEasingType.CircIn, CircIn},{NtEasingType.CircInOut, CircInOut},{NtEasingType.CircOutIn, CircOutIn},
-            {NtEasingType.SineOut, SineOut},{NtEasingType.SineIn, SineIn},{NtEasingType.SineInOut, SineInOut},{NtEasingType.SineOutIn, SineOutIn},
-            {NtEasingType.ElasticOut, ElasticOut},{NtEasingType.ElasticIn, ElasticIn},{NtEasingType.ElasticInOut, ElasticInOut},{NtEasingType.ElasticOutIn, ElasticOutIn},
-            {NtEasingType.BounceOut, BounceOut},{NtEasingType.BounceIn, BounceIn},{NtEasingType.BounceInOut, BounceInOut},{NtEasingType.BounceOutIn, BounceOutIn},
-            {NtEasingType.BackOut, BackOut},{NtEasingType.BackIn, BackIn},{NtEasingType.BackInOut, BackInOut},{NtEasingType.BackOutIn, BackOutIn},
-        };
-        }
-        #endregion
-
-
-        #region Generic
-        //! @brief		指定された補間関数タイプから補間関数を取得します.
-        //! @details	この関数は一度生成された補間関数デリゲータを返すので、デリゲータのインスタンス生成負荷を抑えることが出来ます.
-        //! @param[in]	type		取得する補間関数のタイプ.
-        //! @retval		NtEasing	取得された補間関数のデリゲータ.
-        public static NtEasing GetEasingFunction(NtEasingType type)
-        {
-            // 対応した補間関数を返す.
-            return easing_table_[type];
-        }
-        #endregion
-
-
-        #region Easing Functions
-        #region Linear
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float Linear(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return end * current_time / duration_time + start;
-        }
-        #endregion
-
-
-        #region Quad
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuadOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return -end * (current_time /= duration_time) * (current_time - 2.0f) + start;
+            return to * currentTime / durationTime + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuadIn(float current_time, float duration_time, float start, float end)
+        public static float QuadOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return end * (current_time /= duration_time) * current_time + start;
+            return -to * (currentTime /= durationTime) * (currentTime - 2.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuadInOut(float current_time, float duration_time, float start, float end)
+        public static float QuadIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * current_time * current_time + start;
-            return -end / 2.0f * ((--current_time) * (current_time - 2.0f) - 1.0f) + start;
+            return to * (currentTime /= durationTime) * currentTime + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuadOutIn(float current_time, float duration_time, float start, float end)
+        public static float QuadInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return QuadOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return QuadIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
-        }
-        #endregion
-
-
-        #region Expo
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ExpoOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return (current_time == duration_time) ? start + end : end * (-UnityEngine.Mathf.Pow(2.0f, -10.0f * current_time / duration_time) + 1.0f) + start;
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * currentTime * currentTime + from;
+            return -to / 2.0f * ((--currentTime) * (currentTime - 2.0f) - 1.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ExpoIn(float current_time, float duration_time, float start, float end)
+        public static float QuadOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return (current_time == 0.0f) ? start : end * UnityEngine.Mathf.Pow(2.0f, 10.0f * (current_time / duration_time - 1.0f)) + start;
+            if (currentTime < durationTime / 2.0f) return QuadOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return QuadIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ExpoInOut(float current_time, float duration_time, float start, float end)
+        public static float ExpoOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time == 0.0f) return start;
-            if (current_time == duration_time) return start + end;
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * UnityEngine.Mathf.Pow(2.0f, 10.0f * (current_time - 1.0f)) + start;
-            return end / 2.0f * (-UnityEngine.Mathf.Pow(2.0f, -10.0f * --current_time) + 2.0f) + start;
+            return (currentTime == durationTime) ? from + to : to * (-UnityEngine.Mathf.Pow(2.0f, -10.0f * currentTime / durationTime) + 1.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ExpoOutIn(float current_time, float duration_time, float start, float end)
+        public static float ExpoIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return ExpoOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return ExpoIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
-        }
-        #endregion
-
-
-        #region Cubic
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CubicOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return end * ((current_time = current_time / duration_time - 1.0f) * current_time * current_time + 1.0f) + start;
+            return (currentTime == 0.0f) ? from : to * UnityEngine.Mathf.Pow(2.0f, 10.0f * (currentTime / durationTime - 1.0f)) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CubicIn(float current_time, float duration_time, float start, float end)
+        public static float ExpoInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return end * (current_time /= duration_time) * current_time * current_time + start;
+            if (currentTime == 0.0f) return from;
+            if (currentTime == durationTime) return from + to;
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * UnityEngine.Mathf.Pow(2.0f, 10.0f * (currentTime - 1.0f)) + from;
+            return to / 2.0f * (-UnityEngine.Mathf.Pow(2.0f, -10.0f * --currentTime) + 2.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CubicInOut(float current_time, float duration_time, float start, float end)
+        public static float ExpoOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * current_time * current_time * current_time + start;
-            return end / 2.0f * ((current_time -= 2.0f) * current_time * current_time + 2.0f) + start;
+            if (currentTime < durationTime / 2.0f) return ExpoOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return ExpoIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CubicOutIn(float current_time, float duration_time, float start, float end)
+        public static float CubicOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return CubicOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return CubicIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
-        }
-        #endregion
-
-
-        #region Quart
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuartOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return -end * ((current_time = current_time / duration_time - 1.0f) * current_time * current_time * current_time - 1.0f) + start;
+            return to * ((currentTime = currentTime / durationTime - 1.0f) * currentTime * currentTime + 1.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuartIn(float current_time, float duration_time, float start, float end)
+        public static float CubicIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return end * (current_time /= duration_time) * current_time * current_time * current_time + start;
+            return to * (currentTime /= durationTime) * currentTime * currentTime + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuartInOut(float current_time, float duration_time, float start, float end)
+        public static float CubicInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * current_time * current_time * current_time * current_time + start;
-            return -end / 2.0f * ((current_time -= 2.0f) * current_time * current_time * current_time - 2.0f) + start;
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * currentTime * currentTime * currentTime + from;
+            return to / 2.0f * ((currentTime -= 2.0f) * currentTime * currentTime + 2.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuartOutIn(float current_time, float duration_time, float start, float end)
+        public static float CubicOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return QuartOut(current_time * 2.0f, start, end / 2.0f, duration_time);
-            return QuartIn((current_time * 2.0f) - start, start + end / 2.0f, end / 2.0f, duration_time);
-        }
-        #endregion
-
-
-        #region Quint
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuintOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return end * ((current_time = current_time / duration_time - 1.0f) * current_time * current_time * current_time * current_time + 1.0f) + start;
+            if (currentTime < durationTime / 2.0f) return CubicOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return CubicIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuintIn(float current_time, float duration_time, float start, float end)
+        public static float QuartOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return end * (current_time /= duration_time) * current_time * current_time * current_time * current_time + start;
+            return -to * ((currentTime = currentTime / durationTime - 1.0f) * currentTime * currentTime * currentTime - 1.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuintInOut(float current_time, float duration_time, float start, float end)
+        public static float QuartIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * current_time * current_time * current_time * current_time * current_time + start;
-            return end / 2.0f * ((current_time -= 2.0f) * current_time * current_time * current_time * current_time + 2.0f) + start;
+            return to * (currentTime /= durationTime) * currentTime * currentTime * currentTime + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float QuintOutIn(float current_time, float duration_time, float start, float end)
+        public static float QuartInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return QuintOut(current_time * 2.0f, start, end / 2.0f, duration_time);
-            return QuintIn((current_time * 2.0f) - duration_time, start + end / 2.0f, end / 2.0f, duration_time);
-        }
-        #endregion
-
-
-        #region Circ
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CircOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return end * UnityEngine.Mathf.Sqrt(1.0f - (current_time = current_time / duration_time - 1.0f) * current_time) + start;
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * currentTime * currentTime * currentTime * currentTime + from;
+            return -to / 2.0f * ((currentTime -= 2.0f) * currentTime * currentTime * currentTime - 2.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CircIn(float current_time, float duration_time, float start, float end)
+        public static float QuartOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return -end * (UnityEngine.Mathf.Sqrt(1.0f - (current_time /= duration_time) * current_time) - 1.0f) + start;
+            if (currentTime < durationTime / 2.0f) return QuartOut(currentTime * 2.0f, from, to / 2.0f, durationTime);
+            return QuartIn((currentTime * 2.0f) - from, from + to / 2.0f, to / 2.0f, durationTime);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CircInOut(float current_time, float duration_time, float start, float end)
+        public static float QuintOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return -end / 2.0f * (UnityEngine.Mathf.Sqrt(1.0f - current_time * current_time) - 1.0f) + start;
-            return end / 2.0f * (UnityEngine.Mathf.Sqrt(1.0f - (current_time -= 2.0f) * current_time) + 1.0f) + start;
+            return to * ((currentTime = currentTime / durationTime - 1.0f) * currentTime * currentTime * currentTime * currentTime + 1.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float CircOutIn(float current_time, float duration_time, float start, float end)
+        public static float QuintIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return CircOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return CircIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
-        }
-        #endregion
-
-
-        #region Sine
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float SineOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return end * UnityEngine.Mathf.Sin(current_time / duration_time * (UnityEngine.Mathf.PI / 2.0f)) + start;
+            return to * (currentTime /= durationTime) * currentTime * currentTime * currentTime * currentTime + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float SineIn(float current_time, float duration_time, float start, float end)
+        public static float QuintInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return -end * UnityEngine.Mathf.Cos(current_time / duration_time * (UnityEngine.Mathf.PI / 2.0f)) + end + start;
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * currentTime * currentTime * currentTime * currentTime * currentTime + from;
+            return to / 2.0f * ((currentTime -= 2.0f) * currentTime * currentTime * currentTime * currentTime + 2.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float SineInOut(float current_time, float duration_time, float start, float end)
+        public static float QuintOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * (UnityEngine.Mathf.Sin(UnityEngine.Mathf.PI * current_time / 2.0f)) + start;
-            return -end / 2.0f * (UnityEngine.Mathf.Cos(UnityEngine.Mathf.PI * --current_time / 2.0f) - 2.0f) + start;
+            if (currentTime < durationTime / 2.0f) return QuintOut(currentTime * 2.0f, from, to / 2.0f, durationTime);
+            return QuintIn((currentTime * 2.0f) - durationTime, from + to / 2.0f, to / 2.0f, durationTime);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float SineOutIn(float current_time, float duration_time, float start, float end)
+        public static float CircOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return SineOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return SineIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
+            return to * UnityEngine.Mathf.Sqrt(1.0f - (currentTime = currentTime / durationTime - 1.0f) * currentTime) + from;
         }
-        #endregion
 
 
-        #region Elastic
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ElasticOut(float current_time, float duration_time, float start, float end)
+        public static float CircIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time) == 1.0f) return start + end;
-            float p = duration_time * 0.3f;
+            return -to * (UnityEngine.Mathf.Sqrt(1.0f - (currentTime /= durationTime) * currentTime) - 1.0f) + from;
+        }
+
+
+        public static float CircInOut(float currentTime, float durationTime, float from, float to)
+        {
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return -to / 2.0f * (UnityEngine.Mathf.Sqrt(1.0f - currentTime * currentTime) - 1.0f) + from;
+            return to / 2.0f * (UnityEngine.Mathf.Sqrt(1.0f - (currentTime -= 2.0f) * currentTime) + 1.0f) + from;
+        }
+
+
+        public static float CircOutIn(float currentTime, float durationTime, float from, float to)
+        {
+            if (currentTime < durationTime / 2.0f) return CircOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return CircIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
+        }
+
+
+        public static float SineOut(float currentTime, float durationTime, float from, float to)
+        {
+            return to * UnityEngine.Mathf.Sin(currentTime / durationTime * (UnityEngine.Mathf.PI / 2.0f)) + from;
+        }
+
+
+        public static float SineIn(float currentTime, float durationTime, float from, float to)
+        {
+            return -to * UnityEngine.Mathf.Cos(currentTime / durationTime * (UnityEngine.Mathf.PI / 2.0f)) + to + from;
+        }
+
+
+        public static float SineInOut(float currentTime, float durationTime, float from, float to)
+        {
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * (UnityEngine.Mathf.Sin(UnityEngine.Mathf.PI * currentTime / 2.0f)) + from;
+            return -to / 2.0f * (UnityEngine.Mathf.Cos(UnityEngine.Mathf.PI * --currentTime / 2.0f) - 2.0f) + from;
+        }
+
+
+        public static float SineOutIn(float currentTime, float durationTime, float from, float to)
+        {
+            if (currentTime < durationTime / 2.0f) return SineOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return SineIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
+        }
+
+
+        public static float ElasticOut(float currentTime, float durationTime, float from, float to)
+        {
+            if ((currentTime /= durationTime) == 1.0f) return from + to;
+            float p = durationTime * 0.3f;
             float s = p / 4.0f;
-            return (end * UnityEngine.Mathf.Pow(2.0f, -10.0f * current_time) * UnityEngine.Mathf.Sin((current_time * duration_time - s) * (2.0f * UnityEngine.Mathf.PI) / p) + end + start);
+            return (to * UnityEngine.Mathf.Pow(2.0f, -10.0f * currentTime) * UnityEngine.Mathf.Sin((currentTime * durationTime - s) * (2.0f * UnityEngine.Mathf.PI) / p) + to + from);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ElasticIn(float current_time, float duration_time, float start, float end)
+        public static float ElasticIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time) == 1.0f) return start + end;
-            float p = duration_time * 0.3f;
+            if ((currentTime /= durationTime) == 1.0f) return from + to;
+            float p = durationTime * 0.3f;
             float s = p / 4.0f;
-            return -(end * UnityEngine.Mathf.Pow(2.0f, 10.0f * (current_time -= 1.0f)) * UnityEngine.Mathf.Sin((current_time * duration_time - s) * (2.0f * UnityEngine.Mathf.PI) / p)) + start;
+            return -(to * UnityEngine.Mathf.Pow(2.0f, 10.0f * (currentTime -= 1.0f)) * UnityEngine.Mathf.Sin((currentTime * durationTime - s) * (2.0f * UnityEngine.Mathf.PI) / p)) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ElasticInOut(float current_time, float duration_time, float start, float end)
+        public static float ElasticInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time / 2.0f) == 2.0f) return start + end;
-            float p = duration_time * (0.3f * 1.5f);
+            if ((currentTime /= durationTime / 2.0f) == 2.0f) return from + to;
+            float p = durationTime * (0.3f * 1.5f);
             float s = p / 4.0f;
-            if (current_time < 1.0f) return -0.5f * (end * UnityEngine.Mathf.Pow(2.0f, 10.0f * (current_time -= 1.0f)) * UnityEngine.Mathf.Sin((current_time * duration_time - s) * (2.0f * UnityEngine.Mathf.PI) / p)) + start;
-            return end * UnityEngine.Mathf.Pow(2.0f, -10.0f * (current_time -= 1.0f)) * UnityEngine.Mathf.Sin((current_time * duration_time - s) * (2.0f * UnityEngine.Mathf.PI) / p) * 0.5f + end + start;
+            if (currentTime < 1.0f) return -0.5f * (to * UnityEngine.Mathf.Pow(2.0f, 10.0f * (currentTime -= 1.0f)) * UnityEngine.Mathf.Sin((currentTime * durationTime - s) * (2.0f * UnityEngine.Mathf.PI) / p)) + from;
+            return to * UnityEngine.Mathf.Pow(2.0f, -10.0f * (currentTime -= 1.0f)) * UnityEngine.Mathf.Sin((currentTime * durationTime - s) * (2.0f * UnityEngine.Mathf.PI) / p) * 0.5f + to + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float ElasticOutIn(float current_time, float duration_time, float start, float end)
+        public static float ElasticOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return ElasticOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return ElasticIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
-        }
-        #endregion
-
-
-        #region Bounce
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BounceOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            if ((current_time /= duration_time) < (1.0f / 2.75f)) return end * (7.5625f * current_time * current_time) + start;
-            else if (current_time < (2.0f / 2.75f)) return end * (7.5625f * (current_time -= (1.5f / 2.75f)) * current_time + 0.75f) + start;
-            else if (current_time < (2.5f / 2.75f)) return end * (7.5625f * (current_time -= (2.25f / 2.75f)) * current_time + 0.9375f) + start;
-            else return end * (7.5625f * (current_time -= (2.625f / 2.75f)) * current_time + 0.984375f) + start;
+            if (currentTime < durationTime / 2.0f) return ElasticOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return ElasticIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BounceIn(float current_time, float duration_time, float start, float end)
+        public static float BounceOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return end - BounceOut(duration_time - current_time, duration_time, 0.0f, end) + start;
+            if ((currentTime /= durationTime) < (1.0f / 2.75f)) return to * (7.5625f * currentTime * currentTime) + from;
+            else if (currentTime < (2.0f / 2.75f)) return to * (7.5625f * (currentTime -= (1.5f / 2.75f)) * currentTime + 0.75f) + from;
+            else if (currentTime < (2.5f / 2.75f)) return to * (7.5625f * (currentTime -= (2.25f / 2.75f)) * currentTime + 0.9375f) + from;
+            else return to * (7.5625f * (currentTime -= (2.625f / 2.75f)) * currentTime + 0.984375f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BounceInOut(float current_time, float duration_time, float start, float end)
+        public static float BounceIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return BounceIn(current_time * 2.0f, duration_time, 0.0f, end) * 0.5f + start;
-            else return BounceOut(current_time * 2.0f - duration_time, duration_time, 0.0f, end) * 0.5f + end * 0.5f + start;
+            return to - BounceOut(durationTime - currentTime, durationTime, 0.0f, to) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BounceOutIn(float current_time, float duration_time, float start, float end)
+        public static float BounceInOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return BounceOut(current_time * 2.0f, duration_time, start, end / 2.0f);
-            return BounceIn((current_time * 2.0f) - duration_time, duration_time, start + end / 2.0f, end / 2.0f);
-        }
-        #endregion
-
-
-        #region Back
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BackOut(float current_time, float duration_time, float start, float end)
-        {
-            // 補間した結果を返す.
-            return end * ((current_time = current_time / duration_time - 1.0f) * current_time * ((1.70158f + 1.0f) * current_time + 1.70158f) + 1.0f) + start;
+            if (currentTime < durationTime / 2.0f) return BounceIn(currentTime * 2.0f, durationTime, 0.0f, to) * 0.5f + from;
+            else return BounceOut(currentTime * 2.0f - durationTime, durationTime, 0.0f, to) * 0.5f + to * 0.5f + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BackIn(float current_time, float duration_time, float start, float end)
+        public static float BounceOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            return end * (current_time /= duration_time) * current_time * ((1.70158f + 1.0f) * current_time - 1.70158f) + start;
+            if (currentTime < durationTime / 2.0f) return BounceOut(currentTime * 2.0f, durationTime, from, to / 2.0f);
+            return BounceIn((currentTime * 2.0f) - durationTime, durationTime, from + to / 2.0f, to / 2.0f);
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BackInOut(float current_time, float duration_time, float start, float end)
+        public static float BackOut(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
+            return to * ((currentTime = currentTime / durationTime - 1.0f) * currentTime * ((1.70158f + 1.0f) * currentTime + 1.70158f) + 1.0f) + from;
+        }
+
+
+        public static float BackIn(float currentTime, float durationTime, float from, float to)
+        {
+            return to * (currentTime /= durationTime) * currentTime * ((1.70158f + 1.0f) * currentTime - 1.70158f) + from;
+        }
+
+
+        public static float BackInOut(float currentTime, float durationTime, float from, float to)
+        {
             float s = 1.70158f;
-            if ((current_time /= duration_time / 2.0f) < 1.0f) return end / 2.0f * (current_time * current_time * (((s *= (1.525f)) + 1.0f) * current_time - s)) + start;
-            return end / 2.0f * ((current_time -= 2.0f) * current_time * (((s *= (1.525f)) + 1.0f) * current_time + s) + 2.0f) + start;
+            if ((currentTime /= durationTime / 2.0f) < 1.0f) return to / 2.0f * (currentTime * currentTime * (((s *= (1.525f)) + 1.0f) * currentTime - s)) + from;
+            return to / 2.0f * ((currentTime -= 2.0f) * currentTime * (((s *= (1.525f)) + 1.0f) * currentTime + s) + 2.0f) + from;
         }
 
 
-        //! @brief		補間処理を行います.
-        //! @details	渡された情報を元に値の補間を行います.
-        //! @param[in]	current_time	補間時間の現在時間（秒）.
-        //! @param[in]	duration_time	補間する時間（秒）.
-        //! @param[in]	start			補間値のスタート値.
-        //! @param[in]	end				補間値の目標値.
-        //! @retval		float	補間された結果の値を返します.
-        public static float BackOutIn(float current_time, float duration_time, float start, float end)
+        public static float BackOutIn(float currentTime, float durationTime, float from, float to)
         {
-            // 補間した結果を返す.
-            if (current_time < duration_time / 2.0f) return BackOut(current_time * 2.0f, start, end / 2.0f, duration_time);
-            return BackIn((current_time * 2.0f) - duration_time, start + end / 2.0f, end / 2.0f, duration_time);
+            if (currentTime < durationTime / 2.0f) return BackOut(currentTime * 2.0f, from, to / 2.0f, durationTime);
+            return BackIn((currentTime * 2.0f) - durationTime, from + to / 2.0f, to / 2.0f, durationTime);
         }
-        #endregion
-        #endregion
     }
 }
