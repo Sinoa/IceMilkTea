@@ -19,7 +19,7 @@ namespace IceMilkTea.Core
     /// 様々な補間関数を収録したクラスです。
     /// また、各種補間関数及び実行関数は、変数として宣言されているため、値として利用しても再インスタンス化されることは無いため、取り回しやすい用になっています。
     /// </summary>
-    public static class EasingFunctions
+    public static class EasingFunction
     {
         // 定数定義
         public const double BackAmplitude = 0.4;
@@ -44,5 +44,7 @@ namespace IceMilkTea.Core
         public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOut = (from, to, t, ease) => from + (to - from) * (1.0 - ease(1.0 - t));
         public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseInOut = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) * 0.5 : (1.0 - ease((1.0 - t) * 2.0)) * 0.5 + 0.5);
         public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOutIn = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? (1.0 - ease((1.0 - t - 0.5) * 2.0)) * 0.5 : ease((t - 0.5) * 2.0) * 0.5 + 0.5);
+        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseInPingPong = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) : ease((1.0 - t) * 2.0));
+        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOutPingPong = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? 1.0 - ease((0.5 - t) * 2.0) : 1.0 - ease(1.0 - (2.0 - t * 2.0)));
     }
 }
