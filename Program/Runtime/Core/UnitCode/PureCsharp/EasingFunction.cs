@@ -16,288 +16,33 @@
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// 様々な補間関数を収録したクラスです
+    /// 様々な補間関数を収録したクラスです。
+    /// また、各種補間関数及び実行関数は、変数として宣言されているため、値として利用しても再インスタンス化されることは無いため、取り回しやすい用になっています。
     /// </summary>
     public static class EasingFunctions
     {
-        public static double Linear(double currentTime, double durationTime, double from, double to)
-        {
-            return to * currentTime / durationTime + from;
-        }
-
-
-        public static double QuadOut(double currentTime, double durationTime, double from, double to)
-        {
-            return -to * (currentTime /= durationTime) * (currentTime - 2.0) + from;
-        }
-
-
-        public static double QuadIn(double currentTime, double durationTime, double from, double to)
-        {
-            return to * (currentTime /= durationTime) * currentTime + from;
-        }
-
-
-        public static double QuadInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * currentTime * currentTime + from;
-            return -to / 2.0 * ((--currentTime) * (currentTime - 2.0) - 1.0) + from;
-        }
-
-
-        public static double QuadOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return QuadOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return QuadIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double ExpoOut(double currentTime, double durationTime, double from, double to)
-        {
-            return (currentTime == durationTime) ? from + to : to * (-System.Math.Pow(2.0, -10.0 * currentTime / durationTime) + 1.0) + from;
-        }
-
-
-        public static double ExpoIn(double currentTime, double durationTime, double from, double to)
-        {
-            return (currentTime == 0.0) ? from : to * System.Math.Pow(2.0, 10.0 * (currentTime / durationTime - 1.0)) + from;
-        }
-
-
-        public static double ExpoInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime == 0.0) return from;
-            if (currentTime == durationTime) return from + to;
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * System.Math.Pow(2.0, 10.0 * (currentTime - 1.0)) + from;
-            return to / 2.0 * (-System.Math.Pow(2.0, -10.0 * --currentTime) + 2.0) + from;
-        }
-
-
-        public static double ExpoOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return ExpoOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return ExpoIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double CubicOut(double currentTime, double durationTime, double from, double to)
-        {
-            return to * ((currentTime = currentTime / durationTime - 1.0) * currentTime * currentTime + 1.0) + from;
-        }
-
-
-        public static double CubicIn(double currentTime, double durationTime, double from, double to)
-        {
-            return to * (currentTime /= durationTime) * currentTime * currentTime + from;
-        }
-
-
-        public static double CubicInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * currentTime * currentTime * currentTime + from;
-            return to / 2.0 * ((currentTime -= 2.0) * currentTime * currentTime + 2.0) + from;
-        }
-
-
-        public static double CubicOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return CubicOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return CubicIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double QuartOut(double currentTime, double durationTime, double from, double to)
-        {
-            return -to * ((currentTime = currentTime / durationTime - 1.0) * currentTime * currentTime * currentTime - 1.0) + from;
-        }
-
-
-        public static double QuartIn(double currentTime, double durationTime, double from, double to)
-        {
-            return to * (currentTime /= durationTime) * currentTime * currentTime * currentTime + from;
-        }
-
-
-        public static double QuartInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * currentTime * currentTime * currentTime * currentTime + from;
-            return -to / 2.0 * ((currentTime -= 2.0) * currentTime * currentTime * currentTime - 2.0) + from;
-        }
-
-
-        public static double QuartOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return QuartOut(currentTime * 2.0, from, to / 2.0, durationTime);
-            return QuartIn((currentTime * 2.0) - from, from + to / 2.0, to / 2.0, durationTime);
-        }
-
-
-        public static double QuintOut(double currentTime, double durationTime, double from, double to)
-        {
-            return to * ((currentTime = currentTime / durationTime - 1.0) * currentTime * currentTime * currentTime * currentTime + 1.0) + from;
-        }
-
-
-        public static double QuintIn(double currentTime, double durationTime, double from, double to)
-        {
-            return to * (currentTime /= durationTime) * currentTime * currentTime * currentTime * currentTime + from;
-        }
-
-
-        public static double QuintInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * currentTime * currentTime * currentTime * currentTime * currentTime + from;
-            return to / 2.0 * ((currentTime -= 2.0) * currentTime * currentTime * currentTime * currentTime + 2.0) + from;
-        }
-
-
-        public static double QuintOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return QuintOut(currentTime * 2.0, from, to / 2.0, durationTime);
-            return QuintIn((currentTime * 2.0) - durationTime, from + to / 2.0, to / 2.0, durationTime);
-        }
-
-
-        public static double CircOut(double currentTime, double durationTime, double from, double to)
-        {
-            return to * System.Math.Sqrt(1.0 - (currentTime = currentTime / durationTime - 1.0) * currentTime) + from;
-        }
-
-
-        public static double CircIn(double currentTime, double durationTime, double from, double to)
-        {
-            return -to * (System.Math.Sqrt(1.0 - (currentTime /= durationTime) * currentTime) - 1.0) + from;
-        }
-
-
-        public static double CircInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) < 1.0) return -to / 2.0 * (System.Math.Sqrt(1.0 - currentTime * currentTime) - 1.0) + from;
-            return to / 2.0 * (System.Math.Sqrt(1.0 - (currentTime -= 2.0) * currentTime) + 1.0) + from;
-        }
-
-
-        public static double CircOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return CircOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return CircIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double SineOut(double currentTime, double durationTime, double from, double to)
-        {
-            return to * System.Math.Sin(currentTime / durationTime * (System.Math.PI / 2.0)) + from;
-        }
-
-
-        public static double SineIn(double currentTime, double durationTime, double from, double to)
-        {
-            return -to * System.Math.Cos(currentTime / durationTime * (System.Math.PI / 2.0)) + to + from;
-        }
-
-
-        public static double SineInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * (System.Math.Sin(System.Math.PI * currentTime / 2.0)) + from;
-            return -to / 2.0 * (System.Math.Cos(System.Math.PI * --currentTime / 2.0) - 2.0) + from;
-        }
-
-
-        public static double SineOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return SineOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return SineIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double ElasticOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime) == 1.0) return from + to;
-            double p = durationTime * 0.3;
-            double s = p / 4.0;
-            return (to * System.Math.Pow(2.0, -10.0 * currentTime) * System.Math.Sin((currentTime * durationTime - s) * (2.0 * System.Math.PI) / p) + to + from);
-        }
-
-
-        public static double ElasticIn(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime) == 1.0) return from + to;
-            double p = durationTime * 0.3;
-            double s = p / 4.0;
-            return -(to * System.Math.Pow(2.0, 10.0 * (currentTime -= 1.0)) * System.Math.Sin((currentTime * durationTime - s) * (2.0 * System.Math.PI) / p)) + from;
-        }
-
-
-        public static double ElasticInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime / 2.0) == 2.0) return from + to;
-            double p = durationTime * (0.3 * 1.5);
-            double s = p / 4.0;
-            if (currentTime < 1.0) return -0.5 * (to * System.Math.Pow(2.0, 10.0 * (currentTime -= 1.0)) * System.Math.Sin((currentTime * durationTime - s) * (2.0 * System.Math.PI) / p)) + from;
-            return to * System.Math.Pow(2.0, -10.0 * (currentTime -= 1.0)) * System.Math.Sin((currentTime * durationTime - s) * (2.0 * System.Math.PI) / p) * 0.5 + to + from;
-        }
-
-
-        public static double ElasticOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return ElasticOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return ElasticIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double BounceOut(double currentTime, double durationTime, double from, double to)
-        {
-            if ((currentTime /= durationTime) < (1.0 / 2.75)) return to * (7.5625 * currentTime * currentTime) + from;
-            else if (currentTime < (2.0 / 2.75)) return to * (7.5625 * (currentTime -= (1.5 / 2.75)) * currentTime + 0.75) + from;
-            else if (currentTime < (2.5 / 2.75)) return to * (7.5625 * (currentTime -= (2.25 / 2.75)) * currentTime + 0.9375) + from;
-            else return to * (7.5625 * (currentTime -= (2.625 / 2.75)) * currentTime + 0.984375) + from;
-        }
-
-
-        public static double BounceIn(double currentTime, double durationTime, double from, double to)
-        {
-            return to - BounceOut(durationTime - currentTime, durationTime, 0.0, to) + from;
-        }
-
-
-        public static double BounceInOut(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return BounceIn(currentTime * 2.0, durationTime, 0.0, to) * 0.5 + from;
-            else return BounceOut(currentTime * 2.0 - durationTime, durationTime, 0.0, to) * 0.5 + to * 0.5 + from;
-        }
-
-
-        public static double BounceOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return BounceOut(currentTime * 2.0, durationTime, from, to / 2.0);
-            return BounceIn((currentTime * 2.0) - durationTime, durationTime, from + to / 2.0, to / 2.0);
-        }
-
-
-        public static double BackOut(double currentTime, double durationTime, double from, double to)
-        {
-            return to * ((currentTime = currentTime / durationTime - 1.0) * currentTime * ((1.70158 + 1.0) * currentTime + 1.70158) + 1.0) + from;
-        }
-
-
-        public static double BackIn(double currentTime, double durationTime, double from, double to)
-        {
-            return to * (currentTime /= durationTime) * currentTime * ((1.70158 + 1.0) * currentTime - 1.70158) + from;
-        }
-
-
-        public static double BackInOut(double currentTime, double durationTime, double from, double to)
-        {
-            double s = 1.70158;
-            if ((currentTime /= durationTime / 2.0) < 1.0) return to / 2.0 * (currentTime * currentTime * (((s *= (1.525)) + 1.0) * currentTime - s)) + from;
-            return to / 2.0 * ((currentTime -= 2.0) * currentTime * (((s *= (1.525)) + 1.0) * currentTime + s) + 2.0) + from;
-        }
-
-
-        public static double BackOutIn(double currentTime, double durationTime, double from, double to)
-        {
-            if (currentTime < durationTime / 2.0) return BackOut(currentTime * 2.0, from, to / 2.0, durationTime);
-            return BackIn((currentTime * 2.0) - durationTime, from + to / 2.0, to / 2.0, durationTime);
-        }
+        // 定数定義
+        public const double BackAmplitude = 0.4;
+        public const double Exponent = 3.0;
+        public const double Magnitude = 10.0;
+        public const double ElasticCycles = 5.0;
+
+        // クラス変数宣言
+        public static readonly System.Func<double, double> Linear = t => t;
+        public static readonly System.Func<double, double> Quadratic = t => t * t;
+        public static readonly System.Func<double, double> Cubic = t => t * t * t;
+        public static readonly System.Func<double, double> Quartic = t => t * t * t * t;
+        public static readonly System.Func<double, double> Quintic = t => t * t * t * t * t;
+        public static readonly System.Func<double, double> Power = t => System.Math.Pow(t, Magnitude);
+        public static readonly System.Func<double, double> Circle = t => 1.0 - System.Math.Sqrt(1.0 - t * t);
+        public static readonly System.Func<double, double> Sine = t => 1.0 - System.Math.Sin(System.Math.PI * 0.5 * (1.0 - t));
+        public static readonly System.Func<double, double> Back = t => t * t * t - t * BackAmplitude * System.Math.Sin(System.Math.PI * t);
+        public static readonly System.Func<double, double> Exponential = t => (System.Math.Exp(Exponent * t) - 1.0) / (System.Math.Exp(Exponent) - 1.0);
+        public static readonly System.Func<double, double> Elastic = t => Exponential(t) * System.Math.Sin((System.Math.PI * 2.0 * ElasticCycles + System.Math.PI * 0.5) * t);
+        public static readonly System.Func<double, double> Bounce = t => t; // Bounce = t => throw new System.NotImplementedException();
+        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseIn = (from, to, t, ease) => from + (to - from) * ease(t);
+        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOut = (from, to, t, ease) => from + (to - from) * (1.0 - ease(1.0 - t));
+        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseInOut = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) * 0.5 : (1.0 - ease((1.0 - t) * 2.0)) * 0.5 + 0.5);
+        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOutIn = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? (1.0 - ease((1.0 - t - 0.5) * 2.0)) * 0.5 : ease((t - 0.5) * 2.0) * 0.5 + 0.5);
     }
 }
