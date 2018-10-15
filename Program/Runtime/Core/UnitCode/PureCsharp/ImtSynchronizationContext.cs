@@ -24,7 +24,7 @@ namespace IceMilkTea.Core
     /// IceMilkTea 自身が提供する同期コンテキストクラスです。
     /// 独立したスレッドの同期コンテキストとして利用したり、特定コード範囲の同期コンテキストとして利用出来ます。
     /// </summary>
-    public class IceMilkTeaSynchronizationContext : SynchronizationContext, IDisposable
+    public class ImtSynchronizationContext : SynchronizationContext, IDisposable
     {
         /// <summary>
         /// 同期コンテキストに送られてきたコールバックを、メッセージとして保持する構造体です。
@@ -109,14 +109,14 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// IceMilkTeaSynchronizationContext のインスタンスを初期化します。
+        /// ImtSynchronizationContext のインスタンスを初期化します。
         /// </summary>
         /// <remarks>
         /// この同期コンテキストは messagePumpHandler が呼び出されない限りメッセージを蓄え続けます。
         /// メッセージを処理するためには、必ず messagePumpHandler を定期的に呼び出してください。
         /// </remarks>
         /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
-        public IceMilkTeaSynchronizationContext(out Action messagePumpHandler)
+        public ImtSynchronizationContext(out Action messagePumpHandler)
         {
             // メンバの初期化と、メッセージ処理関数を伝える
             previousContext = AsyncOperationManager.SynchronizationContext;
@@ -127,9 +127,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// IceMilkTeaSynchronizationContext のファイナライザです。
+        /// ImtSynchronizationContext のファイナライザです。
         /// </summary>
-        ~IceMilkTeaSynchronizationContext()
+        ~ImtSynchronizationContext()
         {
             // ファイナライザからのDispose呼び出し
             Dispose(false);
@@ -188,14 +188,14 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// IceMilkTeaSynchronizationContext のインスタンスを生成と同時に、同期コンテキストの設定も行います。
+        /// ImtSynchronizationContext のインスタンスを生成と同時に、同期コンテキストの設定も行います。
         /// </summary>
         /// <param name="messagePumpHandler">コンストラクタの messagePumpHandler に渡す参照</param>
         /// <returns>インスタンスの生成と設定が終わった、同期コンテキストを返します。</returns>
-        public static IceMilkTeaSynchronizationContext Install(out Action messagePumpHandler)
+        public static ImtSynchronizationContext Install(out Action messagePumpHandler)
         {
             // 新しい同期コンテキストのインスタンスを生成して、設定した後に返す
-            var context = new IceMilkTeaSynchronizationContext(out messagePumpHandler);
+            var context = new ImtSynchronizationContext(out messagePumpHandler);
             AsyncOperationManager.SynchronizationContext = context;
             return context;
         }
