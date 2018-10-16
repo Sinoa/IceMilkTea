@@ -204,7 +204,7 @@ namespace IceMilkTea.Service
 
 
             // そもそもベースディレクトリが存在しない または ファイルが存在していないなら
-            if (!baseDirectoryInfo.Exists || File.Exists(assetBundlePath))
+            if (!baseDirectoryInfo.Exists || !File.Exists(assetBundlePath))
             {
                 // アセットバンドルが存在しない例外を吐く
                 throw new FileNotFoundException("指定されたパスにアセットバンドルが存在しません", assetBundlePath);
