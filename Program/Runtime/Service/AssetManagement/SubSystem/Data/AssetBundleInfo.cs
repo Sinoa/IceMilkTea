@@ -46,6 +46,12 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// このアセットバンドルが依存している対象のアセットバンドル名
+        /// </summary>
+        public string[] DependenceAssetBundleNames;
+
+
+        /// <summary>
         /// アセットバンドルのハッシュ値
         /// </summary>
         public byte[] Hash;
