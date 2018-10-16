@@ -307,6 +307,13 @@ namespace IceMilkTea.Service
                 AssetBundleInfo[] infos = manifest.AssetBundleInfos;
                 for (int i = 0; i < infos.Length; ++i)
                 {
+                    // せめて存在チェック
+                    if (storage.Exists(ref infos[i]))
+                    {
+                        continue;
+                    }
+
+
                     using (var installStream = await storage.GetInstallStreamAsync(infos[i]))
                     {
                         await installer.InstallAsync(infos[i], installStream, null);
