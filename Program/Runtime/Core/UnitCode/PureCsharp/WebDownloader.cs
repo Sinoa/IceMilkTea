@@ -24,6 +24,48 @@ using System.Threading.Tasks;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// WebDownloader のダウンロード進捗内容を保持した構造体です
+    /// </summary>
+    public struct WebDownloadProgress
+    {
+        /// <summary>
+        /// ダウンロードしているデータの長さ。
+        /// ただし、サーバー側がContentLengthヘッダを返さなかった場合は -1 が入ることがあります。
+        /// </summary>
+        public long ContentLength { get; private set; }
+
+
+        /// <summary>
+        /// ダウンロードしている全体の進捗比率
+        /// </summary>
+        public double DownloadProgressRatio { get; private set; }
+
+
+        /// <summary>
+        /// ダウンロードスピード bps で表現しますが、この値は正確ではない可能性があります。
+        /// </summary>
+        public double DownloadBitPerSecond { get; private set; }
+
+
+
+        /// <summary>
+        /// WebDownloadProgress のインスタンスを初期化します
+        /// </summary>
+        /// <param name="contentLength">コンテンツの長さ</param>
+        /// <param name="progress">ダウンロード進捗</param>
+        /// <param name="speed">ダウンロードスピード</param>
+        public WebDownloadProgress(long contentLength, double progress, double speed)
+        {
+            // そのまま受け取る
+            ContentLength = contentLength;
+            DownloadProgressRatio = progress;
+            DownloadBitPerSecond = speed;
+        }
+    }
+
+
+
+    /// <summary>
     /// HTTPアクセスを用いたWebからデータをダウンロードをするダウンローダクラスです
     /// </summary>
     public class WebDownloader
@@ -277,7 +319,7 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">url が null です</exception>
         /// <exception cref="ArgumentNullException">outputStream が null です</exception>
         /// <exception cref="ArgumentException">ダウンロードデータの出力先ストリームが、書き込みをサポートしていません</exception>
-        public async Task DownloadAsync(Uri url, Stream outputStream, IProgress<double> progress)
+        public async Task DownloadAsync(Uri url, Stream outputStream, IProgress<WebDownloadProgress> progress)
         {
             // URLにnullを渡されたら
             if (url == null)
@@ -412,7 +454,7 @@ namespace IceMilkTea.Core
         /// <returns>ダウンロード操作中のタスクを返します</returns>
         /// <exception cref="OperationCanceledException">操作がキャンセルされました</exception>
         /// <exception cref="TimeoutException">HTTP要求より先にタイムアウトしました</exception>
-        private async Task DownloadAsync(Uri url, Stream outputStream, IProgress<double> progress, CancellationToken cancellationToken)
+        private async Task DownloadAsync(Uri url, Stream outputStream, IProgress<WebDownloadProgress> progress, CancellationToken cancellationToken)
         {
             // この時点でキャンセルされているかどうかを見る
             cancellationToken.ThrowIfCancellationRequested();
@@ -443,15 +485,16 @@ namespace IceMilkTea.Core
             }
 
 
-            // レスポンスを受け取って全体の長さを取得（長さの取得が出来なかったら 1 を設定して計算時に飽和させる）
+            // レスポンスを受け取って全体の長さを取得
             var httpResponse = (HttpWebResponse)responseTask.Result;
-            var contentLength = httpResponse.ContentLength == -1 ? 1 : httpResponse.ContentLength;
+            var contentLength = httpResponse.ContentLength;
 
 
             // ダウンロードストリームを取得
             using (var downloadStream = httpResponse.GetResponseStream())
             {
-                // トータルの読み込み計上と読み込みサイズを覚える変数を宣言
+                // 通知時に覚えたトータル読み込み計上と、真のトータルの読み込み計上と、読み込みサイズを覚える変数を宣言
+                var lastNotifyTotalReadSize = 0;
                 var totalReadSize = 0;
                 var readSize = 0;
 
@@ -475,9 +518,23 @@ namespace IceMilkTea.Core
                     // もしダウンロード通知経過時間が既定間隔を超えていたら
                     if (notifyStopwatch.ElapsedMilliseconds > DownloadProgressNotifyInterval)
                     {
+                        // 前回のトータル読み込み量からの差分量を出して、前回からのダウンロード数を求める
+                        var deltaReadSize = totalReadSize - lastNotifyTotalReadSize;
+                        lastNotifyTotalReadSize = totalReadSize;
+
+
+                        // 1秒あたりのダウンロードサイズを予想する（通知間隔が短いほど揺れる）
+                        // delta * (1 second / interval second) = expectSize
+                        var expectSize = deltaReadSize * (1.0 / (DownloadProgressNotifyInterval / 1000.0));
+
+
+                        // 予想サイズをbit値にしてそれをスピードとする
+                        var downloadSpeed = expectSize * 8.0;
+
+
                         // 進捗を求めて通知する
-                        var progressSize = (double)totalReadSize / contentLength;
-                        progress?.Report(progressSize);
+                        var progressSize = (double)totalReadSize / (contentLength == -1 ? totalReadSize : contentLength);
+                        progress?.Report(new WebDownloadProgress(contentLength, progressSize, downloadSpeed));
 
 
                         // ストップウォッチを再起動
