@@ -51,8 +51,44 @@ namespace IceMilkTea.Service
         /// <param name="installer">アセットバンドルをストレージにインストールするインストーラ</param>
         /// <param name="manifestStorage">マニフェストを貯蔵するストレージ</param>
         /// <param name="manifestFetcher">マニフェストをフェッチするフェッチャー</param>
+        /// <exception cref="ArgumentNullException">storage が null です</exception>
+        /// <exception cref="ArgumentNullException">installer が null です</exception>
+        /// <exception cref="ArgumentNullException">manifestStorage が null です</exception>
+        /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
         public AssetManagementService(AssetBundleStorage storage, AssetBundleInstaller installer, AssetBundleManifestStorage manifestStorage, AssetBundleManifestFetcher manifestFetcher)
         {
+            // storageがnullなら
+            if (storage == null)
+            {
+                // どこに貯蔵すれば良いのだ
+                throw new ArgumentNullException(nameof(storage));
+            }
+
+
+            // installerがnullなら
+            if (installer == null)
+            {
+                // 何でインストールすればよいのだ
+                throw new ArgumentNullException(nameof(installer));
+            }
+
+
+            // manifestStorageがnullなら
+            if (manifestStorage == null)
+            {
+                // どこに保管すればよいのだ
+                throw new ArgumentNullException(nameof(manifestStorage));
+            }
+
+
+            // manifestFetcherがnullなら
+            if (manifestFetcher == null)
+            {
+                // どうやって取得すればよいのだ
+                throw new ArgumentNullException(nameof(manifestFetcher));
+            }
+
+
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
