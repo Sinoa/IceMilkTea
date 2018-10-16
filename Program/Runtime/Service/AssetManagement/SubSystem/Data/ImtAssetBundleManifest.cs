@@ -23,15 +23,17 @@ namespace IceMilkTea.Service
     public struct ImtAssetBundleManifest
     {
         /// <summary>
-        /// マニフェスト名
+        /// マニフェストを最後に更新したタイムスタンプ。
+        /// 原則値の違いでのみ判断するので、正確な日時を記録する必要はありません。
+        /// DateTimeOffset.ToUnixTimeSeconds() 関数を使った値を推奨します。
         /// </summary>
-        public string Name;
+        public long LastUpdateTimeStamp;
 
 
         /// <summary>
-        /// マニフェストが保持しているアセットバンドル情報の配列
+        /// アセットバンドル情報をコンテンツ単位でグループ化した構造体の配列
         /// </summary>
-        public AssetBundleInfo[] AssetBundleInfos;
+        public AssetBundleContentGroup[] ContentGroups;
 
 
 
@@ -42,18 +44,47 @@ namespace IceMilkTea.Service
         {
             get
             {
-                // 保持している情報の数分ループ
+                // トータルサイズを記憶する変数を宣言
                 var totalSize = 0L;
-                for (int i = 0; i < AssetBundleInfos.Length; ++i)
+
+
+                // 保持しているコンテンツグループ分回る
+                for (int i = 0; i < ContentGroups.Length; ++i)
                 {
-                    // サイズを加算
-                    totalSize += AssetBundleInfos[i].Size;
+                    // コンテンツグループが提供するアセットバンドル合計サイズを加算する
+                    totalSize += ContentGroups[i].TotalAssetBundleSize;
                 }
 
 
                 // 結果を返す
                 return totalSize;
             }
+        }
+
+
+
+        /// <summary>
+        /// 指定されたコンテンツグループ名のアセットバンドル合計サイズを取得します
+        /// </summary>
+        /// <param name="contentGroupName">サイズを取得したいコンテンツグループ名</param>
+        /// <returns>指定されたコンテンツグループが保有するアセットバンドルの合計サイズを返します</returns>
+        /// <exception cref="System.ArgumentException">指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした</exception>
+        public long GetContentGroupAssetBundleTotalSize(string contentGroupName)
+        {
+            // 保持しているコンテンツグループ分回る
+            for (int i = 0; i < ContentGroups.Length; ++i)
+            {
+                // もし指定されたコンテンツグループ名と一致したのなら
+                if (ContentGroups[i].Name == contentGroupName)
+                {
+                    // このコンテンツグループのサイズを返す
+                    return ContentGroups[i].TotalAssetBundleSize;
+                }
+            }
+
+
+            // ループから抜けたということは見つからなかったということ
+            throw new System.ArgumentException($"指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした", nameof(contentGroupName));
         }
     }
 }

@@ -13,19 +13,28 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System.Threading.Tasks;
-
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// ImtAssetBundleManifest を取り込むフェッチャー抽象クラスです
+    /// 更新可能なアセットバンドルのチェック進捗情報を保持した構造体です
     /// </summary>
-    public abstract class AssetBundleManifestFetcher
+    public struct UpdatableAssetBundleProgress
     {
         /// <summary>
-        /// マニフェストのフェッチを非同期で行います
+        /// チェック中のアセットバンドル名
         /// </summary>
-        /// <returns>マニフェストフェッチの非同期操作をしているタスクを返します</returns>
-        public abstract Task<ImtAssetBundleManifest[]> FetchManifestAsync();
+        public string AssetBundleName;
+
+
+        /// <summary>
+        /// トータルのチェックするアセットバンドルの数
+        /// </summary>
+        public int TotalCheckCount;
+
+
+        /// <summary>
+        /// チェック済みのアセットバンドルの数
+        /// </summary>
+        public int TotalCheckedCount;
     }
 }

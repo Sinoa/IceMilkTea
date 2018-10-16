@@ -340,19 +340,23 @@ namespace IceMilkTea.Service
                 }
 
 
-                AssetBundleInfo[] infos = manifest.AssetBundleInfos;
-                for (int i = 0; i < infos.Length; ++i)
+                AssetBundleContentGroup[] groups = manifest.ContentGroups;
+                for (int i = 0; i < groups.Length; ++i)
                 {
-                    // せめて存在チェック
-                    if (storage.Exists(ref infos[i]))
+                    AssetBundleInfo[] infos = groups[i].AssetBundleInfos;
+                    for (int j = 0; j < infos.Length; ++j)
                     {
-                        continue;
-                    }
+                        // せめて存在チェック
+                        if (storage.Exists(ref infos[j]))
+                        {
+                            continue;
+                        }
 
 
-                    using (var installStream = await storage.GetInstallStreamAsync(infos[i]))
-                    {
-                        await installer.InstallAsync(infos[i], installStream, null);
+                        using (var installStream = await storage.GetInstallStreamAsync(infos[j]))
+                        {
+                            await installer.InstallAsync(infos[j], installStream, null);
+                        }
                     }
                 }
             }
