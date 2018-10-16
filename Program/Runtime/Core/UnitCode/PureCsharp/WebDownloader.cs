@@ -327,8 +327,10 @@ namespace IceMilkTea.Core
 
                 try
                 {
-                    // 実際のダウンロードを呼ぶ
+                    // 実際のダウンロードを呼び出して、何事もなく戻ってきたらエラーを忘れてループから抜ける
                     await DownloadAsync(url, outputStream, progress, cancellationToken);
+                    lastError = null;
+                    break;
                 }
                 catch (OperationCanceledException canceledException)
                 {
