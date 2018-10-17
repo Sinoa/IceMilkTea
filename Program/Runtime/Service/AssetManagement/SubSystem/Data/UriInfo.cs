@@ -50,6 +50,19 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// Uriのクエリに含まれる特定のキーの値を取得に試みます
+        /// </summary>
+        /// <param name="key">取得するキー</param>
+        /// <param name="value">取得した値を格納する参照</param>
+        /// <returns>取得に成功した場合は true を、失敗した場合は false を返します</returns>
+        public bool TryGetQuery(string key, out string value)
+        {
+            // テーブルのTryGetValueをそのまま呼び出して結果を返す
+            return QueryTable.TryGetValue(key, out value);
+        }
+
+
+        /// <summary>
         /// UriInfo インスタンスのハッシュ値を取得します
         /// </summary>
         /// <returns>UriInfo インスタンスのハッシュ値を返します</returns>
