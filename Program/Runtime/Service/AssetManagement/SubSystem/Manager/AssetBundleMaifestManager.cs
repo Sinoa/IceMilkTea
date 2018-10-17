@@ -28,7 +28,6 @@ namespace IceMilkTea.Service
         private AssetBundleManifestFetcher fetcher;
         private ImtAssetBundleManifest manifest;
         private DirectoryInfo saveDirectoryInfo;
-        private Uri manifestUrl;
 
 
 
@@ -37,11 +36,9 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="fetcher">マニフェストの取り込みを行うフェッチャー</param>
         /// <param name="saveDirectoryInfo">マニフェストを保存するディレクトリ情報</param>
-        /// <param name="manifestUrl">管理を行うマニフェストが存在するURL</param>
         /// <exception cref="ArgumentNullException">fetcher が null です</exception>
         /// <exception cref="ArgumentNullException">saveDirectoryInfo が null です</exception>
-        /// <exception cref="ArgumentNullException">manifestUrl が null です</exception>
-        public AssetBundleManifestManager(AssetBundleManifestFetcher fetcher, DirectoryInfo saveDirectoryInfo, Uri manifestUrl)
+        public AssetBundleManifestManager(AssetBundleManifestFetcher fetcher, DirectoryInfo saveDirectoryInfo)
         {
             // もし null を渡された場合は
             if (fetcher == null)
@@ -59,18 +56,9 @@ namespace IceMilkTea.Service
             }
 
 
-            // マニフェストURLがnullなら
-            if (manifestUrl == null)
-            {
-                // 何を元に管理をすればよいのだ
-                throw new ArgumentNullException(nameof(manifestUrl));
-            }
-
-
             // 受け取る
             this.fetcher = fetcher;
             this.saveDirectoryInfo = saveDirectoryInfo;
-            this.manifestUrl = manifestUrl;
         }
 
 
@@ -82,7 +70,7 @@ namespace IceMilkTea.Service
         public async Task<ImtAssetBundleManifest?> FetchManifestAsync()
         {
             // フェッチャーのフェッチをそのまま呼ぶ
-            return await fetcher.FetchAsync(manifestUrl);
+            return await fetcher.FetchAsync();
         }
 
 

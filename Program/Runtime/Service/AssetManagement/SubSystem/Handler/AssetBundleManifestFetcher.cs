@@ -13,7 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using System.Threading.Tasks;
 
 namespace IceMilkTea.Service
@@ -24,10 +23,9 @@ namespace IceMilkTea.Service
     public abstract class AssetBundleManifestFetcher
     {
         /// <summary>
-        /// 指定された相対パスからマニフェストを非同期で取り込みます
+        /// マニフェストを非同期で取り込みます
         /// </summary>
-        /// <param name="manifestUrl">取り込みの要求をされたマニフェストへのURL</param>
         /// <returns>取り込みに成功した場合は、有効な参照を持った ImtAssetBundleManifest のインスタンスを返しますが、失敗した場合は null を返すタスクを返します</returns>
-        public abstract Task<ImtAssetBundleManifest?> FetchAsync(Uri manifestUrl);
+        public abstract Task<ImtAssetBundleManifest?> FetchAsync();
     }
 }
