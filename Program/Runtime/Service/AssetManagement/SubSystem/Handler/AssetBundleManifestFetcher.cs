@@ -26,8 +26,8 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定された相対パスからマニフェストを非同期で取り込みます
         /// </summary>
-        /// <param name="relativeManifestPath">取り込む要求のあるマニフェスト。システムからは相対パスのみ渡すので基本パスはこのクラスで決定されるべきです。</param>
+        /// <param name="manifestUrl">取り込みの要求をされたマニフェストへのURL</param>
         /// <returns>取り込みに成功した場合は、有効な参照を持った ImtAssetBundleManifest のインスタンスを返しますが、失敗した場合は null を返すタスクを返します</returns>
-        public abstract Task<ImtAssetBundleManifest?> FetchAsync(Uri relativeManifestPath);
+        public abstract Task<ImtAssetBundleManifest?> FetchAsync(Uri manifestUrl);
     }
 }

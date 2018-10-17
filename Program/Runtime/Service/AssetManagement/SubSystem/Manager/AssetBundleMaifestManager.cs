@@ -14,8 +14,8 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
-using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
@@ -27,19 +27,62 @@ namespace IceMilkTea.Service
         // メンバ変数定義
         private AssetBundleManifestFetcher fetcher;
         private ImtAssetBundleManifest manifest;
+        private DirectoryInfo saveDirectoryInfo;
+        private Uri manifestUrl;
 
 
 
         /// <summary>
-        /// マニフェストのフェッチを非同期で行います。
-        /// フェッチされたマニフェストは、内部データに反映はされません。
+        /// AssetBundleManifestManager のインスタンスを初期化します
+        /// </summary>
+        /// <param name="fetcher">マニフェストの取り込みを行うフェッチャー</param>
+        /// <param name="saveDirectoryInfo">マニフェストを保存するディレクトリ情報</param>
+        /// <param name="manifestUrl">管理を行うマニフェストが存在するURL</param>
+        /// <exception cref="ArgumentNullException">fetcher が null です</exception>
+        /// <exception cref="ArgumentNullException">saveDirectoryInfo が null です</exception>
+        /// <exception cref="ArgumentNullException">manifestUrl が null です</exception>
+        public AssetBundleManifestManager(AssetBundleManifestFetcher fetcher, DirectoryInfo saveDirectoryInfo, Uri manifestUrl)
+        {
+            // もし null を渡された場合は
+            if (fetcher == null)
+            {
+                // どうやってマニフェストを取り出そうか
+                throw new ArgumentNullException(nameof(fetcher));
+            }
+
+
+            // 保存先ディレクトリ情報がnullなら
+            if (saveDirectoryInfo == null)
+            {
+                // どこに保存すればいいんじゃ
+                throw new ArgumentNullException(nameof(saveDirectoryInfo));
+            }
+
+
+            // マニフェストURLがnullなら
+            if (manifestUrl == null)
+            {
+                // 何を元に管理をすればよいのだ
+                throw new ArgumentNullException(nameof(manifestUrl));
+            }
+
+
+            // 受け取る
+            this.fetcher = fetcher;
+            this.saveDirectoryInfo = saveDirectoryInfo;
+            this.manifestUrl = manifestUrl;
+        }
+
+
+        /// <summary>
+        /// マニフェストの取り込みを非同期で行います。取り込んだマニフェストは、内部データに反映はされません。
         /// データとして更新が必要かどうかについては GetUpdatableAssetBundlesAsync() を用いてください。
         /// </summary>
-        /// <param name="progress">フェッチダウンロードの進捗通知を受ける Progress</param>
-        /// <returns>マニフェストフェッチの非同期操作をしているタスクを返します</returns>
-        public Task<ImtAssetBundleManifest> FetchManifestAsync(IProgress<WebDownloadProgress> progress)
+        /// <returns>取り込みに成功した場合は、有効な参照の ImtAssetBundleManifest のインスタンスを返しますが、失敗した場合は null を返すタスクを返します</returns>
+        public async Task<ImtAssetBundleManifest?> FetchManifestAsync()
         {
-            throw new NotImplementedException();
+            // フェッチャーのフェッチをそのまま呼ぶ
+            return await fetcher.FetchAsync(manifestUrl);
         }
 
 
