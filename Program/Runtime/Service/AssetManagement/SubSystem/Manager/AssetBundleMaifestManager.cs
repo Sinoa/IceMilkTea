@@ -20,20 +20,14 @@ using IceMilkTea.Core;
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// アセットバンドルマニフェストを制御、管理を行うマネージャ抽象クラスです
+    /// アセットバンドルマニフェストを制御、管理を行うマネージャクラスです
     /// </summary>
-    public abstract class AssetBundleManifestManager
+    internal class AssetBundleManifestManager
     {
-        // 限定公開メンバ変数定義
-        protected ImtAssetBundleManifest currentAssetBundleManifest;
+        // メンバ変数定義
+        private AssetBundleManifestFetcher fetcher;
+        private ImtAssetBundleManifest manifest;
 
-
-
-        /// <summary>
-        /// マネージャの初期化を非同期で行います
-        /// </summary>
-        /// <returns>初期化操作を行っているタスクを返します</returns>
-        public abstract Task InitializeAsync();
 
 
         /// <summary>
@@ -43,7 +37,10 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="progress">フェッチダウンロードの進捗通知を受ける Progress</param>
         /// <returns>マニフェストフェッチの非同期操作をしているタスクを返します</returns>
-        public abstract Task<ImtAssetBundleManifest> FetchManifestAsync(IProgress<WebDownloadProgress> progress);
+        public Task<ImtAssetBundleManifest> FetchManifestAsync(IProgress<WebDownloadProgress> progress)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -52,7 +49,10 @@ namespace IceMilkTea.Service
         /// <param name="newerManifest">新しいとされるマニフェスト</param>
         /// <param name="progress">チェック進捗通知を受ける Progress</param>
         /// <returns>現在管理しているマニフェスト情報から、新しいマニフェスト情報で更新の必要なるアセットバンドル情報の配列を、操作しているタスクを返します</returns>
-        public abstract Task<UpdatableAssetBundleInfo[]> GetUpdatableAssetBundlesAsync(ImtAssetBundleManifest newerManifest, IProgress<UpdatableAssetBundleProgress> progress);
+        public Task<UpdatableAssetBundleInfo[]> GetUpdatableAssetBundlesAsync(ImtAssetBundleManifest newerManifest, IProgress<UpdatableAssetBundleProgress> progress)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -60,7 +60,10 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="newerManifest">新しいとされるマニフェスト</param>
         /// <returns>マニフェストの更新を行っているタスクを返します</returns>
-        public abstract Task UpdateManifestAsync(ImtAssetBundleManifest newerManifest);
+        public Task UpdateManifestAsync(ImtAssetBundleManifest newerManifest)
+        {
+            throw new NotImplementedException();
+        }
 
 
         /// <summary>
@@ -81,7 +84,7 @@ namespace IceMilkTea.Service
 
 
             // 現在のマニフェストに含まれるコンテンツグループ分回る
-            var contentGrops = currentAssetBundleManifest.ContentGroups;
+            var contentGrops = manifest.ContentGroups;
             for (int i = 0; i < contentGrops.Length; ++i)
             {
                 // コンテンツグループ内にあるアセットバンドル情報の数分回る
@@ -104,9 +107,15 @@ namespace IceMilkTea.Service
         }
 
 
-        public abstract string[] GetContentGroupNames();
+        public string[] GetContentGroupNames()
+        {
+            throw new NotImplementedException();
+        }
 
 
-        public abstract void GetContentGroupInfo(string contentGroupName, out AssetBundleContentGroup contentGroup);
+        public void GetContentGroupInfo(string contentGroupName, out AssetBundleContentGroup contentGroup)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
