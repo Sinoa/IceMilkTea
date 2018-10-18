@@ -16,10 +16,29 @@
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// 更新可能なアセットバンドルのチェック進捗情報を保持した構造体です
+    /// アセットバンドルのチェック状態を表現した
     /// </summary>
-    public struct UpdatableAssetBundleProgress
+    public enum AssetBundleCheckStatus
     {
+        /// <summary>
+        /// 新規または継続のコンテンツグループの存在チェック中です
+        /// </summary>
+        NewerAndContinuationContentCategoryCheck,
+    }
+
+
+
+    /// <summary>
+    /// アセットバンドルのチェック進捗情報を保持した構造体です
+    /// </summary>
+    public struct CheckAssetBundleProgress
+    {
+        /// <summary>
+        /// 現在のチェックステータス
+        /// </summary>
+        public AssetBundleCheckStatus Status;
+
+
         /// <summary>
         /// チェック中のアセットバンドル名
         /// </summary>
@@ -27,13 +46,13 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// トータルのチェックするアセットバンドルの数
+        /// 現在のステータスに対する、トータルのチェックアセットバンドル数
         /// </summary>
-        public int TotalCheckCount;
+        public int TotalCount;
 
 
         /// <summary>
-        /// チェック済みのアセットバンドルの数
+        /// 現在のステータスに対する、チェック済みのアセットバンドル数
         /// </summary>
         public int TotalCheckedCount;
     }

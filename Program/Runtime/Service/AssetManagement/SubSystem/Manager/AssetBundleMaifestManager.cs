@@ -159,7 +159,7 @@ namespace IceMilkTea.Service
         /// <param name="progress">チェック進捗通知を受ける Progress。もし通知を受けない場合は null の指定が可能です。</param>
         /// <returns>現在管理しているマニフェスト情報から、新しいマニフェスト情報で更新の必要なるアセットバンドル情報の配列を、操作しているタスクを返します。更新件数が 0 件でも長さ 0 の配列を返します</returns>
         /// <exception cref="ArgumentException">新しいマニフェストの '{nameof(ImtAssetBundleManifest.ContentGroups)}' が null です</exception>
-        public Task<UpdatableAssetBundleInfo[]> GetUpdatableAssetBundlesAsync(ImtAssetBundleManifest newerManifest, IProgress<UpdatableAssetBundleProgress> progress)
+        public Task<UpdatableAssetBundleInfo[]> GetUpdatableAssetBundlesAsync(ImtAssetBundleManifest newerManifest, IProgress<CheckAssetBundleProgress> progress)
         {
             // 渡されたアセットバンドルマニフェストが無効なカテゴリ配列を持っていた場合は
             if (newerManifest.ContentGroups == null)
