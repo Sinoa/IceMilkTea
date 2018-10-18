@@ -73,6 +73,7 @@ namespace IceMilkTea.Service
         }
 
 
+        #region Load and Save
         /// <summary>
         /// マニフェストファイルからマニフェストを非同期にロードします。
         /// あらゆる、操作の前に一度だけ実行するようにして下さい。
@@ -131,8 +132,10 @@ namespace IceMilkTea.Service
                 File.WriteAllText(manifestFilePath, jsonData);
             });
         }
+        #endregion
 
 
+        #region Manifest Fetch and Check and Update
         /// <summary>
         /// マニフェストの取り込みを非同期で行います。取り込んだマニフェストは、内部データに反映はされません。
         /// データとして更新が必要かどうかについては GetUpdatableAssetBundlesAsync() を用いてください。
@@ -245,8 +248,10 @@ namespace IceMilkTea.Service
         {
             throw new NotImplementedException();
         }
+        #endregion
 
 
+        #region Get informations
         /// <summary>
         /// 指定された名前のアセットバンドル情報を取得します
         /// </summary>
@@ -298,5 +303,6 @@ namespace IceMilkTea.Service
         {
             throw new NotImplementedException();
         }
+        #endregion
     }
 }
