@@ -169,8 +169,8 @@ namespace IceMilkTea.Service
             }
 
 
-            // もし 新しいマニフェストと言うなの古いマニフェスト または 新しいマニフェストのグループが0件なら
-            if (manifest.LastUpdateTimeStamp >= newerManifest.LastUpdateTimeStamp || newerManifest.ContentGroups.Length == 0)
+            // もし新しいマニフェストと言うなの古いマニフェストなら
+            if (manifest.LastUpdateTimeStamp >= newerManifest.LastUpdateTimeStamp)
             {
                 // 更新する必要性がないとして長さ0の結果のタスクを返す
                 return Task.FromResult(Array.Empty<UpdatableAssetBundleInfo>());
@@ -182,13 +182,27 @@ namespace IceMilkTea.Service
             var notifyIntervalTime = (int)(1.0 / currentTargetFrameRate * 2000.0);
 
 
+            // 進捗通知インターバル計測用ストップウォッチを生成して、進捗通知用ハンドラの生成
+            var notifyIntervalStopwatch = Stopwatch.StartNew();
+            Action<CheckAssetBundleProgress> notifyProgress = x =>
+            {
+                // もし進捗通知経過時間に到達していないなら
+                if (notifyIntervalStopwatch.ElapsedMilliseconds < notifyIntervalTime)
+                {
+                    // まだ通知しない
+                    return;
+                }
+
+
+                // 受け取ったパラメータで通知を行いストップウォッチを再起動する
+                progress?.Report(x);
+                notifyIntervalStopwatch.Restart();
+            };
+
+
             // マニフェストの更新チェックを行うタスクを生成して返す
             return Task.Run(() =>
             {
-                // 進捗通知インターバル計測用ストップウォッチを起動
-                var notifyIntervalStopwatch = Stopwatch.StartNew();
-
-
                 // 古いコンテンツグループと新しいコンテンツグループの参照を拾う
                 var olderContentGroups = manifest.ContentGroups;
                 var newerContentGroups = newerManifest.ContentGroups;
@@ -200,10 +214,15 @@ namespace IceMilkTea.Service
                 var continuationGroupNameList = new List<string>();
 
 
-                // 新しいマニフェストのカテゴリ分回る
+                // 新しいマニフェストのグループ分回る
                 for (int i = 0; i < newerContentGroups.Length; ++i)
                 {
-                    // もし同名の名前が見つかったのなら
+                    // 進捗通知を行う
+                    var status = AssetBundleCheckStatus.NewerAndContinuationContentGroupCheck;
+                    notifyProgress(new CheckAssetBundleProgress(status, newerContentGroups[i].Name, newerContentGroups.Length, i));
+
+
+                    // 同名の名前が見つかったかどうか
                     var isNewGroupName = true;
 
 
@@ -230,6 +249,15 @@ namespace IceMilkTea.Service
                         // 継続グループ名リストに追加
                         continuationGroupNameList.Add(newerContentGroups[i].Name);
                     }
+                }
+
+
+                // 古いマニフェストのグループ分回る
+                for (int i = 0; i < olderContentGroups.Length; ++i)
+                {
+                    // 進捗通知を行う
+                    var status = AssetBundleCheckStatus.FindRemoveContentGroupCheck;
+                    notifyProgress(new CheckAssetBundleProgress(status, olderContentGroups[i].Name, olderContentGroups.Length, i));
                 }
 
 

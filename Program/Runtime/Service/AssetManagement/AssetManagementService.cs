@@ -40,7 +40,6 @@ namespace IceMilkTea.Service
         private AssetBundleStorage storage;
         private AssetBundleInstaller installer;
         private AssetBundleManifestFetcher manifestFetcher;
-        private AssetBundleManifestStorage manifestStorage;
 
 
 
@@ -55,7 +54,7 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">installer が null です</exception>
         /// <exception cref="ArgumentNullException">manifestStorage が null です</exception>
         /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
-        public AssetManagementService(AssetBundleStorage storage, AssetBundleInstaller installer, AssetBundleManifestStorage manifestStorage, AssetBundleManifestFetcher manifestFetcher)
+        public AssetManagementService(AssetBundleStorage storage, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher)
         {
             // storageがnullなら
             if (storage == null)
@@ -73,14 +72,6 @@ namespace IceMilkTea.Service
             }
 
 
-            // manifestStorageがnullなら
-            if (manifestStorage == null)
-            {
-                // どこに保管すればよいのだ
-                throw new ArgumentNullException(nameof(manifestStorage));
-            }
-
-
             // manifestFetcherがnullなら
             if (manifestFetcher == null)
             {
@@ -94,7 +85,6 @@ namespace IceMilkTea.Service
             assetCache = new UnityAssetCache();
             this.storage = storage;
             this.installer = installer;
-            this.manifestStorage = manifestStorage;
             this.manifestFetcher = manifestFetcher;
         }
 
@@ -313,53 +303,12 @@ namespace IceMilkTea.Service
         /// <returns>アセットの更新を非同期で行っているタスクを返します</returns>
         public async Task UpdateManifestAsync()
         {
-            await manifestStorage.LoadAsync(null);
-
-
-            var manifests = await manifestFetcher.FetchManifestAsync();
-            for (int i = 0; i < manifests.Length; ++i)
-            {
-                manifestStorage.SetManifest(ref manifests[i]);
-            }
-
-
-            await manifestStorage.SaveAsync(null);
         }
 
 
         // TODO : 今はフルダウンロードというひどい実装
         public async Task InstallAssetBundleAsync()
         {
-            var manifestNames = manifestStorage.GetAllManifestName();
-            foreach (var manifestName in manifestNames)
-            {
-                ImtAssetBundleManifest manifest;
-                if (!manifestStorage.TryGetManifest(manifestName, out manifest))
-                {
-                    continue;
-                }
-
-
-                AssetBundleContentGroup[] groups = manifest.ContentGroups;
-                for (int i = 0; i < groups.Length; ++i)
-                {
-                    AssetBundleInfo[] infos = groups[i].AssetBundleInfos;
-                    for (int j = 0; j < infos.Length; ++j)
-                    {
-                        // せめて存在チェック
-                        if (storage.Exists(ref infos[j]))
-                        {
-                            continue;
-                        }
-
-
-                        using (var installStream = await storage.GetInstallStreamAsync(infos[j]))
-                        {
-                            await installer.InstallAsync(infos[j], installStream, null);
-                        }
-                    }
-                }
-            }
         }
         #endregion
     }
