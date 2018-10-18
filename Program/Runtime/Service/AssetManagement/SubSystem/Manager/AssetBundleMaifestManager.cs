@@ -514,15 +514,50 @@ namespace IceMilkTea.Service
         }
 
 
+        /// <summary>
+        /// 現在管理しているマニフェストに含まれるコンテンツグループの名前の配列を取得します。
+        /// </summary>
+        /// <returns>現在管理しているマニフェストに含まれるコンテンツグループの名前の配列を返します。もし1件もデータが無かったとしても、長さ 0 の配列として返します</returns>
         public string[] GetContentGroupNames()
         {
-            throw new NotImplementedException();
+            // マニフェストのコンテンツグループ配列から名前の配列に変換して返す
+            return Array.ConvertAll(manifest.ContentGroups, x => x.Name);
         }
 
 
+        /// <summary>
+        /// 指定されたコンテンツグループ名のコンテンツグループを取得します
+        /// </summary>
+        /// <param name="contentGroupName">取得したいコンテンツグループの名前</param>
+        /// <param name="contentGroup">取得されたコンテンツグループを格納する参照</param>
+        /// <exception cref="ArgumentNullException">contentGroupName が null です</exception>
+        /// <exception cref="ArgumentException">コンテンツグループ '{contentGroupName}' が見つかりませんでした</exception>
         public void GetContentGroupInfo(string contentGroupName, out AssetBundleContentGroup contentGroup)
         {
-            throw new NotImplementedException();
+            // null を渡されたら
+            if (contentGroupName == null)
+            {
+                // 何を探せというのだ
+                throw new ArgumentNullException(nameof(contentGroupName));
+            }
+
+
+            // コンテンツグループの数分回る
+            var contentGroups = manifest.ContentGroups;
+            for (int i = 0; i < contentGroups.Length; ++i)
+            {
+                // もし同じ名前のコンテンツグループを見つけたら
+                if (contentGroups[i].Name == contentGroupName)
+                {
+                    // このコンテンツグループを渡して終了
+                    contentGroup = contentGroups[i];
+                    return;
+                }
+            }
+
+
+            // ループから抜けてきたということは見つからなかったということ
+            throw new ArgumentException($"コンテンツグループ '{contentGroupName}' が見つかりませんでした", nameof(contentGroupName));
         }
         #endregion
     }
