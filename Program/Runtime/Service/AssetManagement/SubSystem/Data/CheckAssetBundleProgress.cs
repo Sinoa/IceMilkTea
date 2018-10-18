@@ -29,6 +29,11 @@ namespace IceMilkTea.Service
         /// 削除するべきコンテンツグループの存在チェック中です
         /// </summary>
         FindRemoveContentGroupCheck,
+
+        /// <summary>
+        /// 継続のコンテンツグループ内に存在するアセットバンドルのハッシュを比較しています
+        /// </summary>
+        CompareAssetBundleHash,
     }
 
 

@@ -27,6 +27,31 @@ namespace IceMilkTea.Service
     /// </summary>
     internal class AssetBundleManifestManager
     {
+        /// <summary>
+        /// 更新対象となったコンテンツグループの参照インデックスを保持する構造体です
+        /// </summary>
+        private struct UpdateContentGroupReferenceIndex
+        {
+            /// <summary>
+            /// 更新対象となったコンテンツグループ名
+            /// </summary>
+            public string ContentGroupName;
+
+
+            /// <summary>
+            /// 更新対象となった新しいマニフェスト側の参照インデックス
+            /// </summary>
+            public int NewerContentGroupIndex;
+
+
+            /// <summary>
+            /// 更新対象となった古いマニフェスト側の参照インデックス
+            /// </summary>
+            public int OlderContentGroupIndex;
+        }
+
+
+
         // 定数定義
         private const string ManifestFileName = "AssetBundle.manifest";
 
@@ -211,27 +236,27 @@ namespace IceMilkTea.Service
                 // 今のうちに、新しいグループ名リスト、継続グループ名リスト、削除グループ名リストを生成しておく
                 var newGroupNameList = new List<string>();
                 var removeGroupNameList = new List<string>();
-                var continuationGroupNameList = new List<string>();
+                var continuationGroupList = new List<UpdateContentGroupReferenceIndex>();
 
 
                 // 新しいマニフェストのグループ分回る
-                for (int i = 0; i < newerContentGroups.Length; ++i)
+                for (int newerIndex = 0; newerIndex < newerContentGroups.Length; ++newerIndex)
                 {
                     // 進捗通知を行う
                     var status = AssetBundleCheckStatus.NewerAndContinuationContentGroupCheck;
-                    notifyProgress(new CheckAssetBundleProgress(status, newerContentGroups[i].Name, newerContentGroups.Length, i));
+                    notifyProgress(new CheckAssetBundleProgress(status, newerContentGroups[newerIndex].Name, newerContentGroups.Length, newerIndex));
 
 
-                    // 同名の名前が見つかったかどうか
+                    // 古いマニフェストのグループ分回る
                     var isNewGroupName = true;
-
-
-                    // 古いマニフェストのカテゴリ分回る
-                    for (int j = 0; j < olderContentGroups.Length; ++j)
+                    var referenceOlderIndex = 0;
+                    for (int olderIndex = 0; olderIndex < olderContentGroups.Length; ++olderIndex)
                     {
-                        if (newerContentGroups[i].Name == olderContentGroups[j].Name)
+                        // もし同名のグループ名が存在するなら
+                        if (newerContentGroups[newerIndex].Name == olderContentGroups[olderIndex].Name)
                         {
-                            // 新しいグループ名ではないことを示してループから抜ける
+                            // 古いコンテンツグループのインデックスを覚えて、新しいグループ名ではないこと（つまり継続）を示してループから抜ける
+                            referenceOlderIndex = olderIndex;
                             isNewGroupName = false;
                             break;
                         }
@@ -242,12 +267,18 @@ namespace IceMilkTea.Service
                     if (isNewGroupName)
                     {
                         // 新しいグループ名リストに追加
-                        newGroupNameList.Add(newerContentGroups[i].Name);
+                        newGroupNameList.Add(newerContentGroups[newerIndex].Name);
                     }
                     else
                     {
                         // 継続グループ名リストに追加
-                        continuationGroupNameList.Add(newerContentGroups[i].Name);
+                        continuationGroupList.Add(new UpdateContentGroupReferenceIndex()
+                        {
+                            // コンテンツグループ名、参照インデックスを覚える
+                            ContentGroupName = newerContentGroups[newerIndex].Name,
+                            NewerContentGroupIndex = newerIndex,
+                            OlderContentGroupIndex = referenceOlderIndex,
+                        });
                     }
                 }
 
@@ -258,6 +289,28 @@ namespace IceMilkTea.Service
                     // 進捗通知を行う
                     var status = AssetBundleCheckStatus.FindRemoveContentGroupCheck;
                     notifyProgress(new CheckAssetBundleProgress(status, olderContentGroups[i].Name, olderContentGroups.Length, i));
+
+
+                    // 新しいマニフェストグループ分回る
+                    var exists = false;
+                    for (int j = 0; j < newerContentGroups.Length; ++j)
+                    {
+                        // もし同名が存在するなら
+                        if (olderContentGroups[i].Name == newerContentGroups[j].Name)
+                        {
+                            // まだ存在していることをを示してループから抜ける
+                            exists = true;
+                            break;
+                        }
+                    }
+
+
+                    // 存在しないなら
+                    if (!exists)
+                    {
+                        // 削除対象グループ名リストに追加
+                        removeGroupNameList.Add(olderContentGroups[i].Name);
+                    }
                 }
 
 
@@ -272,9 +325,20 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="newerManifest">新しいとされるマニフェスト</param>
         /// <returns>マニフェストの更新を行っているタスクを返します</returns>
+        /// <exception cref="ArgumentException">古いマニフェストで更新しようとしました</exception>
         public Task UpdateManifestAsync(ImtAssetBundleManifest newerManifest)
         {
-            throw new NotImplementedException();
+            // もし新しいマニフェストと言うなの古いマニフェストなら
+            if (manifest.LastUpdateTimeStamp >= newerManifest.LastUpdateTimeStamp)
+            {
+                // 古いマニフェストで更新するのは良くない
+                throw new ArgumentException("古いマニフェストで更新しようとしました", nameof(newerManifest));
+            }
+
+
+            // 問題なさそうなら新しいマニフェストとして上書きして保存するタスクを返す
+            manifest = newerManifest;
+            return SaveManifestAsync();
         }
         #endregion
 
