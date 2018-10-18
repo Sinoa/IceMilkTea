@@ -181,11 +181,11 @@ namespace IceMilkTea.Service
         /// マニフェストの取り込みを非同期で行います。取り込んだマニフェストは、内部データに反映はされません。
         /// データとして更新が必要かどうかについては GetUpdatableAssetBundlesAsync() を用いてください。
         /// </summary>
-        /// <returns>取り込みに成功した場合は、有効な参照の ImtAssetBundleManifest のインスタンスを返しますが、失敗した場合は null を返すタスクを返します</returns>
-        public async Task<ImtAssetBundleManifest?> FetchManifestAsync()
+        /// <returns>アセットバンドルマニフェストを外部から非同期で取り込むタスクを返します</returns>
+        public Task<ImtAssetBundleManifest> FetchManifestAsync()
         {
             // フェッチャーのフェッチをそのまま呼ぶ
-            return await fetcher.FetchAsync();
+            return fetcher.FetchAsync();
         }
 
 

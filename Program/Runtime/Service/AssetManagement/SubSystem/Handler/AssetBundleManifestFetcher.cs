@@ -25,7 +25,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// マニフェストを非同期で取り込みます
         /// </summary>
-        /// <returns>取り込みに成功した場合は、有効な参照を持った ImtAssetBundleManifest のインスタンスを返しますが、失敗した場合は null を返すタスクを返します</returns>
-        public abstract Task<ImtAssetBundleManifest?> FetchAsync();
+        /// <returns>アセットバンドルマニフェストを外部から非同期で取り込むタスクを返します</returns>
+        public abstract Task<ImtAssetBundleManifest> FetchAsync();
     }
 }
