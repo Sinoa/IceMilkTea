@@ -362,14 +362,84 @@ namespace IceMilkTea.Service
 
 
                 // 新旧どちらとも存在する継続グループの列挙分回る
-                for (int i = 0; i < continuationGroupList.Count; ++i)
+                foreach (var continuationInfo in continuationGroupList)
                 {
                     // 新旧共にアセットバンドル情報とグループ名を取得する
-                    var newerContentGroupIndex = continuationGroupList[i].NewerContentGroupIndex;
-                    var olderContentGroupIndex = continuationGroupList[i].OlderContentGroupIndex;
+                    var newerContentGroupIndex = continuationInfo.NewerContentGroupIndex;
+                    var olderContentGroupIndex = continuationInfo.OlderContentGroupIndex;
                     var newerAssetBundleInfos = newerManifest.ContentGroups[newerContentGroupIndex].AssetBundleInfos;
                     var olderAssetBundleInfos = manifest.ContentGroups[olderContentGroupIndex].AssetBundleInfos;
                     var groupName = manifest.ContentGroups[olderContentGroupIndex].Name;
+
+
+                    // 新しいアセットバンドル情報から回る
+                    for (int newerIndex = 0; newerIndex < newerAssetBundleInfos.Length; ++newerIndex)
+                    {
+                        // 進捗通知を行う
+                        notifyProgress(AssetBundleCheckStatus.CompareAssetBundleHash, newerAssetBundleInfos[newerIndex].Name, newerAssetBundleInfos.Length, newerIndex);
+
+
+                        // 古いアセットバンドル情報分回る
+                        for (int olderIndex = 0; olderIndex < olderAssetBundleInfos.Length; ++olderIndex)
+                        {
+                            // もし同じ名前のアセットバンドルが見つかった場合は
+                            if (newerAssetBundleInfos[newerIndex].Name == olderAssetBundleInfos[olderIndex].Name)
+                            {
+                                // お互いのハッシュ配列の長さが違うなら
+                                var newerHash = newerAssetBundleInfos[newerIndex].Hash;
+                                var olderHash = olderAssetBundleInfos[olderIndex].Hash;
+                                if (newerHash.Length != olderHash.Length)
+                                {
+                                    // 無条件で更新対象として覚えて内側ループを抜ける
+                                    updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Update, groupName, ref newerAssetBundleInfos[newerIndex]));
+                                    break;
+                                }
+
+
+                                // 更にお互いのハッシュ値を比較するループをする
+                                for (int i = 0; i < newerHash.Length; ++i)
+                                {
+                                    // もし異なる値が出てきたのなら
+                                    if (newerHash[i] != olderHash[i])
+                                    {
+                                        // 更新対象として覚えてループを抜ける
+                                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Update, groupName, ref newerAssetBundleInfos[newerIndex]));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+                    // 古いアセットバンドル情報を回る
+                    for (int olderIndex = 0; olderIndex < olderAssetBundleInfos.Length; ++olderIndex)
+                    {
+                        // 進捗通知を行う
+                        notifyProgress(AssetBundleCheckStatus.CompareAssetBundleHash, olderAssetBundleInfos[olderIndex].Name, olderAssetBundleInfos.Length, olderIndex);
+
+
+                        // 新しいアセットバンドル情報分回る
+                        var isRemove = true;
+                        for (int newerIndex = 0; newerIndex < newerAssetBundleInfos.Length; ++newerIndex)
+                        {
+                            // もし同じ名前のアセットバンドルが見つかった場合は
+                            if (olderAssetBundleInfos[olderIndex].Name == newerAssetBundleInfos[newerIndex].Name)
+                            {
+                                // 削除対象ではないフラグを付けて内側ループから抜ける
+                                isRemove = false;
+                                break;
+                            }
+                        }
+
+
+                        // もし削除対象として判定されたのなら
+                        if (isRemove)
+                        {
+                            // 削除対象として覚えてループを抜ける
+                            updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Remove, groupName, ref olderAssetBundleInfos[olderIndex]));
+                        }
+                    }
                 }
 
 
