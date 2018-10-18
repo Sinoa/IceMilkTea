@@ -48,6 +48,22 @@ namespace IceMilkTea.Service
             /// 更新対象となった古いマニフェスト側の参照インデックス
             /// </summary>
             public int OlderContentGroupIndex;
+
+
+
+            /// <summary>
+            /// UpdateContentGroupReferenceIndex のインスタンスを初期化します
+            /// </summary>
+            /// <param name="groupName">コンテンツグループ名</param>
+            /// <param name="newerIndex">新しいマニフェスト側の参照インデックス</param>
+            /// <param name="olderIndex">古いマニフェスト側の参照インデックス</param>
+            public UpdateContentGroupReferenceIndex(string groupName, int newerIndex, int olderIndex)
+            {
+                // 値を受け取る
+                ContentGroupName = groupName;
+                NewerContentGroupIndex = newerIndex;
+                OlderContentGroupIndex = olderIndex;
+            }
         }
 
 
@@ -209,7 +225,7 @@ namespace IceMilkTea.Service
 
             // 進捗通知インターバル計測用ストップウォッチを生成して、進捗通知用ハンドラの生成
             var notifyIntervalStopwatch = Stopwatch.StartNew();
-            Action<CheckAssetBundleProgress> notifyProgress = x =>
+            Action<AssetBundleCheckStatus, string, int, int> notifyProgress = (status, name, total, checkedCount) =>
             {
                 // もし進捗通知経過時間に到達していないなら
                 if (notifyIntervalStopwatch.ElapsedMilliseconds < notifyIntervalTime)
@@ -220,7 +236,7 @@ namespace IceMilkTea.Service
 
 
                 // 受け取ったパラメータで通知を行いストップウォッチを再起動する
-                progress?.Report(x);
+                progress?.Report(new CheckAssetBundleProgress(status, name, total, checkedCount));
                 notifyIntervalStopwatch.Restart();
             };
 
@@ -233,18 +249,17 @@ namespace IceMilkTea.Service
                 var newerContentGroups = newerManifest.ContentGroups;
 
 
-                // 今のうちに、新しいグループ名リスト、継続グループ名リスト、削除グループ名リストを生成しておく
-                var newGroupNameList = new List<string>();
-                var removeGroupNameList = new List<string>();
-                var continuationGroupList = new List<UpdateContentGroupReferenceIndex>();
+                // 今のうちに、新しいグループリスト、継続グループリスト、削除グループリストを生成しておく
+                var newGroupIndexList = new List<int>(newerContentGroups.Length);
+                var removeGroupIndexList = new List<int>(olderContentGroups.Length);
+                var continuationGroupList = new List<UpdateContentGroupReferenceIndex>(newerContentGroups.Length);
 
 
                 // 新しいマニフェストのグループ分回る
                 for (int newerIndex = 0; newerIndex < newerContentGroups.Length; ++newerIndex)
                 {
                     // 進捗通知を行う
-                    var status = AssetBundleCheckStatus.NewerAndContinuationContentGroupCheck;
-                    notifyProgress(new CheckAssetBundleProgress(status, newerContentGroups[newerIndex].Name, newerContentGroups.Length, newerIndex));
+                    notifyProgress(AssetBundleCheckStatus.NewerAndContinuationContentGroupCheck, newerContentGroups[newerIndex].Name, newerContentGroups.Length, newerIndex);
 
 
                     // 古いマニフェストのグループ分回る
@@ -267,18 +282,12 @@ namespace IceMilkTea.Service
                     if (isNewGroupName)
                     {
                         // 新しいグループ名リストに追加
-                        newGroupNameList.Add(newerContentGroups[newerIndex].Name);
+                        newGroupIndexList.Add(newerIndex);
                     }
                     else
                     {
                         // 継続グループ名リストに追加
-                        continuationGroupList.Add(new UpdateContentGroupReferenceIndex()
-                        {
-                            // コンテンツグループ名、参照インデックスを覚える
-                            ContentGroupName = newerContentGroups[newerIndex].Name,
-                            NewerContentGroupIndex = newerIndex,
-                            OlderContentGroupIndex = referenceOlderIndex,
-                        });
+                        continuationGroupList.Add(new UpdateContentGroupReferenceIndex(newerContentGroups[newerIndex].Name, newerIndex, referenceOlderIndex));
                     }
                 }
 
@@ -287,8 +296,7 @@ namespace IceMilkTea.Service
                 for (int i = 0; i < olderContentGroups.Length; ++i)
                 {
                     // 進捗通知を行う
-                    var status = AssetBundleCheckStatus.FindRemoveContentGroupCheck;
-                    notifyProgress(new CheckAssetBundleProgress(status, olderContentGroups[i].Name, olderContentGroups.Length, i));
+                    notifyProgress(AssetBundleCheckStatus.FindRemoveContentGroupCheck, olderContentGroups[i].Name, olderContentGroups.Length, i);
 
 
                     // 新しいマニフェストグループ分回る
@@ -309,13 +317,64 @@ namespace IceMilkTea.Service
                     if (!exists)
                     {
                         // 削除対象グループ名リストに追加
-                        removeGroupNameList.Add(olderContentGroups[i].Name);
+                        removeGroupIndexList.Add(i);
                     }
                 }
 
 
-                // 雑返却
-                return Array.Empty<UpdatableAssetBundleInfo>();
+                // 新旧アセットバンドル情報量分のキャパシティで更新が必要になるアセットバンドルリストの用意
+                var capacity = newerManifest.TotalAssetBundleInfoCount + manifest.TotalAssetBundleInfoCount;
+                var updatableAssetBundleInfoList = new List<UpdatableAssetBundleInfo>(capacity);
+
+
+                // 新しいグループの列挙分回る
+                foreach (var index in newGroupIndexList)
+                {
+                    // コンテンツグループ内のアセットバンドル情報分回る
+                    var assetBundleInfos = newerContentGroups[index].AssetBundleInfos;
+                    for (int i = 0; i < assetBundleInfos.Length; ++i)
+                    {
+                        // 進捗通知を行う
+                        notifyProgress(AssetBundleCheckStatus.GetNewerAndRemoveAssetBundleInfo, assetBundleInfos[i].Name, assetBundleInfos.Length, i);
+
+
+                        // 無条件で新規追加として覚える
+                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.New, newerContentGroups[index].Name, ref assetBundleInfos[i]));
+                    }
+                }
+
+
+                // 古いグループの列挙分回る
+                foreach (var index in removeGroupIndexList)
+                {
+                    // コンテンツグループ内のアセットバンドル情報分回る
+                    var assetBundleInfos = olderContentGroups[index].AssetBundleInfos;
+                    for (int i = 0; i < assetBundleInfos.Length; ++i)
+                    {
+                        // 進捗通知を行う
+                        notifyProgress(AssetBundleCheckStatus.GetNewerAndRemoveAssetBundleInfo, assetBundleInfos[i].Name, assetBundleInfos.Length, i);
+
+
+                        // 無条件で削除として覚える
+                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Remove, newerContentGroups[index].Name, ref assetBundleInfos[i]));
+                    }
+                }
+
+
+                // 新旧どちらとも存在する継続グループの列挙分回る
+                for (int i = 0; i < continuationGroupList.Count; ++i)
+                {
+                    // 新旧共にアセットバンドル情報とグループ名を取得する
+                    var newerContentGroupIndex = continuationGroupList[i].NewerContentGroupIndex;
+                    var olderContentGroupIndex = continuationGroupList[i].OlderContentGroupIndex;
+                    var newerAssetBundleInfos = newerManifest.ContentGroups[newerContentGroupIndex].AssetBundleInfos;
+                    var olderAssetBundleInfos = manifest.ContentGroups[olderContentGroupIndex].AssetBundleInfos;
+                    var groupName = manifest.ContentGroups[olderContentGroupIndex].Name;
+                }
+
+
+                // 列挙された更新可能な情報のリストを配列として返す
+                return updatableAssetBundleInfoList.ToArray();
             });
         }
 

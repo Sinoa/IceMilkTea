@@ -31,6 +31,11 @@ namespace IceMilkTea.Service
         FindRemoveContentGroupCheck,
 
         /// <summary>
+        /// 新規追加及び削除対象アセットバンドル情報を取得しています
+        /// </summary>
+        GetNewerAndRemoveAssetBundleInfo,
+
+        /// <summary>
         /// 継続のコンテンツグループ内に存在するアセットバンドルのハッシュを比較しています
         /// </summary>
         CompareAssetBundleHash,

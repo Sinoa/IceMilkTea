@@ -62,6 +62,31 @@ namespace IceMilkTea.Service
         }
 
 
+        /// <summary>
+        /// マニフェストが保持している、全アセットバンドルの件数を取得します
+        /// </summary>
+        public int TotalAssetBundleInfoCount
+        {
+            get
+            {
+                // トータルカウントを記憶する変数宣言
+                var totalCount = 0;
+
+
+                // 保持しているコンテンツグループ分回る
+                for (int i = 0; i < ContentGroups.Length; ++i)
+                {
+                    // コンテンツグループが保持しているアセットバンドルの数を集計する
+                    totalCount += ContentGroups[i].AssetBundleInfos.Length;
+                }
+
+
+                // 結果を返す
+                return totalCount;
+            }
+        }
+
+
 
         /// <summary>
         /// 指定されたコンテンツグループ名のアセットバンドル合計サイズを取得します
