@@ -23,7 +23,12 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 新規または継続のコンテンツグループの存在チェック中です
         /// </summary>
-        NewerAndContinuationContentCategoryCheck,
+        NewerAndContinuationContentGroupCheck,
+
+        /// <summary>
+        /// 削除するべきコンテンツグループの存在チェック中です
+        /// </summary>
+        FindRemoveContentGroupCheck,
     }
 
 
@@ -55,5 +60,23 @@ namespace IceMilkTea.Service
         /// 現在のステータスに対する、チェック済みのアセットバンドル数
         /// </summary>
         public int TotalCheckedCount;
+
+
+
+        /// <summary>
+        /// CheckAssetBundleProgress のインスタンスを初期化します
+        /// </summary>
+        /// <param name="status">チェックステータス</param>
+        /// <param name="assetBundleName">チェック中のアセットバンドル名</param>
+        /// <param name="totalCount">チェックするトータル数</param>
+        /// <param name="totalChecked">チェックした数</param>
+        public CheckAssetBundleProgress(AssetBundleCheckStatus status, string assetBundleName, int totalCount, int totalChecked)
+        {
+            // パラメータを全て素直に受け取る
+            Status = status;
+            AssetBundleName = assetBundleName;
+            TotalCount = totalCount;
+            TotalCheckedCount = totalChecked;
+        }
     }
 }
