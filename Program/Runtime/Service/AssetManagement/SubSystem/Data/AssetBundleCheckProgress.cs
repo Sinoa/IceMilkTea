@@ -16,7 +16,7 @@
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// アセットバンドルのチェック状態を表現した
+    /// アセットバンドルのチェック状態を表現した列挙型です
     /// </summary>
     public enum AssetBundleCheckStatus
     {
@@ -24,7 +24,6 @@ namespace IceMilkTea.Service
         /// マニフェストから情報を取得しています
         /// </summary>
         GetManifestInfo,
-
 
         /// <summary>
         /// 新規追加または更新が必要なアセットバンドルの存在チェック中です
