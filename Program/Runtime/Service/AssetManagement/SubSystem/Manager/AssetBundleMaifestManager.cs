@@ -191,16 +191,17 @@ namespace IceMilkTea.Service
 
         /// <summary>
         /// 指定された新しいマニフェストを基に更新の必要のあるアセットバンドル情報の取得を非同期で行います。
+        /// 更新チェックは物理的なアセットバンドルの存在チェックとは異なり、マニフェスト上における更新チェックであることに注意して下さい。
         /// また、進捗通知はファイルチェック毎ではなく内部実装の既定に従った間隔で通知されます。
         /// </summary>
         /// <remarks>
-        /// 最初の進捗通知が行われるよりも、先にチェックが完了した場合は一度も進捗通知がされないことに注意してください
+        /// 最初の進捗通知が行われるよりも、先にチェックが完了した場合は一度も進捗通知がされないことに注意してください。
         /// </remarks>
         /// <param name="newerManifest">新しいとされるマニフェスト</param>
         /// <param name="progress">チェック進捗通知を受ける Progress。もし通知を受けない場合は null の指定が可能です。</param>
         /// <returns>現在管理しているマニフェスト情報から、新しいマニフェスト情報で更新の必要なるアセットバンドル情報の配列を、操作しているタスクを返します。更新件数が 0 件でも長さ 0 の配列を返します</returns>
         /// <exception cref="ArgumentException">新しいマニフェストの '{nameof(ImtAssetBundleManifest.ContentGroups)}' が null です</exception>
-        public Task<UpdatableAssetBundleInfo[]> GetUpdatableAssetBundlesAsync(ImtAssetBundleManifest newerManifest, IProgress<CheckAssetBundleProgress> progress)
+        public Task<UpdatableAssetBundleInfo[]> GetUpdatableAssetBundlesAsync(ImtAssetBundleManifest newerManifest, IProgress<AssetBundleCheckProgress> progress)
         {
             // 渡されたアセットバンドルマニフェストが無効なカテゴリ配列を持っていた場合は
             if (newerManifest.ContentGroups == null)
@@ -224,11 +225,11 @@ namespace IceMilkTea.Service
 
 
             // 進捗通知インターバル計測用ストップウォッチを生成して、進捗通知用ハンドラの生成
-            var notifyIntervalStopwatch = Stopwatch.StartNew();
-            Action<AssetBundleCheckStatus, string, int, int> notifyProgress = (status, name, total, checkedCount) =>
+            var notifyIntervalStopwatch = new Stopwatch();
+            Action<AssetBundleCheckProgress> notifyProgress = progressParam =>
             {
-                // もし進捗通知経過時間に到達していないなら
-                if (notifyIntervalStopwatch.ElapsedMilliseconds < notifyIntervalTime)
+                // もし 進捗通知経過計測用ストップウォッチが起動中 かつ 進捗通知経過時間に到達していない なら
+                if (notifyIntervalStopwatch.IsRunning && notifyIntervalStopwatch.ElapsedMilliseconds < notifyIntervalTime)
                 {
                     // まだ通知しない
                     return;
@@ -236,7 +237,7 @@ namespace IceMilkTea.Service
 
 
                 // 受け取ったパラメータで通知を行いストップウォッチを再起動する
-                progress?.Report(new CheckAssetBundleProgress(status, name, total, checkedCount));
+                progress?.Report(progressParam);
                 notifyIntervalStopwatch.Restart();
             };
 
@@ -244,82 +245,13 @@ namespace IceMilkTea.Service
             // マニフェストの更新チェックを行うタスクを生成して返す
             return Task.Run(() =>
             {
-                // 古いコンテンツグループと新しいコンテンツグループの参照を拾う
-                var olderContentGroups = manifest.ContentGroups;
-                var newerContentGroups = newerManifest.ContentGroups;
-
-
-                // 今のうちに、新しいグループリスト、継続グループリスト、削除グループリストを生成しておく
-                var newGroupIndexList = new List<int>(newerContentGroups.Length);
-                var removeGroupIndexList = new List<int>(olderContentGroups.Length);
-                var continuationGroupList = new List<UpdateContentGroupReferenceIndex>(newerContentGroups.Length);
-
-
-                // 新しいマニフェストのグループ分回る
-                for (int newerIndex = 0; newerIndex < newerContentGroups.Length; ++newerIndex)
-                {
-                    // 進捗通知を行う
-                    notifyProgress(AssetBundleCheckStatus.NewerAndContinuationContentGroupCheck, newerContentGroups[newerIndex].Name, newerContentGroups.Length, newerIndex);
-
-
-                    // 古いマニフェストのグループ分回る
-                    var isNewGroupName = true;
-                    var referenceOlderIndex = 0;
-                    for (int olderIndex = 0; olderIndex < olderContentGroups.Length; ++olderIndex)
-                    {
-                        // もし同名のグループ名が存在するなら
-                        if (newerContentGroups[newerIndex].Name == olderContentGroups[olderIndex].Name)
-                        {
-                            // 古いコンテンツグループのインデックスを覚えて、新しいグループ名ではないこと（つまり継続）を示してループから抜ける
-                            referenceOlderIndex = olderIndex;
-                            isNewGroupName = false;
-                            break;
-                        }
-                    }
-
-
-                    // もし新しいグループ名なら
-                    if (isNewGroupName)
-                    {
-                        // 新しいグループ名リストに追加
-                        newGroupIndexList.Add(newerIndex);
-                    }
-                    else
-                    {
-                        // 継続グループ名リストに追加
-                        continuationGroupList.Add(new UpdateContentGroupReferenceIndex(newerContentGroups[newerIndex].Name, newerIndex, referenceOlderIndex));
-                    }
-                }
-
-
-                // 古いマニフェストのグループ分回る
-                for (int i = 0; i < olderContentGroups.Length; ++i)
-                {
-                    // 進捗通知を行う
-                    notifyProgress(AssetBundleCheckStatus.FindRemoveContentGroupCheck, olderContentGroups[i].Name, olderContentGroups.Length, i);
-
-
-                    // 新しいマニフェストグループ分回る
-                    var exists = false;
-                    for (int j = 0; j < newerContentGroups.Length; ++j)
-                    {
-                        // もし同名が存在するなら
-                        if (olderContentGroups[i].Name == newerContentGroups[j].Name)
-                        {
-                            // まだ存在していることをを示してループから抜ける
-                            exists = true;
-                            break;
-                        }
-                    }
-
-
-                    // 存在しないなら
-                    if (!exists)
-                    {
-                        // 削除対象グループ名リストに追加
-                        removeGroupIndexList.Add(i);
-                    }
-                }
+                // 新しいマニフェストと古いマニフェストのアセットバンドル情報をすべて取得する。更にその間に通知も行っておく
+                var newerAssetBundleInfos = new KeyValuePair<string, AssetBundleInfo>[newerManifest.TotalAssetBundleInfoCount];
+                var olderAssetBundleInfos = new KeyValuePair<string, AssetBundleInfo>[manifest.TotalAssetBundleInfoCount];
+                notifyProgress(new AssetBundleCheckProgress(AssetBundleCheckStatus.GetManifestInfo, "NewerManifest", 2, 0));
+                newerManifest.AllAssetBundleInfoCopyTo(newerAssetBundleInfos);
+                notifyProgress(new AssetBundleCheckProgress(AssetBundleCheckStatus.GetManifestInfo, "OlderManifest", 2, 1));
+                manifest.AllAssetBundleInfoCopyTo(olderAssetBundleInfos);
 
 
                 // 新旧アセットバンドル情報量分のキャパシティで更新が必要になるアセットバンドルリストの用意
@@ -327,118 +259,126 @@ namespace IceMilkTea.Service
                 var updatableAssetBundleInfoList = new List<UpdatableAssetBundleInfo>(capacity);
 
 
-                // 新しいグループの列挙分回る
-                foreach (var index in newGroupIndexList)
+                // 新しいアセットバンドルの情報分回る
+                for (int newerIndex = 0; newerIndex < newerAssetBundleInfos.Length; ++newerIndex)
                 {
-                    // コンテンツグループ内のアセットバンドル情報分回る
-                    var assetBundleInfos = newerContentGroups[index].AssetBundleInfos;
-                    for (int i = 0; i < assetBundleInfos.Length; ++i)
-                    {
-                        // 進捗通知を行う
-                        notifyProgress(AssetBundleCheckStatus.GetNewerAndRemoveAssetBundleInfo, assetBundleInfos[i].Name, assetBundleInfos.Length, i);
+                    // 新しいアセットバンドル情報を変数として受け取る
+                    var newerContentGroupName = newerAssetBundleInfos[newerIndex].Key;
+                    var newerAssetBundleInfo = newerAssetBundleInfos[newerIndex].Value;
 
 
-                        // 無条件で新規追加として覚える
-                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.New, newerContentGroups[index].Name, ref assetBundleInfos[i]));
-                    }
-                }
+                    // 進捗通知を行う
+                    notifyProgress(new AssetBundleCheckProgress(AssetBundleCheckStatus.NewerAndUpdateCheck, newerAssetBundleInfo.Name, newerAssetBundleInfos.Length, newerIndex));
 
 
-                // 古いグループの列挙分回る
-                foreach (var index in removeGroupIndexList)
-                {
-                    // コンテンツグループ内のアセットバンドル情報分回る
-                    var assetBundleInfos = olderContentGroups[index].AssetBundleInfos;
-                    for (int i = 0; i < assetBundleInfos.Length; ++i)
-                    {
-                        // 進捗通知を行う
-                        notifyProgress(AssetBundleCheckStatus.GetNewerAndRemoveAssetBundleInfo, assetBundleInfos[i].Name, assetBundleInfos.Length, i);
+                    // 新規追加か更新かのフラグを宣言
+                    var isNewerAssetBundle = true;
+                    var isUpdatableAssetBundle = false;
 
 
-                        // 無条件で削除として覚える
-                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Remove, newerContentGroups[index].Name, ref assetBundleInfos[i]));
-                    }
-                }
-
-
-                // 新旧どちらとも存在する継続グループの列挙分回る
-                foreach (var continuationInfo in continuationGroupList)
-                {
-                    // 新旧共にアセットバンドル情報とグループ名を取得する
-                    var newerContentGroupIndex = continuationInfo.NewerContentGroupIndex;
-                    var olderContentGroupIndex = continuationInfo.OlderContentGroupIndex;
-                    var newerAssetBundleInfos = newerManifest.ContentGroups[newerContentGroupIndex].AssetBundleInfos;
-                    var olderAssetBundleInfos = manifest.ContentGroups[olderContentGroupIndex].AssetBundleInfos;
-                    var groupName = manifest.ContentGroups[olderContentGroupIndex].Name;
-
-
-                    // 新しいアセットバンドル情報から回る
-                    for (int newerIndex = 0; newerIndex < newerAssetBundleInfos.Length; ++newerIndex)
-                    {
-                        // 進捗通知を行う
-                        notifyProgress(AssetBundleCheckStatus.CompareAssetBundleHash, newerAssetBundleInfos[newerIndex].Name, newerAssetBundleInfos.Length, newerIndex);
-
-
-                        // 古いアセットバンドル情報分回る
-                        for (int olderIndex = 0; olderIndex < olderAssetBundleInfos.Length; ++olderIndex)
-                        {
-                            // もし同じ名前のアセットバンドルが見つかった場合は
-                            if (newerAssetBundleInfos[newerIndex].Name == olderAssetBundleInfos[olderIndex].Name)
-                            {
-                                // お互いのハッシュ配列の長さが違うなら
-                                var newerHash = newerAssetBundleInfos[newerIndex].Hash;
-                                var olderHash = olderAssetBundleInfos[olderIndex].Hash;
-                                if (newerHash.Length != olderHash.Length)
-                                {
-                                    // 無条件で更新対象として覚えて内側ループを抜ける
-                                    updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Update, groupName, ref newerAssetBundleInfos[newerIndex]));
-                                    break;
-                                }
-
-
-                                // 更にお互いのハッシュ値を比較するループをする
-                                for (int i = 0; i < newerHash.Length; ++i)
-                                {
-                                    // もし異なる値が出てきたのなら
-                                    if (newerHash[i] != olderHash[i])
-                                    {
-                                        // 更新対象として覚えてループを抜ける
-                                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Update, groupName, ref newerAssetBundleInfos[newerIndex]));
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-
-                    // 古いアセットバンドル情報を回る
+                    // 古いアセットバンドルの情報分回る
                     for (int olderIndex = 0; olderIndex < olderAssetBundleInfos.Length; ++olderIndex)
                     {
-                        // 進捗通知を行う
-                        notifyProgress(AssetBundleCheckStatus.CompareAssetBundleHash, olderAssetBundleInfos[olderIndex].Name, olderAssetBundleInfos.Length, olderIndex);
-
-
-                        // 新しいアセットバンドル情報分回る
-                        var isRemove = true;
-                        for (int newerIndex = 0; newerIndex < newerAssetBundleInfos.Length; ++newerIndex)
+                        // もし同じ名前のアセットバンドルが見つかったら
+                        if (newerAssetBundleInfo.Name == olderAssetBundleInfos[olderIndex].Value.Name)
                         {
-                            // もし同じ名前のアセットバンドルが見つかった場合は
-                            if (olderAssetBundleInfos[olderIndex].Name == newerAssetBundleInfos[newerIndex].Name)
+                            // この時点で新規アセットバンドルではないとする
+                            isNewerAssetBundle = false;
+
+
+                            // 新旧アセットバンドル情報のハッシュ値を取得する
+                            var newerHash = newerAssetBundleInfo.Hash;
+                            var olderHash = olderAssetBundleInfos[olderIndex].Value.Hash;
+
+
+                            // ハッシュ値の長さが異なるなら
+                            if (newerHash.Length != olderHash.Length)
                             {
-                                // 削除対象ではないフラグを付けて内側ループから抜ける
-                                isRemove = false;
+                                // この時点で更新対象としてマークして、古いアセットバンドル情報ループから抜ける
+                                isUpdatableAssetBundle = true;
                                 break;
                             }
+
+
+                            // ハッシュ値を比較する
+                            var isEqual = true;
+                            for (int i = 0; i < newerHash.Length; ++i)
+                            {
+                                // もし新しいハッシュ値と古いハッシュ値が異なるなら
+                                if (newerHash[i] != olderHash[i])
+                                {
+                                    // ハッシュ値が異なるとしてマークしてループから抜ける
+                                    isEqual = false;
+                                    break;
+                                }
+                            }
+
+
+                            // ハッシュ値が異なるなら
+                            if (!isEqual)
+                            {
+                                // 更新対象としてマークする
+                                isUpdatableAssetBundle = true;
+                            }
+
+
+                            // 古いアセットバンドル情報ループから抜ける
+                            break;
                         }
+                    }
 
 
-                        // もし削除対象として判定されたのなら
-                        if (isRemove)
+                    // もし新しいアセットバンドル情報なら
+                    if (isNewerAssetBundle)
+                    {
+                        // 新しいアセットバンドルとしてアップデート可能情報リストに新規として追加
+                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.New, newerContentGroupName, ref newerAssetBundleInfo));
+                    }
+
+
+                    // 更新対象なら更新対象としてアップデート可能情報リストに更新として追加する
+                    if (isUpdatableAssetBundle)
+                    {
+                        // 更新対象アセットバンドルとしてアップデート可能情報リストに更新として追加
+                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Update, newerContentGroupName, ref newerAssetBundleInfo));
+                    }
+                }
+
+
+                // 古いアセットバンドル情報の数分回る
+                for (int olderIndex = 0; olderIndex < olderAssetBundleInfos.Length; ++olderIndex)
+                {
+                    // 古いアセットバンドル情報を変数として受け取る
+                    var olderContentGroupName = olderAssetBundleInfos[olderIndex].Key;
+                    var olderAssetBundleInfo = olderAssetBundleInfos[olderIndex].Value;
+
+
+                    // 進捗通知を行う
+                    notifyProgress(new AssetBundleCheckProgress(AssetBundleCheckStatus.RemoveContentGroupCheck, olderAssetBundleInfo.Name, newerAssetBundleInfos.Length, olderIndex));
+
+
+                    // 削除対象かどうかのフラグを宣言する
+                    var isRemoveAssetBundle = true;
+
+
+                    // 新しいアセットバンドル情報の数分回る
+                    for (int newerIndex = 0; newerIndex < newerAssetBundleInfos.Length; ++newerIndex)
+                    {
+                        // もし同じ名前のアセットバンドルが見つかったのなら
+                        if (olderAssetBundleInfo.Name == newerAssetBundleInfos[newerIndex].Value.Name)
                         {
-                            // 削除対象として覚えてループを抜ける
-                            updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Remove, groupName, ref olderAssetBundleInfos[olderIndex]));
+                            // これは削除対象ではないとマークして新しいアセットバンドル情報ループを抜ける
+                            isRemoveAssetBundle = false;
+                            break;
                         }
+                    }
+
+
+                    // もし削除対象なら
+                    if (isRemoveAssetBundle)
+                    {
+                        // 削除対象アセットバンドルとしてアップデート可能情報リストに削除として追加
+                        updatableAssetBundleInfoList.Add(new UpdatableAssetBundleInfo(AssetBundleUpdateType.Remove, olderContentGroupName, ref olderAssetBundleInfo));
                     }
                 }
 

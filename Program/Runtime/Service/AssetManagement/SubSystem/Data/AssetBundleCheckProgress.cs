@@ -21,24 +21,20 @@ namespace IceMilkTea.Service
     public enum AssetBundleCheckStatus
     {
         /// <summary>
-        /// 新規または継続のコンテンツグループの存在チェック中です
+        /// マニフェストから情報を取得しています
         /// </summary>
-        NewerAndContinuationContentGroupCheck,
+        GetManifestInfo,
+
 
         /// <summary>
-        /// 削除するべきコンテンツグループの存在チェック中です
+        /// 新規追加または更新が必要なアセットバンドルの存在チェック中です
         /// </summary>
-        FindRemoveContentGroupCheck,
+        NewerAndUpdateCheck,
 
         /// <summary>
-        /// 新規追加及び削除対象アセットバンドル情報を取得しています
+        /// 削除するべきアセットバンドルの存在チェック中です
         /// </summary>
-        GetNewerAndRemoveAssetBundleInfo,
-
-        /// <summary>
-        /// 継続のコンテンツグループ内に存在するアセットバンドルのハッシュを比較しています
-        /// </summary>
-        CompareAssetBundleHash,
+        RemoveContentGroupCheck,
     }
 
 
@@ -46,7 +42,7 @@ namespace IceMilkTea.Service
     /// <summary>
     /// アセットバンドルのチェック進捗情報を保持した構造体です
     /// </summary>
-    public struct CheckAssetBundleProgress
+    public struct AssetBundleCheckProgress
     {
         /// <summary>
         /// 現在のチェックステータス
@@ -74,13 +70,13 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// CheckAssetBundleProgress のインスタンスを初期化します
+        /// AssetBundleCheckProgress のインスタンスを初期化します
         /// </summary>
         /// <param name="status">チェックステータス</param>
         /// <param name="assetBundleName">チェック中のアセットバンドル名</param>
         /// <param name="totalCount">チェックするトータル数</param>
         /// <param name="totalChecked">チェックした数</param>
-        public CheckAssetBundleProgress(AssetBundleCheckStatus status, string assetBundleName, int totalCount, int totalChecked)
+        public AssetBundleCheckProgress(AssetBundleCheckStatus status, string assetBundleName, int totalCount, int totalChecked)
         {
             // パラメータを全て素直に受け取る
             Status = status;
