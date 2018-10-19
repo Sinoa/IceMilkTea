@@ -111,5 +111,56 @@ namespace IceMilkTea.Service
             // ループから抜けたということは見つからなかったということ
             throw new System.ArgumentException($"指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした", nameof(contentGroupName));
         }
+
+
+        /// <summary>
+        /// このマニフェストが保持している、すべてのコンテンツグループのすべてのアセットバンドル情報を
+        /// 指定されたアセットバンドル情報の配列に一次元としてすべてコピーします。
+        /// </summary>
+        /// <remarks>
+        /// もし、コピー先の配列がコピーする情報を受けられる十分な長さがない場合は、コピー先の配列が埋まるまでの数をコピーします。
+        /// また、コピー元の長さより長い配列の場合は、残りの要素は特に触れることはありません。
+        /// </remarks>
+        /// <param name="destination">コピー先の配列</param>
+        /// <exception cref="System.ArgumentNullException">destination が null です</exception>
+        public void AllAssetBundleInfoCopyTo(AssetBundleInfo[] destination)
+        {
+            // nullを渡されたら
+            if (destination == null)
+            {
+                // どこにコピーすれば良いのか
+                throw new System.ArgumentNullException(nameof(destination));
+            }
+
+
+            // 長さが 0 の配列を渡されたのなら
+            if (destination.Length == 0)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // 保持しているコンテンツグループ分回る
+            int totalCopyCount = 0;
+            for (int groupIndex = 0; groupIndex < ContentGroups.Length; ++groupIndex)
+            {
+                // コンテンツグループが所持しているアセットバンドル情報分回る
+                var assetBundleInfos = ContentGroups[groupIndex].AssetBundleInfos;
+                for (int infoIndex = 0; infoIndex < assetBundleInfos.Length; ++infoIndex)
+                {
+                    // 渡された配列にコピーする
+                    destination[totalCopyCount++] = assetBundleInfos[infoIndex];
+
+
+                    // もしコピーした件数と渡された配列の長さと一致したのなら
+                    if (totalCopyCount == destination.Length)
+                    {
+                        // もうコピーは出来ないので終了
+                        return;
+                    }
+                }
+            }
+        }
     }
 }
