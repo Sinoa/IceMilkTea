@@ -13,13 +13,16 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.Collections.Generic;
+
 namespace IceMilkTea.Service
 {
     /// <summary>
     /// 1つ以上のアセットバンドル情報を保持した構造体です。
     /// アセットバンドルの管理情報なども一部含みます。
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     public struct ImtAssetBundleManifest
     {
         /// <summary>
@@ -93,7 +96,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="contentGroupName">サイズを取得したいコンテンツグループ名</param>
         /// <returns>指定されたコンテンツグループが保有するアセットバンドルの合計サイズを返します</returns>
-        /// <exception cref="System.ArgumentException">指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした</exception>
+        /// <exception cref="ArgumentException">指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした</exception>
         public long GetContentGroupAssetBundleTotalSize(string contentGroupName)
         {
             // 保持しているコンテンツグループ分回る
@@ -109,27 +112,27 @@ namespace IceMilkTea.Service
 
 
             // ループから抜けたということは見つからなかったということ
-            throw new System.ArgumentException($"指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした", nameof(contentGroupName));
+            throw new ArgumentException($"指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした", nameof(contentGroupName));
         }
 
 
         /// <summary>
         /// このマニフェストが保持している、すべてのコンテンツグループのすべてのアセットバンドル情報を
-        /// 指定されたアセットバンドル情報の配列に一次元としてすべてコピーします。
+        /// 指定されたグループ名をキーとした、アセットバンドル情報の配列にすべてコピーします。
         /// </summary>
         /// <remarks>
         /// もし、コピー先の配列がコピーする情報を受けられる十分な長さがない場合は、コピー先の配列が埋まるまでの数をコピーします。
         /// また、コピー元の長さより長い配列の場合は、残りの要素は特に触れることはありません。
         /// </remarks>
         /// <param name="destination">コピー先の配列</param>
-        /// <exception cref="System.ArgumentNullException">destination が null です</exception>
-        public void AllAssetBundleInfoCopyTo(AssetBundleInfo[] destination)
+        /// <exception cref="ArgumentNullException">destination が null です</exception>
+        public void AllAssetBundleInfoCopyTo(KeyValuePair<string, AssetBundleInfo>[] destination)
         {
             // nullを渡されたら
             if (destination == null)
             {
                 // どこにコピーすれば良いのか
-                throw new System.ArgumentNullException(nameof(destination));
+                throw new ArgumentNullException(nameof(destination));
             }
 
 
@@ -150,7 +153,7 @@ namespace IceMilkTea.Service
                 for (int infoIndex = 0; infoIndex < assetBundleInfos.Length; ++infoIndex)
                 {
                     // 渡された配列にコピーする
-                    destination[totalCopyCount++] = assetBundleInfos[infoIndex];
+                    destination[totalCopyCount++] = new KeyValuePair<string, AssetBundleInfo>(ContentGroups[groupIndex].Name, assetBundleInfos[infoIndex]);
 
 
                     // もしコピーした件数と渡された配列の長さと一致したのなら
