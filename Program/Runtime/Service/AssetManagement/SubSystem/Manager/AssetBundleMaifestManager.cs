@@ -414,6 +414,48 @@ namespace IceMilkTea.Service
 
         #region Get informations
         /// <summary>
+        /// 指定された名前のアセットバンドル情報の取得を試みます
+        /// </summary>
+        /// <param name="assetBundleName">アセットバンドル情報を取得する、アセットバンドル名</param>
+        /// <param name="assetBundleInfo">取得されたアセットバンドルの情報を格納する参照</param>
+        /// <returns>情報の取得に成功した場合は true を、失敗した場合は false を返します</returns>
+        /// <exception cref="ArgumentNullException">assetBundleName が null です</exception>
+        public bool TryGetAssetBundleInfo(string assetBundleName, out AssetBundleInfo assetBundleInfo)
+        {
+            // 名前に null が渡されたら
+            if (assetBundleName == null)
+            {
+                // どうしろってんだい
+                throw new ArgumentNullException(nameof(assetBundleName));
+            }
+
+
+            // 現在のマニフェストに含まれるコンテンツグループ分回る
+            var contentGrops = manifest.ContentGroups;
+            for (int i = 0; i < contentGrops.Length; ++i)
+            {
+                // コンテンツグループ内にあるアセットバンドル情報の数分回る
+                var assetBundleInfos = contentGrops[i].AssetBundleInfos;
+                for (int j = 0; j < assetBundleInfos.Length; ++j)
+                {
+                    // アセットバンドル名が一致したのなら
+                    if (assetBundleInfos[j].Name == assetBundleName)
+                    {
+                        // この情報を渡して終了
+                        assetBundleInfo = assetBundleInfos[j];
+                        return true;
+                    }
+                }
+            }
+
+
+            // ループから抜けてきたということは見つからなかったということ
+            assetBundleInfo = default(AssetBundleInfo);
+            return false;
+        }
+
+
+        /// <summary>
         /// 指定された名前のアセットバンドル情報を取得します
         /// </summary>
         /// <param name="assetBundleName">アセットバンドル情報を取得する、アセットバンドル名</param>
