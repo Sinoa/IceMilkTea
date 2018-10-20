@@ -27,47 +27,6 @@ namespace IceMilkTea.Service
     /// </summary>
     internal class AssetBundleManifestManager
     {
-        /// <summary>
-        /// 更新対象となったコンテンツグループの参照インデックスを保持する構造体です
-        /// </summary>
-        private struct UpdateContentGroupReferenceIndex
-        {
-            /// <summary>
-            /// 更新対象となったコンテンツグループ名
-            /// </summary>
-            public string ContentGroupName;
-
-
-            /// <summary>
-            /// 更新対象となった新しいマニフェスト側の参照インデックス
-            /// </summary>
-            public int NewerContentGroupIndex;
-
-
-            /// <summary>
-            /// 更新対象となった古いマニフェスト側の参照インデックス
-            /// </summary>
-            public int OlderContentGroupIndex;
-
-
-
-            /// <summary>
-            /// UpdateContentGroupReferenceIndex のインスタンスを初期化します
-            /// </summary>
-            /// <param name="groupName">コンテンツグループ名</param>
-            /// <param name="newerIndex">新しいマニフェスト側の参照インデックス</param>
-            /// <param name="olderIndex">古いマニフェスト側の参照インデックス</param>
-            public UpdateContentGroupReferenceIndex(string groupName, int newerIndex, int olderIndex)
-            {
-                // 値を受け取る
-                ContentGroupName = groupName;
-                NewerContentGroupIndex = newerIndex;
-                OlderContentGroupIndex = olderIndex;
-            }
-        }
-
-
-
         // 定数定義
         private const string ManifestFileName = "AssetBundle.manifest";
 
