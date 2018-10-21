@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
@@ -37,29 +38,64 @@ namespace IceMilkTea.Service
         // メンバ変数定義
         private UriInfoCache uriCache;
         private UnityAssetCache assetCache;
-        private AssetBundleStorage storage;
-        private AssetBundleInstaller installer;
-        private AssetBundleManifestFetcher manifestFetcher;
-        private AssetBundleManifestStorage manifestStorage;
+        private AssetBundleManifestManager manifestManager;
+        private AssetBundleStorageManager storageManager;
+        private bool isSimulate;
 
 
 
         /// <summary>
         /// AssetManagementService のインスタンスを初期化します。
         /// </summary>
-        /// <param name="storage">アセットバンドルを貯蔵するストレージ</param>
+        /// <param name="storageController">アセットバンドルの貯蔵物を制御するストレージコントローラ</param>
         /// <param name="installer">アセットバンドルをストレージにインストールするインストーラ</param>
-        /// <param name="manifestStorage">マニフェストを貯蔵するストレージ</param>
         /// <param name="manifestFetcher">マニフェストをフェッチするフェッチャー</param>
-        public AssetManagementService(AssetBundleStorage storage, AssetBundleInstaller installer, AssetBundleManifestStorage manifestStorage, AssetBundleManifestFetcher manifestFetcher)
+        /// <param name="storageDirectoryInfo">アセットマネージャが利用するディレクトリ情報</param>
+        /// <param name="isSimulate">アセットバンドルロード時にシミュレートするか否か</param>
+        /// <exception cref="ArgumentNullException">storageController が null です</exception>
+        /// <exception cref="ArgumentNullException">installer が null です</exception>
+        /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
+        /// <exception cref="ArgumentNullException">storageDirectoryInfo が null です</exception>
+        public AssetManagementService(AssetBundleStorageController storageController, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher, DirectoryInfo storageDirectoryInfo, bool isSimulate)
         {
+            // storageがnullなら
+            if (storageController == null)
+            {
+                // どこに貯蔵すれば良いのだ
+                throw new ArgumentNullException(nameof(storageController));
+            }
+
+
+            // installerがnullなら
+            if (installer == null)
+            {
+                // 何でインストールすればよいのだ
+                throw new ArgumentNullException(nameof(installer));
+            }
+
+
+            // manifestFetcherがnullなら
+            if (manifestFetcher == null)
+            {
+                // どうやって取得すればよいのだ
+                throw new ArgumentNullException(nameof(manifestFetcher));
+            }
+
+
+            // storageDirectoryInfoがnullなら
+            if (storageDirectoryInfo == null)
+            {
+                // どこで管理をすればよいのだ
+                throw new ArgumentNullException(nameof(storageDirectoryInfo));
+            }
+
+
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
-            this.storage = storage;
-            this.installer = installer;
-            this.manifestStorage = manifestStorage;
-            this.manifestFetcher = manifestFetcher;
+            manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
+            storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer);
+            this.isSimulate = isSimulate;
         }
 
 
@@ -132,10 +168,15 @@ namespace IceMilkTea.Service
                 // Resoucesからアセットをロードする
                 asset = await LoadResourcesAssetAsync<T>(uriInfo, progress);
             }
-            else if (storageName == AssetBundleHostName)
+            else if (isSimulate == false && storageName == AssetBundleHostName)
             {
                 // Resourcesでないならアセットバンドル側からロードする
                 asset = await LoadAssetBundleAssetAsync<T>(storageName, uriInfo, progress);
+            }
+            else if (isSimulate == true && storageName == AssetBundleHostName)
+            {
+                // Unityプロジェクトからロードする
+                asset = await LoadProjectAssetAsync<T>(uriInfo, progress);
             }
             else
             {
@@ -228,7 +269,9 @@ namespace IceMilkTea.Service
 
             // ローカルパスを取得してアセットバンドルを開く
             var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
-            var assetBundle = await storage.OpenAsync(localPath);
+            AssetBundleInfo assetBundleInfo;
+            manifestManager.GetAssetBundleInfo(localPath, out assetBundleInfo);
+            var assetBundle = await storageManager.OpenAsync(assetBundleInfo);
 
 
             // 結果を納める変数宣言
@@ -269,50 +312,83 @@ namespace IceMilkTea.Service
         #endregion
 
 
-        #region Manifest
+        #region Simulate Load
         /// <summary>
-        /// マニフェストの更新を非同期で行います。
-        /// このサービスを利用する前に最初に呼び出すことを推奨します
+        /// Unityプロジェクトから非同期にアセットのロードを行います。
+        /// また、この関数はエディタ環境以外では動作しないことに注意して下さい。
+        /// エディタ以外で利用しようとすると例外をスローします。
         /// </summary>
-        /// <returns>アセットの更新を非同期で行っているタスクを返します</returns>
-        public async Task UpdateManifestAsync()
+        /// <typeparam name="T">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットURL</param>
+        /// <param name="progress">ロードの進捗通知を受ける IProgress</param>
+        /// <returns>ロードに成功した場合は有効なアセットの参照をかえします。ロードに失敗した場合は null を返します。</returns>
+        /// <exception cref="InvalidOperationException">ロードするべきアセット名を取得出来ませんでした。クエリに 'name' パラメータがあることを確認してください。</exception>
+        /// <exception cref="InvalidOperationException">このロード関数はエディタ以外では動作しません</exception>
+        private Task<T> LoadProjectAssetAsync<T>(UriInfo assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
-            await manifestStorage.LoadAsync(null);
-
-
-            var manifests = await manifestFetcher.FetchManifestAsync();
-            for (int i = 0; i < manifests.Length; ++i)
+#if UNITY_EDITOR
+            // ロードするアセット名を取得するが見つけられなかったら
+            var assetPath = default(string);
+            if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath))
             {
-                manifestStorage.SetManifest(ref manifests[i]);
+                // ロードするアセット名が不明である例外を吐く
+                throw new InvalidOperationException($"アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに '{AssetNameQueryName}' パラメータがあることを確認してください。");
             }
 
 
-            await manifestStorage.SaveAsync(null);
+            // 結果を納める変数宣言
+            T result = default(T);
+
+
+            // もしマルチスプライト型のロード要求なら
+            if (typeof(T) == typeof(MultiSprite))
+            {
+                // 残念ながら非同期ロード関数がないのでここで同期読み込みをするが、ロードに失敗したら
+                var sprites = Array.ConvertAll(UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath), x => (Sprite)x);
+                if (sprites == null)
+                {
+                    // ロードが出来なかったということでnullを返す
+                    return Task.FromResult(default(T));
+                }
+
+
+                // マルチスプライトアセットとしてインスタンスを生成して結果に納める
+                result = (T)(UnityEngine.Object)new MultiSprite(sprites);
+            }
+            else
+            {
+                // 特定型ロードでなければ通常のロードを行う（もちろん非同期ロードはない）
+                result = UnityEditor.AssetDatabase.LoadAssetAtPath<T>(assetPath);
+            }
+
+
+            // 結果を返す
+            return Task.FromResult(result);
+#else
+            throw new InvalidOperationException("このロード関数はエディタ以外では動作しません");
+#endif
+        }
+        #endregion
+
+
+        #region Manifest
+        // TODO : 今はフル更新というひどい実装
+        public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
+        {
+            // マニフェストの更新を行う
+            var manifest = await manifestManager.FetchManifestAsync();
+            var updatableList = await manifestManager.GetUpdatableAssetBundlesAsync(manifest, progress);
+            if (updatableList.Length > 0)
+            {
+                await manifestManager.UpdateManifestAsync(manifest);
+            }
         }
 
 
         // TODO : 今はフルダウンロードというひどい実装
-        public async Task InstallAssetBundleAsync()
+        public async Task InstallAssetBundleAsync(IProgress<AssetBundleInstallProgress> progress)
         {
-            var manifestNames = manifestStorage.GetAllManifestName();
-            foreach (var manifestName in manifestNames)
-            {
-                ImtAssetBundleManifest manifest;
-                if (!manifestStorage.TryGetManifest(manifestName, out manifest))
-                {
-                    continue;
-                }
-
-
-                AssetBundleInfo[] infos = manifest.AssetBundleInfos;
-                for (int i = 0; i < infos.Length; ++i)
-                {
-                    using (var installStream = await storage.GetInstallStreamAsync(infos[i]))
-                    {
-                        await installer.InstallAsync(infos[i], installStream, null);
-                    }
-                }
-            }
+            await storageManager.InstallAllAsync(progress);
         }
         #endregion
     }

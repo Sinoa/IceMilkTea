@@ -107,17 +107,8 @@ namespace IceMilkTea.Service
             }
 
 
-            // 参照変数からキャッシュへの参照が取得が出来なった場合は
-            if (!weakUnityAsset.TryGetTarget(out asset))
-            {
-                // キャッシュテーブルから参照変数まるごと削除して取得に失敗を返す
-                assetCacheTable.Remove(assetUrl);
-                return false;
-            }
-
-
-            // 参照の取得が出来たことを返す
-            return true;
+            // 参照変数からキャッシュへの参照を取得を試み結果をそのまま返す（参照が途切れてレコードの削除は別関数で行う）
+            return weakUnityAsset.TryGetTarget(out asset);
         }
 
 

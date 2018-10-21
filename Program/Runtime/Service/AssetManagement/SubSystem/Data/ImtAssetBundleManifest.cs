@@ -13,25 +13,30 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.Collections.Generic;
+
 namespace IceMilkTea.Service
 {
     /// <summary>
     /// 1つ以上のアセットバンドル情報を保持した構造体です。
     /// アセットバンドルの管理情報なども一部含みます。
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     public struct ImtAssetBundleManifest
     {
         /// <summary>
-        /// マニフェスト名
+        /// マニフェストを最後に更新したタイムスタンプ。
+        /// 原則値の違いでのみ判断するので、正確な日時を記録する必要はありません。
+        /// DateTimeOffset.ToUnixTimeSeconds() 関数を使った値を推奨します。
         /// </summary>
-        public string Name;
+        public long LastUpdateTimeStamp;
 
 
         /// <summary>
-        /// マニフェストが保持しているアセットバンドル情報の配列
+        /// アセットバンドル情報をコンテンツ単位でグループ化した構造体の配列
         /// </summary>
-        public AssetBundleInfo[] AssetBundleInfos;
+        public AssetBundleContentGroup[] ContentGroups;
 
 
 
@@ -42,17 +47,122 @@ namespace IceMilkTea.Service
         {
             get
             {
-                // 保持している情報の数分ループ
+                // トータルサイズを記憶する変数を宣言
                 var totalSize = 0L;
-                for (int i = 0; i < AssetBundleInfos.Length; ++i)
+
+
+                // 保持しているコンテンツグループ分回る
+                for (int i = 0; i < ContentGroups.Length; ++i)
                 {
-                    // サイズを加算
-                    totalSize += AssetBundleInfos[i].Size;
+                    // コンテンツグループが提供するアセットバンドル合計サイズを加算する
+                    totalSize += ContentGroups[i].TotalAssetBundleSize;
                 }
 
 
                 // 結果を返す
                 return totalSize;
+            }
+        }
+
+
+        /// <summary>
+        /// マニフェストが保持している、全アセットバンドルの件数を取得します
+        /// </summary>
+        public int TotalAssetBundleInfoCount
+        {
+            get
+            {
+                // トータルカウントを記憶する変数宣言
+                var totalCount = 0;
+
+
+                // 保持しているコンテンツグループ分回る
+                for (int i = 0; i < ContentGroups.Length; ++i)
+                {
+                    // コンテンツグループが保持しているアセットバンドルの数を集計する
+                    totalCount += ContentGroups[i].AssetBundleInfos.Length;
+                }
+
+
+                // 結果を返す
+                return totalCount;
+            }
+        }
+
+
+
+        /// <summary>
+        /// 指定されたコンテンツグループ名のアセットバンドル合計サイズを取得します
+        /// </summary>
+        /// <param name="contentGroupName">サイズを取得したいコンテンツグループ名</param>
+        /// <returns>指定されたコンテンツグループが保有するアセットバンドルの合計サイズを返します</returns>
+        /// <exception cref="ArgumentException">指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした</exception>
+        public long GetContentGroupAssetBundleTotalSize(string contentGroupName)
+        {
+            // 保持しているコンテンツグループ分回る
+            for (int i = 0; i < ContentGroups.Length; ++i)
+            {
+                // もし指定されたコンテンツグループ名と一致したのなら
+                if (ContentGroups[i].Name == contentGroupName)
+                {
+                    // このコンテンツグループのサイズを返す
+                    return ContentGroups[i].TotalAssetBundleSize;
+                }
+            }
+
+
+            // ループから抜けたということは見つからなかったということ
+            throw new ArgumentException($"指定された名前 '{contentGroupName}' のコンテンツグループは見つかりませんでした", nameof(contentGroupName));
+        }
+
+
+        /// <summary>
+        /// このマニフェストが保持している、すべてのコンテンツグループのすべてのアセットバンドル情報を
+        /// 指定されたグループ名をキーとした、アセットバンドル情報の配列にすべてコピーします。
+        /// </summary>
+        /// <remarks>
+        /// もし、コピー先の配列がコピーする情報を受けられる十分な長さがない場合は、コピー先の配列が埋まるまでの数をコピーします。
+        /// また、コピー元の長さより長い配列の場合は、残りの要素は特に触れることはありません。
+        /// </remarks>
+        /// <param name="destination">コピー先の配列</param>
+        /// <exception cref="ArgumentNullException">destination が null です</exception>
+        public void AllAssetBundleInfoCopyTo(KeyValuePair<string, AssetBundleInfo>[] destination)
+        {
+            // nullを渡されたら
+            if (destination == null)
+            {
+                // どこにコピーすれば良いのか
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+
+            // 長さが 0 の配列を渡されたのなら
+            if (destination.Length == 0)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // 保持しているコンテンツグループ分回る
+            int totalCopyCount = 0;
+            for (int groupIndex = 0; groupIndex < ContentGroups.Length; ++groupIndex)
+            {
+                // コンテンツグループが所持しているアセットバンドル情報分回る
+                var assetBundleInfos = ContentGroups[groupIndex].AssetBundleInfos;
+                for (int infoIndex = 0; infoIndex < assetBundleInfos.Length; ++infoIndex)
+                {
+                    // 渡された配列にコピーする
+                    destination[totalCopyCount++] = new KeyValuePair<string, AssetBundleInfo>(ContentGroups[groupIndex].Name, assetBundleInfos[infoIndex]);
+
+
+                    // もしコピーした件数と渡された配列の長さと一致したのなら
+                    if (totalCopyCount == destination.Length)
+                    {
+                        // もうコピーは出来ないので終了
+                        return;
+                    }
+                }
             }
         }
     }

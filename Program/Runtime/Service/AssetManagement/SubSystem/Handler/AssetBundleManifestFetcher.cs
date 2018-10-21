@@ -18,14 +18,14 @@ using System.Threading.Tasks;
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// ImtAssetBundleManifest を取り込むフェッチャー抽象クラスです
+    /// アセットバンドルマニフェストを外部から取り込む抽象クラスです。
     /// </summary>
     public abstract class AssetBundleManifestFetcher
     {
         /// <summary>
-        /// マニフェストのフェッチを非同期で行います
+        /// マニフェストを非同期で取り込みます
         /// </summary>
-        /// <returns>マニフェストフェッチの非同期操作をしているタスクを返します</returns>
-        public abstract Task<ImtAssetBundleManifest[]> FetchManifestAsync();
+        /// <returns>アセットバンドルマニフェストを外部から非同期で取り込むタスクを返します</returns>
+        public abstract Task<ImtAssetBundleManifest> FetchAsync();
     }
 }

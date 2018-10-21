@@ -16,51 +16,46 @@
 namespace IceMilkTea.Service
 {
     /// <summary>
-    /// アセットバンドルの情報を保持した構造体です
+    /// 特定コンテンツグループで利用するアセットバンドル情報を保持した構造体です
     /// </summary>
     [System.Serializable]
-    public struct AssetBundleInfo
+    public struct AssetBundleContentGroup
     {
         /// <summary>
-        /// アセットバンドル名
+        /// コンテンツグループ名
         /// </summary>
         public string Name;
 
 
         /// <summary>
-        /// アセットバンドルへアクセスするためのローカルパス
+        /// コンテンツグループが保持しているアセットバンドル情報の配列
         /// </summary>
-        public string LocalPath;
+        public AssetBundleInfo[] AssetBundleInfos;
+
 
 
         /// <summary>
-        /// アセットバンドルへアクセスするためのリモートパス
+        /// コンテンツグループが保持している、アセットバンドル情報全てのサイズの合計値
         /// </summary>
-        public string RemotePath;
+        public long TotalAssetBundleSize
+        {
+            get
+            {
+                // トータルサイズを記憶する変数を宣言
+                var totalSize = 0L;
 
 
-        /// <summary>
-        /// アセットバンドルのデータサイズ
-        /// </summary>
-        public long Size;
+                // コンテンツグループが保持しているアセットバンドル情報分回る
+                for (int i = 0; i < AssetBundleInfos.Length; ++i)
+                {
+                    // サイズを加算する
+                    totalSize += AssetBundleInfos[i].Size;
+                }
 
 
-        /// <summary>
-        /// このアセットバンドルが依存している対象のアセットバンドル名
-        /// </summary>
-        public string[] DependenceAssetBundleNames;
-
-
-        /// <summary>
-        /// アセットバンドルのハッシュ値
-        /// </summary>
-        public byte[] Hash;
-
-
-        /// <summary>
-        /// このアセットバンドル情報に付ける追加のユーザーデータ。
-        /// この値は、アプリケーション側で自由に利用することが出来ます。
-        /// </summary>
-        public ulong UserData;
+                // 結果を返す
+                return totalSize;
+            }
+        }
     }
 }
