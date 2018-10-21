@@ -58,6 +58,15 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// 指定されたアセットバンドルのハッシュ値によるベリファイを非同期で行います
+        /// </summary>
+        /// <param name="info">ベリファイを行うアセットバンドル情報</param>
+        /// <param name="progress">ベリファイの進捗通知を受ける Progress。もし通知を受けない場合は null の指定が可能です</param>
+        /// <returns>アセットバンドル情報のハッシュ値がベリファイをパスした場合は true を、ハッシュ値が不一致した場合は false を返します</returns>
+        public abstract Task<bool> VerifyAsync(AssetBundleInfo info, IProgress<double> progress);
+
+
+        /// <summary>
         /// 指定されたアセットバンドル情報のアセットバンドルを非同期で開きます
         /// </summary>
         /// <param name="info">アセットバンドルとして開くアセットバンドル情報</param>

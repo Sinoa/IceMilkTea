@@ -132,6 +132,7 @@ namespace IceMilkTea.Service
         // メンバ変数定義
         private AssetBundleManifestManager manifestManager;
         private AssetBundleStorageController storageController;
+        private AssetBundleInstaller installer;
         private Dictionary<string, AssetBundleManagementContext> assetBundleTable;
 
 
@@ -141,9 +142,10 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="manifestManager">パス解決などに利用するマニフェストマネージャ</param>
         /// <param name="storageController">アセットバンドルの入出力を実際に行うコントローラ</param>
+        /// <param name="installer">アセットバンドルをインストールするインストーラ</param>
         /// <exception cref="ArgumentNullException">manifestManager が null です</exception>
         /// <exception cref="ArgumentNullException">storageController が null です</exception>
-        public AssetBundleStorageManager(AssetBundleManifestManager manifestManager, AssetBundleStorageController storageController)
+        public AssetBundleStorageManager(AssetBundleManifestManager manifestManager, AssetBundleStorageController storageController, AssetBundleInstaller installer)
         {
             // null を渡されたら
             if (manifestManager == null)
@@ -161,9 +163,18 @@ namespace IceMilkTea.Service
             }
 
 
+            // null を渡されたら
+            if (installer == null)
+            {
+                // 流石にどこからも引っ張ってこれないのはむり
+                throw new ArgumentNullException(nameof(installer));
+            }
+
+
             // 受け取る
             this.manifestManager = manifestManager;
             this.storageController = storageController;
+            this.installer = installer;
 
 
             // 管理テーブルを生成する
@@ -184,19 +195,94 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// 指定されたアセットバンドル情報のアセットバンドルに、インストールするためのストリームを非同期で取得します
+        /// 指定されたアセットバンドル情報のアセットバンドルを非同期でインストールします
         /// </summary>
-        /// <param name="info">インストールするアセットバンドルの情報</param>
-        /// <returns>指定したアセットバンドルに書き込むためのストリームを取得するタスクを返します</returns>
-        public Task<Stream> GetInstallStreamAsync(AssetBundleInfo info)
+        /// <param name="info">インストールを行うアセットバンドル情報</param>
+        /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
+        /// <returns>非同期でインストールしているタスクを返します</returns>
+        public async Task InstallAssetBundleAsync(AssetBundleInfo info, IProgress<AssetBundleInstallProgress> progress)
         {
-            // コントローラにインストールストリームを要求して返す
-            return storageController.GetInstallStreamAsync(info);
+            // 進捗通知を行うプログレスの生成を行う
+            var status = AssetBundleInstallStatus.HashCheck;
+            var progressScale = 0.5;
+            var progressOffset = 0.0;
+            var internalProgress = new Progress<double>(x =>
+            {
+                // 進捗通知用パラメータを生成して通知する
+                var progressParameter = new AssetBundleInstallProgress(status, info.Name, progressOffset + x * progressScale);
+                progress?.Report(progressParameter);
+            });
+
+
+            // ストレージコントローラから指定されたアセットバンドルが存在していてかつベリファイが通るなら
+            if (storageController.Exists(info) && await storageController.VerifyAsync(info, internalProgress))
+            {
+                // この時点でインストール済みと判断して通知を出して終了
+                progress?.Report(new AssetBundleInstallProgress(AssetBundleInstallStatus.Installing, info.Name, 1.0));
+                return;
+            }
+
+
+            // インストールステータスにする
+            status = AssetBundleInstallStatus.Installing;
+            progressOffset = 0.5;
+
+
+            // ストレージコントローラからインストールストリームをもらってインストールを行う
+            var installStream = await storageController.GetInstallStreamAsync(info);
+            await installer.InstallAsync(info, installStream, internalProgress);
         }
 
 
         /// <summary>
-        /// 指定されたアセットバンドル情報のアセットバンドルを、非同期に削除します
+        /// 指定されたコンテンツグループに所属するアセットバンドルを非同期でインストールします
+        /// </summary>
+        /// <param name="groupName">インストールするコンテンツグループ名</param>
+        /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
+        /// <returns>非同期でインストールしているタスクを返します</returns>
+        public async Task InstallContentGroupAsync(string groupName, IProgress<AssetBundleInstallProgress> progress)
+        {
+            // もしグループ名がnullなら
+            if (groupName == null)
+            {
+                // どのグループをインストールすればよいのか
+                throw new ArgumentNullException(nameof(groupName));
+            }
+
+
+            // マニフェストからグループ情報を取り出す
+            AssetBundleContentGroup contentGroup;
+            manifestManager.GetContentGroupInfo(groupName, out contentGroup);
+
+
+            // コンテンツグループ内に収録されているアセットバンドル情報分回る
+            var assetBundleInfos = contentGroup.AssetBundleInfos;
+            for (int i = 0; i < assetBundleInfos.Length; ++i)
+            {
+                // アセットバンドルインストールを非同期で行う
+                await InstallAssetBundleAsync(assetBundleInfos[i], progress);
+            }
+        }
+
+
+        /// <summary>
+        /// マニフェストとして管理されているすべてのアセットバンドルを非同期でインストールします
+        /// </summary>
+        /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
+        /// <returns>非同期でインストールしているタスクを返します</returns>
+        public async Task InstallAllAsync(IProgress<AssetBundleInstallProgress> progress)
+        {
+            // コンテンツグループ名すべて取得してコンテンツグループすべて回る
+            foreach (var contentGroupName in manifestManager.GetContentGroupNames())
+            {
+                // コンテンツグループのインストールを非同期で行う
+                await InstallContentGroupAsync(contentGroupName, progress);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットバンドル情報のアセットバンドルを、非同期に削除します。
         /// </summary>
         /// <param name="info">削除するアセットバンドルの情報</param>
         /// <returns>アセットバンドルの削除を非同期に操作しているタスクを返します</returns>
