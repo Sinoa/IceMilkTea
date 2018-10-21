@@ -92,7 +92,7 @@ namespace IceMilkTea.Service
             public void ReleaseAssetBundle(AssetBundle assetBundle)
             {
                 // もし渡された参照と管理対象のアセットバンドルの参照が異なるなら
-                if (this.assetBundle != assetBundle)
+                if (!EqualAssetBundleReference(assetBundle))
                 {
                     // これは間違った解放をしようとしている
                     throw new ArgumentException($"解放しようとしたアセットバンドルの参照が異なっています。Managed={this.assetBundle.name} Request={assetBundle.name}", nameof(assetBundle));
@@ -109,6 +109,18 @@ namespace IceMilkTea.Service
 
                 // 問題なければ参照カウントをデクリメントする
                 --ReferenceCount;
+            }
+
+
+            /// <summary>
+            /// 指定されたアセットバンドルの参照と一致するかどうか確認をします
+            /// </summary>
+            /// <param name="assetBundle">参照の確認を行うアセットバンドル</param>
+            /// <returns>参照が一致していれば true を、一致していなければ false を返します</returns>
+            public bool EqualAssetBundleReference(AssetBundle assetBundle)
+            {
+                // 素直に参照の比較結果を返す
+                return this.assetBundle == assetBundle;
             }
         }
 
@@ -208,18 +220,46 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// 指定されたアセットバンドル情報のアセットバンドルを非同期で開きます
+        /// 指定されたアセットバンドル情報のアセットバンドルを非同期で開きます。
+        /// また、アセットバンドルの依存解決も同時に行い、依存するアセットバンドルも非同期で開きます。
         /// </summary>
         /// <param name="info">アセットバンドルとして開くアセットバンドル情報</param>
         /// <returns>アセットバンドルを非同期で開くタスクを返します</returns>
+        /// <exception cref="InvalidOperationException">アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした</exception>
+        /// <exception cref="InvalidOperationException">アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません</exception>
         public async Task<AssetBundle> OpenAsync(AssetBundleInfo info)
         {
+            // このアセットバンドルが依存するアセットバンドル分回る
+            foreach (var dependenceAssetBundleName in info.DependenceAssetBundleNames)
+            {
+                // アセットバンドル名からアセットバンドル情報を取得するが情報の取得が出来ないなら
+                AssetBundleInfo dependenceAssetBundleInfo;
+                if (!manifestManager.TryGetAssetBundleInfo(dependenceAssetBundleName, out dependenceAssetBundleInfo))
+                {
+                    // 依存解決に失敗したことを例外で吐く
+                    throw new InvalidOperationException($"アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
+                }
+
+
+                // 依存するアセットバンドルを再帰的に開くが開いたアセットバンドルの参照はそのまま
+                await OpenAsync(dependenceAssetBundleInfo);
+            }
+
+
             // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
             AssetBundleManagementContext context;
             if (assetBundleTable.TryGetValue(info.Name, out context))
             {
                 // コンテキストからアセットバンドルを取得して返す
                 return context.GetAssetBundle();
+            }
+
+
+            // 開こうとしているアセットバンドルがまだストレージに存在しないなら
+            if (!storageController.Exists(info))
+            {
+                // 未インストールアセットバンドルが存在することを例外で吐く
+                throw new InvalidOperationException($"アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません");
             }
 
 
@@ -234,11 +274,77 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// 指定されたアセットバンドルの利用を破棄します
+        /// 指定されたアセットバンドルの利用を破棄します。
+        /// また、アセットバンドルの依存解決も同時に行い、依存するアセットバンドルも破棄します。
         /// </summary>
         /// <param name="assetBundle">利用を破棄するアセットバンドル</param>
         public void Release(AssetBundle assetBundle)
         {
+            // アセットバンドル管理テーブルを回る
+            var assetBundleInfo = default(AssetBundleInfo);
+            foreach (var managementRecord in assetBundleTable)
+            {
+                // 参照が違うアセットバンドルなら
+                if (!managementRecord.Value.EqualAssetBundleReference(assetBundle))
+                {
+                    // 次のレコードへ
+                    continue;
+                }
+
+
+                // 管理名からアセットバンドル情報を取得してループから抜ける
+                manifestManager.GetAssetBundleInfo(managementRecord.Key, out assetBundleInfo);
+                break;
+            }
+
+
+            // この時点でアセットバンドル情報が存在していないなら
+            if (string.IsNullOrWhiteSpace(assetBundleInfo.Name))
+            {
+                // そもそも解放すべきアセットバンドルが存在しないか解放済みのため終了
+                return;
+            }
+
+
+            // アセットバンドル情報から依存するアセットバンドル分回る
+            foreach (var dependenceAssetBundleName in assetBundleInfo.DependenceAssetBundleNames)
+            {
+                // 依存先アセットバンドル名からアセットバンドル管理コンテキストを取得するが、管理テーブルに無いなら
+                var dependenceContext = default(AssetBundleManagementContext);
+                if (!assetBundleTable.TryGetValue(dependenceAssetBundleName, out dependenceContext))
+                {
+                    // 次の依存アセットバンドルへ
+                    continue;
+                }
+
+
+                // 依存先アセットバンドルの参照を取り出す
+                var dependenceAssetBundle = dependenceContext.GetAssetBundle();
+                dependenceContext.ReleaseAssetBundle(dependenceAssetBundle);
+
+
+                // 再帰的に解放を行う
+                Release(dependenceAssetBundle);
+            }
+
+
+            // 自身のアセットバンドル管理コンテキストを取得して存在しないなら
+            var context = default(AssetBundleManagementContext);
+            if (!assetBundleTable.TryGetValue(assetBundleInfo.Name, out context))
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // コンテキストから解放を行い参照が無くなった場合は
+            context.ReleaseAssetBundle(assetBundle);
+            if (context.Unreferenced)
+            {
+                // アセットストレージコントローラに閉じるように要求して、管理テーブルからレコードを削除する
+                storageController.Close(assetBundle);
+                assetBundleTable.Remove(assetBundleInfo.Name);
+            }
         }
     }
 }
