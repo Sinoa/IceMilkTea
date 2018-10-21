@@ -14,8 +14,8 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
@@ -25,11 +25,11 @@ namespace IceMilkTea.Service
     /// <summary>
     /// IceMilkTeaが提供する単純なアセットバンドルストレージクラスです
     /// </summary>
-    public class ImtSimpleAssetBundleStorage : AssetBundleStorage
+    public class ImtSimpleAssetBundleStorageController : AssetBundleStorageController
     {
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
-        private Dictionary<string, AssetBundle> assetBundleTable;
+        private SHA1CryptoServiceProvider hash;
 
 
 
@@ -39,7 +39,7 @@ namespace IceMilkTea.Service
         /// <param name="baseDirectoryPath">アセットバンドルを格納するベースディレクトリパス</param>
         /// <exception cref="ArgumentNullException">baseDirectoryPath が null です</exception>
         /// <exception cref="ArgumentException">アセットバンドルストレージディレクトリパスに利用できない文字が含まれています</exception>
-        public ImtSimpleAssetBundleStorage(string baseDirectoryPath)
+        public ImtSimpleAssetBundleStorageController(string baseDirectoryPath)
         {
             // もしnullを渡されたら
             if (baseDirectoryPath == null)
@@ -65,8 +65,8 @@ namespace IceMilkTea.Service
 #endif
 
 
-            // アセットバンドルテーブルを生成する
-            assetBundleTable = new Dictionary<string, AssetBundle>();
+            // ハッシュ計算インスタンスを生成
+            hash = new SHA1CryptoServiceProvider();
         }
 
 
@@ -76,7 +76,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="info">確認するアセットバンドル情報</param>
         /// <returns>存在する場合は true を、存在しない場合は false を返します</returns>
-        public override bool Exists(ref AssetBundleInfo info)
+        public override bool Exists(AssetBundleInfo info)
         {
             // ディレクトリ情報を更新する
             baseDirectoryInfo.Refresh();
@@ -154,7 +154,7 @@ namespace IceMilkTea.Service
         public override Task RemoveAsync(AssetBundleInfo info)
         {
             // そもそもアセットバンドルが存在しないなら
-            if (!Exists(ref info))
+            if (!Exists(info))
             {
                 // 直ちに終了する
                 return Task.CompletedTask;
@@ -176,27 +176,10 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">localPath が null です</exception>
         /// <exception cref="FileNotFoundException">指定されたパスにアセットバンドルが存在しません</exception>
         /// <exception cref="InvalidOperationException">アセットバンドル '{assetBundlePath}' を開くことが出来ませんでした</exception>
-        public override async Task<AssetBundle> OpenAsync(string localPath)
+        public override async Task<AssetBundle> OpenAsync(AssetBundleInfo info)
         {
-            // null を渡されたら
-            if (localPath == null)
-            {
-                // 何を開けばよいのか
-                throw new ArgumentNullException(nameof(localPath));
-            }
-
-
-            // 既に開いた経験のあるアセットバンドルなら
-            var assetBundle = default(AssetBundle);
-            if (assetBundleTable.TryGetValue(localPath, out assetBundle))
-            {
-                // 直ちに返す
-                return assetBundle;
-            }
-
-
             // パスを作る
-            var assetBundlePath = Path.Combine(baseDirectoryInfo.FullName, localPath);
+            var assetBundlePath = Path.Combine(baseDirectoryInfo.FullName, info.LocalPath);
 
 
             // ディレクトリ情報を更新する
@@ -212,7 +195,7 @@ namespace IceMilkTea.Service
 
 
             // 指定されたパスのアセットバンドルを非同期で開くが開けなかったら
-            assetBundle = await AssetBundle.LoadFromFileAsync(assetBundlePath);
+            var assetBundle = await AssetBundle.LoadFromFileAsync(assetBundlePath);
             if (assetBundle == null)
             {
                 // アセットバンドルが開けなかったことを例外で吐く
@@ -220,8 +203,8 @@ namespace IceMilkTea.Service
             }
 
 
-            // アセットバンドルテーブルにキャッシュして返す
-            return assetBundleTable[localPath] = assetBundle;
+            // 開いたアセットバンドルを返す
+            return assetBundle;
         }
 
 
@@ -230,28 +213,92 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="localPath">閉じるアセットバンドルのパス</param>
         /// <exception cref="ArgumentNullException">localPath が null です</exception>
-        public override void Close(string localPath)
+        public override void Close(AssetBundle assetBundle)
         {
-            // null を渡されたら
-            if (localPath == null)
-            {
-                // 何を閉じればよいのか
-                throw new ArgumentNullException(nameof(localPath));
-            }
-
-
-            // キャッシュされたアセットバンドルを取得を試みるが、取得出来なかったら
-            var assetBundle = default(AssetBundle);
-            if (!assetBundleTable.TryGetValue(localPath, out assetBundle))
-            {
-                // 何もせず終了
-                return;
-            }
-
-
-            // アセットバンドルを閉じて該当のキーを削除
+            // 素直に綴る
             assetBundle.Unload(false);
-            assetBundleTable.Remove(localPath);
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットバンドルのベリファイを行います
+        /// </summary>
+        /// <param name="info">ベリファイを行うアセットバンドル情報</param>
+        /// <param name="progress">ベリファイの進捗通知を受ける Progress</param>
+        /// <returns>ベリファイをパスした場合は true を、パスしなかった場合は false を返すタスクを返します</returns>
+        public override Task<bool> VerifyAsync(AssetBundleInfo info, IProgress<double> progress)
+        {
+            // パスを作る
+            var assetBundlePath = Path.Combine(baseDirectoryInfo.FullName, info.LocalPath);
+
+
+            // ディレクトリ情報を更新する
+            baseDirectoryInfo.Refresh();
+
+
+            // そもそもベースディレクトリが存在しない または ファイルが存在していないなら
+            if (!baseDirectoryInfo.Exists || !File.Exists(assetBundlePath))
+            {
+                // ここはパスしなかったことを返す
+                return Task.FromResult(false);
+            }
+
+
+            // ハッシュを非同期で計算するタスクを生成して返す
+            return Task.Run(() =>
+            {
+                // ハッシュ計算対象のファイルを開く
+                using (var fileStream = new FileStream(assetBundlePath, FileMode.Open, FileAccess.Read))
+                {
+                    // バッファを用意して最初に読み込む
+                    // TODO : 将来的にはスタック上で処理したい
+                    var buffer = new byte[512];
+                    var readSize = fileStream.Read(buffer, 0, buffer.Length);
+
+
+                    // ファイルポインタ位置が末尾まで来ていない間ループ
+                    while (fileStream.Position < fileStream.Length)
+                    {
+                        // ハッシュの途中計算をしてから続きの読み込みを行う
+                        hash.TransformBlock(buffer, 0, readSize, buffer, 0);
+                        readSize = fileStream.Read(buffer, 0, buffer.Length);
+
+
+                        // 進捗通知をする
+                        progress?.Report((double)fileStream.Position / fileStream.Length);
+                    }
+
+
+                    // バッファの残りを最終ハッシュ計算をする
+                    hash.TransformFinalBlock(buffer, 0, readSize);
+                    progress?.Report((double)fileStream.Position / fileStream.Length);
+                }
+
+
+                // ハッシュ結果を受け取って、もしアセットバンドル情報のハッシュ長が異なるなら
+                var hashResult = hash.Hash;
+                if (hashResult.Length != info.Hash.Length)
+                {
+                    // ハッシュが一致しないことを返す
+                    return false;
+                }
+
+
+                // ハッシュの長さ分ループ
+                for (int i = 0; i < hashResult.Length; ++i)
+                {
+                    // もし値が異なるなら
+                    if (hashResult[i] != info.Hash[i])
+                    {
+                        // ハッシュが一致しないことを返す
+                        return false;
+                    }
+                }
+
+
+                // ここまで到達したということはハッシュはパスしたということになる
+                return true;
+            });
         }
     }
 }

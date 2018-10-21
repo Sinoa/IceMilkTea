@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
@@ -37,30 +38,29 @@ namespace IceMilkTea.Service
         // メンバ変数定義
         private UriInfoCache uriCache;
         private UnityAssetCache assetCache;
-        private AssetBundleStorage storage;
-        private AssetBundleInstaller installer;
-        private AssetBundleManifestFetcher manifestFetcher;
+        private AssetBundleManifestManager manifestManager;
+        private AssetBundleStorageManager storageManager;
 
 
 
         /// <summary>
         /// AssetManagementService のインスタンスを初期化します。
         /// </summary>
-        /// <param name="storage">アセットバンドルを貯蔵するストレージ</param>
+        /// <param name="storageController">アセットバンドルの貯蔵物を制御するストレージコントローラ</param>
         /// <param name="installer">アセットバンドルをストレージにインストールするインストーラ</param>
-        /// <param name="manifestStorage">マニフェストを貯蔵するストレージ</param>
         /// <param name="manifestFetcher">マニフェストをフェッチするフェッチャー</param>
-        /// <exception cref="ArgumentNullException">storage が null です</exception>
+        /// <param name="storageDirectoryInfo">アセットマネージャが利用するディレクトリ情報</param>
+        /// <exception cref="ArgumentNullException">storageController が null です</exception>
         /// <exception cref="ArgumentNullException">installer が null です</exception>
-        /// <exception cref="ArgumentNullException">manifestStorage が null です</exception>
         /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
-        public AssetManagementService(AssetBundleStorage storage, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher)
+        /// <exception cref="ArgumentNullException">storageDirectoryInfo が null です</exception>
+        public AssetManagementService(AssetBundleStorageController storageController, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher, DirectoryInfo storageDirectoryInfo)
         {
             // storageがnullなら
-            if (storage == null)
+            if (storageController == null)
             {
                 // どこに貯蔵すれば良いのだ
-                throw new ArgumentNullException(nameof(storage));
+                throw new ArgumentNullException(nameof(storageController));
             }
 
 
@@ -80,12 +80,19 @@ namespace IceMilkTea.Service
             }
 
 
+            // storageDirectoryInfoがnullなら
+            if (storageDirectoryInfo == null)
+            {
+                // どこで管理をすればよいのだ
+                throw new ArgumentNullException(nameof(storageDirectoryInfo));
+            }
+
+
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
-            this.storage = storage;
-            this.installer = installer;
-            this.manifestFetcher = manifestFetcher;
+            manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
+            storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer);
         }
 
 
@@ -254,7 +261,9 @@ namespace IceMilkTea.Service
 
             // ローカルパスを取得してアセットバンドルを開く
             var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
-            var assetBundle = await storage.OpenAsync(localPath);
+            AssetBundleInfo assetBundleInfo;
+            manifestManager.GetAssetBundleInfo(localPath, out assetBundleInfo);
+            var assetBundle = await storageManager.OpenAsync(assetBundleInfo);
 
 
             // 結果を納める変数宣言
@@ -296,19 +305,23 @@ namespace IceMilkTea.Service
 
 
         #region Manifest
-        /// <summary>
-        /// マニフェストの更新を非同期で行います。
-        /// このサービスを利用する前に最初に呼び出すことを推奨します
-        /// </summary>
-        /// <returns>アセットの更新を非同期で行っているタスクを返します</returns>
-        public async Task UpdateManifestAsync()
+        // TODO : 今はフル更新というひどい実装
+        public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
+            // マニフェストの更新を行う
+            var manifest = await manifestManager.FetchManifestAsync();
+            var updatableList = await manifestManager.GetUpdatableAssetBundlesAsync(manifest, progress);
+            if (updatableList.Length > 0)
+            {
+                await manifestManager.UpdateManifestAsync(manifest);
+            }
         }
 
 
         // TODO : 今はフルダウンロードというひどい実装
-        public async Task InstallAssetBundleAsync()
+        public async Task InstallAssetBundleAsync(IProgress<AssetBundleInstallProgress> progress)
         {
+            await storageManager.InstallAllAsync(progress);
         }
         #endregion
     }
