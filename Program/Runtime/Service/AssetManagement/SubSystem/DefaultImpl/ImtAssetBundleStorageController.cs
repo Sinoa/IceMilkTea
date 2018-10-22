@@ -25,7 +25,7 @@ namespace IceMilkTea.Service
     /// <summary>
     /// IceMilkTeaが提供する単純なアセットバンドルストレージクラスです
     /// </summary>
-    public class ImtSimpleAssetBundleStorageController : AssetBundleStorageController
+    public class ImtAssetBundleStorageController : AssetBundleStorageController
     {
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
@@ -39,7 +39,7 @@ namespace IceMilkTea.Service
         /// <param name="baseDirectoryPath">アセットバンドルを格納するベースディレクトリパス</param>
         /// <exception cref="ArgumentNullException">baseDirectoryPath が null です</exception>
         /// <exception cref="ArgumentException">アセットバンドルストレージディレクトリパスに利用できない文字が含まれています</exception>
-        public ImtSimpleAssetBundleStorageController(string baseDirectoryPath)
+        public ImtAssetBundleStorageController(string baseDirectoryPath)
         {
             // もしnullを渡されたら
             if (baseDirectoryPath == null)
