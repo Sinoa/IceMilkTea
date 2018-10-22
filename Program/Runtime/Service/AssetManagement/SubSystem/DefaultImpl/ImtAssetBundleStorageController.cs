@@ -276,7 +276,6 @@ namespace IceMilkTea.Service
 
                 // ハッシュ結果を受け取って、もしアセットバンドル情報のハッシュ長が異なるなら
                 var hashResult = hash.Hash;
-                UnityEngine.Debug.Log($"{info.Name}:{System.BitConverter.ToString(hashResult).Replace("-", "")}");
                 if (hashResult.Length != info.Hash.Length)
                 {
                     // ハッシュが一致しないことを返す
