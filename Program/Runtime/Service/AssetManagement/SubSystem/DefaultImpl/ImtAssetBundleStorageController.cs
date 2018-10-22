@@ -29,7 +29,6 @@ namespace IceMilkTea.Service
     {
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
-        private SHA1CryptoServiceProvider hash;
 
 
 
@@ -63,10 +62,6 @@ namespace IceMilkTea.Service
             // iOSでのみ対象ディレクトリパス配下がバックアップされないように指示をする
             UnityEngine.iOS.Device.SetNoBackupFlag(baseDirectoryPath);
 #endif
-
-
-            // ハッシュ計算インスタンスを生成
-            hash = new SHA1CryptoServiceProvider();
         }
 
 
@@ -247,6 +242,10 @@ namespace IceMilkTea.Service
             // ハッシュを非同期で計算するタスクを生成して返す
             return Task.Run(() =>
             {
+                // ここでハッシュを生成する（Initializeも考えたけど、よくよく考えたらメモリに残しっぱはまずいかな）
+                var hash = new SHA1CryptoServiceProvider();
+
+
                 // ハッシュ計算対象のファイルを開く
                 using (var fileStream = new FileStream(assetBundlePath, FileMode.Open, FileAccess.Read))
                 {
@@ -277,6 +276,7 @@ namespace IceMilkTea.Service
 
                 // ハッシュ結果を受け取って、もしアセットバンドル情報のハッシュ長が異なるなら
                 var hashResult = hash.Hash;
+                UnityEngine.Debug.Log($"{info.Name}:{System.BitConverter.ToString(hashResult).Replace("-", "")}");
                 if (hashResult.Length != info.Hash.Length)
                 {
                     // ハッシュが一致しないことを返す
