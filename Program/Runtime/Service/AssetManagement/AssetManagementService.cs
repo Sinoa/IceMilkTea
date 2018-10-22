@@ -376,6 +376,7 @@ namespace IceMilkTea.Service
         public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
             // マニフェストの更新を行う
+            await manifestManager.LoadManifestAsync();
             var manifest = await manifestManager.FetchManifestAsync();
             var updatableList = await manifestManager.GetUpdatableAssetBundlesAsync(manifest, progress);
             if (updatableList.Length > 0)
