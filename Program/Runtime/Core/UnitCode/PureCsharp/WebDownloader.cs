@@ -71,7 +71,7 @@ namespace IceMilkTea.Core
     public class WebDownloader
     {
         // 公開定数定義
-        public const int DefaultReceiveBufferSize = 1 << 10;
+        public const int DefaultReceiveBufferSize = 32 << 10;
         public const int DefaultTimeoutTime = 5000;
         public const int DefaultRetryCount = 2;
         public const int DefaultRetryWaitTime = 500;
