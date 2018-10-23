@@ -42,7 +42,9 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ダウンロードスピード bps で表現しますが、この値は正確ではない可能性があります。
+        /// ダウンロードスピードを bps で表現しますが、この値は
+        /// 受信バッファサイズや、ストリームI/Oの影響により
+        /// 結果に揺らぎが出る可能性があります。
         /// </summary>
         public double DownloadBitPerSecond { get; private set; }
 
