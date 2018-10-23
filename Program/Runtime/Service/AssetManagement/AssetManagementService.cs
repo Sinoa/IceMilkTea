@@ -375,6 +375,10 @@ namespace IceMilkTea.Service
         // TODO : 今はフル更新というひどい実装
         public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
+            // シミュレーションする時は何もせず終了
+            if (isSimulate) return;
+
+
             // マニフェストの更新を行う
             await manifestManager.LoadManifestAsync();
             var manifest = await manifestManager.FetchManifestAsync();
@@ -389,6 +393,9 @@ namespace IceMilkTea.Service
         // TODO : 今はフルダウンロードというひどい実装
         public async Task InstallAssetBundleAsync(IProgress<AssetBundleInstallProgress> progress)
         {
+            // シミュレーションする時は何もせず終了
+            if (isSimulate) return;
+
             await storageManager.InstallAllAsync(progress);
         }
         #endregion
