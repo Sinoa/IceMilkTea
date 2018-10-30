@@ -15,8 +15,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
+using IceMilkTea.Core;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -130,6 +130,7 @@ namespace IceMilkTea.Service
         private const int DefaultAssetBundleTableCapacity = 2 << 10;
 
         // メンバ変数定義
+        private ImtAwaitableManualReset loadAwaitable;
         private AssetBundleManifestManager manifestManager;
         private AssetBundleStorageController storageController;
         private AssetBundleInstaller installer;
@@ -179,6 +180,10 @@ namespace IceMilkTea.Service
 
             // 管理テーブルを生成する
             assetBundleTable = new Dictionary<string, AssetBundleManagementContext>(DefaultAssetBundleTableCapacity);
+
+
+            // ロードマニュアル待機ハンドルをシグナル状態で初期化
+            loadAwaitable = new ImtAwaitableManualReset(true);
         }
 
 
@@ -332,11 +337,17 @@ namespace IceMilkTea.Service
             }
 
 
+            // 他の非同期処理が開こうとしていたらココで待って抜けたら直ぐに非シグナル状態にする
+            await loadAwaitable;
+            loadAwaitable.Reset();
+
+
             // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
             AssetBundleManagementContext context;
             if (assetBundleTable.TryGetValue(info.Name, out context))
             {
                 // コンテキストからアセットバンドルを取得して返す
+                loadAwaitable.Set();
                 return context.GetAssetBundle();
             }
 
@@ -345,6 +356,7 @@ namespace IceMilkTea.Service
             if (!storageController.Exists(info))
             {
                 // 未インストールアセットバンドルが存在することを例外で吐く
+                loadAwaitable.Set();
                 throw new InvalidOperationException($"アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません");
             }
 
@@ -355,6 +367,7 @@ namespace IceMilkTea.Service
 
             // 新しいコンテキストを生成して参照を返す
             assetBundleTable[info.Name] = new AssetBundleManagementContext(assetBundle);
+            loadAwaitable.Set();
             return assetBundle;
         }
 
