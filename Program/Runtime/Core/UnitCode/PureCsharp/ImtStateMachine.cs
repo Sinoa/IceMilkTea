@@ -187,6 +187,7 @@ namespace IceMilkTea.Core
         private State currentState;
         private State nextState;
         private Stack<State> stateStack;
+        private object syncObject;
 
 
 
@@ -244,6 +245,12 @@ namespace IceMilkTea.Core
         public ImtStateMachineUnhandledExceptionMode UnhandledExceptionMode { get; set; }
 
 
+        /// <summary>
+        /// このステートマシンを最後にUpdateしたスレッドID
+        /// </summary>
+        public int LastUpdateThreadId { get; private set; }
+
+
 
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
@@ -271,6 +278,10 @@ namespace IceMilkTea.Core
 
             // この時点で任意ステートのインスタンスを作ってしまう
             GetOrCreateState<AnyState>();
+
+
+            // 同期オブジェクトを生成
+            syncObject = new object();
         }
 
 
@@ -636,15 +647,33 @@ namespace IceMilkTea.Core
         /// ステートマシンの現在処理しているステートの更新を行いますが、まだ未起動の場合は SetStartState 関数によって設定されたステートが起動します。
         /// また、ステートマシンが初回起動時の場合、ステートのUpdateは呼び出されず、次の更新処理が実行される時になります。
         /// </remarks>
+        /// <exception cref="InvalidOperationException">現在のステートマシンは、別のスレッドによって更新処理を実行しています。[UpdaterThread={LastUpdateThreadId}, CurrentThread={currentThreadId}]</exception>
         /// <exception cref="InvalidOperationException">現在のステートマシンは、既に更新処理を実行しています</exception>
         /// <exception cref="InvalidOperationException">開始ステートが設定されていないため、ステートマシンの起動が出来ません</exception>
         public virtual void Update()
         {
-            // もしステートマシンの更新状態がアイドリング以外だったら
-            if (updateState != UpdateState.Idle)
+            // 同期オブジェクトをロック
+            lock (syncObject)
             {
-                // 多重でUpdateが呼び出せない例外を吐く
-                throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+                // もしステートマシンの更新状態がアイドリング以外だったら
+                if (updateState != UpdateState.Idle)
+                {
+                    // もし別スレッドからのUpdateによる多重Updateなら
+                    int currentThreadId = Thread.CurrentThread.ManagedThreadId;
+                    if (LastUpdateThreadId != currentThreadId)
+                    {
+                        // 別スレッドからの多重Updateであることを例外で吐く
+                        throw new InvalidOperationException($"現在のステートマシンは、別のスレッドによって更新処理を実行しています。[UpdaterThread={LastUpdateThreadId}, CurrentThread={currentThreadId}]");
+                    }
+
+
+                    // 多重でUpdateが呼び出せない例外を吐く
+                    throw new InvalidOperationException("現在のステートマシンは、既に更新処理を実行しています");
+                }
+
+
+                // Updateの起動スレッドIDを覚える
+                LastUpdateThreadId = Thread.CurrentThread.ManagedThreadId;
             }
 
 
