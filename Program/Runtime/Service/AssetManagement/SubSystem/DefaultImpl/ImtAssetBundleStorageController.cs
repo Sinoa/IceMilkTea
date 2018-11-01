@@ -112,7 +112,7 @@ namespace IceMilkTea.Service
 
             // ベースディエクトリパスからアセットバンドルへのパスを作ってファイルストリームを返す
             var assetBundlePath = Path.Combine(baseDirectoryInfo.FullName, info.LocalPath);
-            return Task.FromResult((Stream)File.OpenWrite(assetBundlePath));
+            return Task.FromResult((Stream)new FileStream(assetBundlePath, FileMode.Create, FileAccess.ReadWrite));
         }
 
 
