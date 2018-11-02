@@ -158,6 +158,42 @@ namespace IceMilkTea.Core
 
         #region プール操作
         /// <summary>
+        /// 指定された数がプールから直ちに取り出せるように、追加のオブジェクトを生成しプールします。
+        /// ただし、指定された数のオブジェクトが既にプールから取り出せる場合は、この関数は何もしません。
+        /// </summary>
+        /// <param name="poolCount">保証するべきプールの数</param>
+        /// <exception cref="InvalidOperationException">新しくオブジェクトを作ることが許可されていないため、数の確保が出来ません</exception>
+        public void Ensure(int poolCount)
+        {
+            // 要求された数が既にプールにあるのなら
+            if (poolCount <= AvailableCount)
+            {
+                // 要求には答えられるサイズはあるので直ちに終了
+                return;
+            }
+
+
+            // 新しくオブジェクトを作ることが許可されていないのなら
+            if (!allowCreateObject)
+            {
+                // 新しく作ることが出来ないので例外を吐く
+                throw new InvalidOperationException("新しくオブジェクトを作ることが許可されていないため、数の確保が出来ません");
+            }
+
+
+            // 足りない数分回る
+            int requiredCount = poolCount - AvailableCount;
+            for (int i = 0; i < requiredCount; ++i)
+            {
+                // オブジェクトを生成してリストとキューに追加
+                var newObject = Create();
+                createdObjectPool.Add(newObject);
+                nextProvideObjectQueue.Enqueue(newObject);
+            }
+        }
+
+
+        /// <summary>
         /// プールからオブジェクトを取り出します
         /// </summary>
         /// <remarks>
