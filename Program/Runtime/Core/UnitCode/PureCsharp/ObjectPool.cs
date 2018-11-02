@@ -55,6 +55,10 @@ namespace IceMilkTea.Core
             // リストやキューの初期化のみ行う
             createdObjectPool = new List<T>();
             nextProvideObjectQueue = new Queue<T>();
+
+
+            // 新しくオブジェクトを生成することを許可する
+            allowCreateObject = true;
         }
 
 
