@@ -233,6 +233,11 @@ namespace IceMilkTea.Service
                 // マルチスプライトアセットとしてインスタンスを生成して結果に納める
                 result = (T)(UnityEngine.Object)new MultiSprite(sprites);
             }
+            else if (typeof(T) == typeof(SceneAsset))
+            {
+                // シーンアセット型のロード要求なら、素直にLoadSceneしても良いとしてnull結果を返す
+                result = null;
+            }
             else
             {
                 // 特定型ロードでなければ通常の非同期ロードを行う
@@ -258,9 +263,9 @@ namespace IceMilkTea.Service
         /// <exception cref="InvalidOperationException">アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに 'name' パラメータがあることを確認してください。</exception>
         private async Task<T> LoadAssetBundleAssetAsync<T>(string storageName, UriInfo assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
-            // ロードするアセット名を取得するが見つけられなかったら
+            // ロードするアセット名を取得するが見つけられなかったら（ただし、シーン型である場合は例外として未定義を許可する）
             var assetPath = default(string);
-            if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath))
+            if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath) && (typeof(T) != typeof(SceneAsset)))
             {
                 // ロードするアセット名が不明である例外を吐く
                 throw new InvalidOperationException($"アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに '{AssetNameQueryName}' パラメータがあることを確認してください。");
@@ -299,6 +304,11 @@ namespace IceMilkTea.Service
                     result = (T)(UnityEngine.Object)new MultiSprite(spriteArray);
                 }
             }
+            else if (typeof(T) == typeof(SceneAsset))
+            {
+                // もしシーンアセット型のロード要求ならシーンアセット型のインスタンスを生成する
+                result = (T)(UnityEngine.Object)new SceneAsset();
+            }
             else
             {
                 // 特定型ロードでなければ通常の非同期ロードを行う
@@ -327,9 +337,9 @@ namespace IceMilkTea.Service
         private Task<T> LoadProjectAssetAsync<T>(UriInfo assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
 #if UNITY_EDITOR
-            // ロードするアセット名を取得するが見つけられなかったら
+            // ロードするアセット名を取得するが見つけられなかったら（ただし、シーン型である場合は例外として未定義を許可する）
             var assetPath = default(string);
-            if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath))
+            if (!assetUrl.QueryTable.TryGetValue(AssetNameQueryName, out assetPath) && (typeof(T) != typeof(SceneAsset)))
             {
                 // ロードするアセット名が不明である例外を吐く
                 throw new InvalidOperationException($"アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに '{AssetNameQueryName}' パラメータがあることを確認してください。");
@@ -354,6 +364,11 @@ namespace IceMilkTea.Service
 
                 // マルチスプライトアセットとしてインスタンスを生成して結果に納める
                 result = (T)(UnityEngine.Object)new MultiSprite(sprites);
+            }
+            else if (typeof(T) == typeof(SceneAsset))
+            {
+                // もしシーンアセット型のロード要求ならシーンアセット型のインスタンスを生成する
+                result = (T)(UnityEngine.Object)new SceneAsset();
             }
             else
             {
