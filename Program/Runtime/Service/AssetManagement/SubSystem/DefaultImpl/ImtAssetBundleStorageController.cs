@@ -110,9 +110,17 @@ namespace IceMilkTea.Service
             }
 
 
+            // アセットバンドルの最終的なパスを生成してファイル情報インスタンスを生成して、ディレクトリが存在しないなら
+            var assetBundleFileInfo = new FileInfo(Path.Combine(baseDirectoryInfo.FullName, info.LocalPath));
+            if (!assetBundleFileInfo.Directory.Exists)
+            {
+                // サブディレクトリの生成もやる
+                assetBundleFileInfo.Directory.Create();
+            }
+
+
             // ベースディエクトリパスからアセットバンドルへのパスを作ってファイルストリームを返す
-            var assetBundlePath = Path.Combine(baseDirectoryInfo.FullName, info.LocalPath);
-            return Task.FromResult((Stream)new FileStream(assetBundlePath, FileMode.Create, FileAccess.ReadWrite));
+            return Task.FromResult((Stream)new FileStream(assetBundleFileInfo.FullName, FileMode.Create, FileAccess.ReadWrite));
         }
 
 
