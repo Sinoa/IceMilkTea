@@ -307,7 +307,7 @@ namespace IceMilkTea.Service
             else if (typeof(T) == typeof(SceneAsset))
             {
                 // もしシーンアセット型のロード要求ならシーンアセット型のインスタンスを生成する
-                result = (T)(UnityEngine.Object)new SceneAsset();
+                result = (T)(UnityEngine.Object)ScriptableObject.CreateInstance<SceneAsset>();
             }
             else
             {
@@ -368,7 +368,7 @@ namespace IceMilkTea.Service
             else if (typeof(T) == typeof(SceneAsset))
             {
                 // もしシーンアセット型のロード要求ならシーンアセット型のインスタンスを生成する
-                result = (T)(UnityEngine.Object)new SceneAsset();
+                result = (T)(UnityEngine.Object)ScriptableObject.CreateInstance<SceneAsset>();
             }
             else
             {

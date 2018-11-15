@@ -18,7 +18,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// Unityのシーンアセットである型としての定義が行われているクラスです
     /// </summary>
-    public class SceneAsset : UnityEngine.Object
+    public class SceneAsset : UnityEngine.ScriptableObject
     {
     }
 }
