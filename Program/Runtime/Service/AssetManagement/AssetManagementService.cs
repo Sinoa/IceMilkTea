@@ -346,6 +346,23 @@ namespace IceMilkTea.Service
             }
 
 
+            // シーン型の読み込み以外 かつ "assets"から始まらないアセットパスなら
+            if (typeof(T) != typeof(SceneAsset) && !assetPath.ToLower().StartsWith("assets"))
+            {
+                // アセットバンドルの依存アセットを取得する
+                var dependenceAssetPaths = UnityEditor.AssetDatabase.GetAssetBundleDependencies(Path.GetFileName(assetUrl.Uri.LocalPath), true);
+                foreach (var dependenceAssetPath in dependenceAssetPaths)
+                {
+                    // ファイル名が一致するなら
+                    if (Path.GetFileName(dependenceAssetPath) == assetPath)
+                    {
+                        // このパスを採用してループ終了
+                        assetPath = dependenceAssetPath;
+                    }
+                }
+            }
+
+
             // 結果を納める変数宣言
             T result = default(T);
 
