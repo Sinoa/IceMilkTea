@@ -22,6 +22,29 @@ using UnityEngine;
 namespace IceMilkTea.Service
 {
     /// <summary>
+    /// アセットバンドルのロードモードを表現する列挙型です
+    /// </summary>
+    public enum AssetBundleLoadMode
+    {
+        /// <summary>
+        /// 通常通りのAssetBundleStorageからのロードを行います
+        /// </summary>
+        Native,
+
+        /// <summary>
+        /// ロードパスがそのままUnityのプロジェクトからロードを行います
+        /// </summary>
+        Simulate,
+
+        /// <summary>
+        /// エディタ環境でビルドしたアセットバンドルからロードを行います
+        /// </summary>
+        LocalBuild,
+    }
+
+
+
+    /// <summary>
     /// ゲームアセットの読み込み、取得、管理を総合的に管理をするサービスクラスです
     /// </summary>
     public class AssetManagementService : GameService
@@ -40,7 +63,7 @@ namespace IceMilkTea.Service
         private UnityAssetCache assetCache;
         private AssetBundleManifestManager manifestManager;
         private AssetBundleStorageManager storageManager;
-        private bool isSimulate;
+        private AssetBundleLoadMode loadMode;
 
 
 
@@ -56,7 +79,7 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">installer が null です</exception>
         /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
         /// <exception cref="ArgumentNullException">storageDirectoryInfo が null です</exception>
-        public AssetManagementService(AssetBundleStorageController storageController, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher, DirectoryInfo storageDirectoryInfo, bool isSimulate)
+        public AssetManagementService(AssetBundleStorageController storageController, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher, DirectoryInfo storageDirectoryInfo, AssetBundleLoadMode loadMode)
         {
             // storageがnullなら
             if (storageController == null)
@@ -90,12 +113,29 @@ namespace IceMilkTea.Service
             }
 
 
+            // ロードモードがローカルビルドロードなら
+            if (loadMode == AssetBundleLoadMode.LocalBuild)
+            {
+                // システムによってロードするパスを設定してストレージマネージャを騙す
+                if (SystemInfo.operatingSystemFamily == OperatingSystemFamily.Windows)
+                {
+                    // Windowsビルド時のローカルビルドパスを教える
+                    storageDirectoryInfo = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "AssetBundles/StandaloneWindows").Replace("\\", "/"));
+                }
+                else if (SystemInfo.operatingSystemFamily == OperatingSystemFamily.MacOSX)
+                {
+                    // Macビルド時のローカルビルドパスを教える
+                    storageDirectoryInfo = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "AssetBundles/StandaloneOSX").Replace("\\", "/"));
+                }
+            }
+
+
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
             manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
             storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer);
-            this.isSimulate = isSimulate;
+            this.loadMode = loadMode;
         }
 
 
@@ -168,12 +208,12 @@ namespace IceMilkTea.Service
                 // Resoucesからアセットをロードする
                 asset = await LoadResourcesAssetAsync<T>(uriInfo, progress);
             }
-            else if (isSimulate == false && storageName == AssetBundleHostName)
+            else if ((loadMode == AssetBundleLoadMode.Native || loadMode == AssetBundleLoadMode.LocalBuild) && storageName == AssetBundleHostName)
             {
                 // Resourcesでないならアセットバンドル側からロードする
                 asset = await LoadAssetBundleAssetAsync<T>(storageName, uriInfo, progress);
             }
-            else if (isSimulate == true && storageName == AssetBundleHostName)
+            else if (loadMode == AssetBundleLoadMode.Simulate && storageName == AssetBundleHostName)
             {
                 // Unityプロジェクトからロードする
                 asset = await LoadProjectAssetAsync<T>(uriInfo, progress);
@@ -407,8 +447,8 @@ namespace IceMilkTea.Service
         // TODO : 今はフル更新というひどい実装
         public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
-            // シミュレーションする時は何もせず終了
-            if (isSimulate) return;
+            // ネイティブロードモード以外は何もせず終了
+            if (loadMode != AssetBundleLoadMode.Native) return;
 
 
             // マニフェストの更新を行う
@@ -425,9 +465,8 @@ namespace IceMilkTea.Service
         // TODO : 今はフルダウンロードというひどい実装
         public async Task InstallAssetBundleAsync(IProgress<AssetBundleInstallProgress> progress)
         {
-            // シミュレーションする時は何もせず終了
-            if (isSimulate) return;
-
+            // ネイティブロードモード以外は何もせず終了
+            if (loadMode != AssetBundleLoadMode.Native) return;
             await storageManager.InstallAllAsync(progress);
         }
         #endregion
