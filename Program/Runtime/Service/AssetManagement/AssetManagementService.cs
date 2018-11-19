@@ -116,16 +116,18 @@ namespace IceMilkTea.Service
             // ロードモードがローカルビルドロードなら
             if (loadMode == AssetBundleLoadMode.LocalBuild)
             {
-                // システムによってロードするパスを設定してストレージマネージャを騙す
+                // システムによってロードするパスを設定してストレージマネージャとフェッチャを騙す
                 if (SystemInfo.operatingSystemFamily == OperatingSystemFamily.Windows)
                 {
                     // Windowsビルド時のローカルビルドパスを教える
                     storageDirectoryInfo = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "AssetBundles/StandaloneWindows").Replace("\\", "/"));
+                    manifestFetcher = new ImtEditorAssetBundleManifestFetcher(Path.Combine(storageDirectoryInfo.FullName, "StandaloneWindows"));
                 }
                 else if (SystemInfo.operatingSystemFamily == OperatingSystemFamily.MacOSX)
                 {
                     // Macビルド時のローカルビルドパスを教える
                     storageDirectoryInfo = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "AssetBundles/StandaloneOSX").Replace("\\", "/"));
+                    manifestFetcher = new ImtEditorAssetBundleManifestFetcher(Path.Combine(storageDirectoryInfo.FullName, "StandaloneOSX"));
                 }
             }
 
@@ -448,7 +450,7 @@ namespace IceMilkTea.Service
         public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
             // ネイティブロードモード以外は何もせず終了
-            if (loadMode != AssetBundleLoadMode.Native) return;
+            if (loadMode == AssetBundleLoadMode.Simulate) return;
 
 
             // マニフェストの更新を行う
