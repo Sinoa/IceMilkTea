@@ -14,12 +14,12 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
-using UnityEngine;
 
 namespace IceMilkTea.Service
 {
@@ -33,8 +33,9 @@ namespace IceMilkTea.Service
         public const int DefaultRetryCount = 2;
 
         // 非公開定数定義
-        private const int ReceiveBufferSize = 1 << 10;
+        private const int ReceiveBufferSize = 128 << 10;
         private const int InitialRetryWaitTime = 500;
+        private const int NotifyIntervalTime = 500;
 
         // 読み取り専用クラス変数宣言
         private static readonly Progress<double> EmptyProgress = new Progress<double>(_ => { });
@@ -216,35 +217,39 @@ namespace IceMilkTea.Service
             var contentLength = httpResponse.ContentLength == -1 ? 1 : httpResponse.ContentLength;
             using (var downloadStream = httpResponse.GetResponseStream())
             {
-                // 最後に通知したフレームカウント値
-                var lastReportFrameCount = Time.frameCount;
+                // 通知判定経過時間計測用ストップウォッチを生成
+                var notifyStopwatch = new Stopwatch();
 
 
-                // すべてを読み切るまでひたすらループする、また読み取りは非同期で読み取る
-                var totalProcessSize = 0L;
-                for (int readSize = 0; (readSize = await downloadStream.ReadAsync(receiveBuffer, 0, receiveBuffer.Length)) > 0;)
+                // 実際の読み書きをタスク化して終了するまで待つ
+                await Task.Run(() =>
                 {
-                    // 読み取ったサイズ書き込む（書き込みも非同期）
-                    await installStream.WriteAsync(receiveBuffer, 0, readSize);
-
-
-                    // 処理したサイズに加算して全体の進捗を求める
-                    totalProcessSize += readSize;
-                    var progressSize = (double)totalProcessSize / contentLength;
-
-
-                    // もし最後に通知したフレームカウントから進んでいるのなら
-                    if (lastReportFrameCount < Time.frameCount)
+                    // すべてを読み切るまでひたすらループする
+                    var totalProcessSize = 0L;
+                    for (int readSize = 0; (readSize = downloadStream.Read(receiveBuffer, 0, receiveBuffer.Length)) > 0;)
                     {
-                        // 進捗率が1.0超過しないように飽和処理してから進捗を通知する
-                        progressSize = Math.Min(progressSize, 1.0);
-                        progress.Report(progressSize);
+                        // 読み取ったサイズ書き込む
+                        installStream.Write(receiveBuffer, 0, readSize);
 
 
-                        // 最後に通知フレームカウントを更新する
-                        lastReportFrameCount = Time.frameCount;
+                        // 処理したサイズに加算して全体の進捗を求める
+                        totalProcessSize += readSize;
+                        var progressSize = (double)totalProcessSize / contentLength;
+
+
+                        // もし ストップウォッチが未起動 または 最後に通知した最後の経過時間が通知時間間隔を超えていたら
+                        if (notifyStopwatch.IsRunning == false || notifyStopwatch.ElapsedMilliseconds > NotifyIntervalTime)
+                        {
+                            // 進捗率が1.0超過しないように飽和処理してから進捗を通知する
+                            progressSize = Math.Min(progressSize, 1.0);
+                            progress.Report(progressSize);
+
+
+                            // ストップウォッチを再起動する
+                            notifyStopwatch.Restart();
+                        }
                     }
-                }
+                });
             }
         }
     }
