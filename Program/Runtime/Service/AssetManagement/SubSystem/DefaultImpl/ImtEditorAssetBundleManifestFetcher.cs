@@ -62,7 +62,7 @@ namespace IceMilkTea.Service
         {
             // 結果として返すアセットバンドルマニフェストを生成してタイムスタンプとコンテンツグループを初期化
             var manifest = new ImtAssetBundleManifest();
-            manifest.LastUpdateTimeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            manifest.LastUpdateTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
             manifest.ContentGroups = new AssetBundleContentGroup[1];
 
 
