@@ -64,6 +64,7 @@ namespace IceMilkTea.Service
         private AssetBundleManifestManager manifestManager;
         private AssetBundleStorageManager storageManager;
         private AssetBundleLoadMode loadMode;
+        private int initializedThreadId;
 
 
 
@@ -138,6 +139,10 @@ namespace IceMilkTea.Service
             manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
             storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer);
             this.loadMode = loadMode;
+
+
+            // 初期化済みスレッドIDを覚える
+            initializedThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
         }
 
 
@@ -150,8 +155,13 @@ namespace IceMilkTea.Service
         /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
         /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
+        /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
         public Task<T> LoadAssetAsync<T>(string assetUrl) where T : UnityEngine.Object
         {
+            // 例外ハンドリングをする
+            ThrowIfOtherThreadAccess();
+
+
             // 進捗通知を受けずに非同期ロードを行う
             return LoadAssetAsync<T>(assetUrl, null);
         }
@@ -168,8 +178,13 @@ namespace IceMilkTea.Service
         /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
         /// <exception cref="ArgumentException">不明なスキーム '{uriInfo.Uri.Scheme}' が指定されました。AssetManagementServiceは 'asset' スキームのみサポートしています。</exception>
         /// <exception cref="ArgumentException">不明なストレージホスト '{storageName}' が指定されたました。 'resources' または 'assetbundle' を指定してください。</exception>
+        /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
         public async Task<T> LoadAssetAsync<T>(string assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
+            // 例外ハンドリングをする
+            ThrowIfOtherThreadAccess();
+
+
             // もしURLがnullなら
             if (assetUrl == null)
             {
@@ -470,6 +485,23 @@ namespace IceMilkTea.Service
             // シミュレートモードなら何もせず終了
             if (loadMode == AssetBundleLoadMode.Simulate) return;
             await storageManager.InstallAllAsync(progress);
+        }
+        #endregion
+
+
+        #region CommonLogic
+        /// <summary>
+        /// 異なるスレッドからアクセスしてきた場合は例外をスローします
+        /// </summary>
+        /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
+        private void ThrowIfOtherThreadAccess()
+        {
+            // 初期化スレッドと異なるスレッドからの要求なら
+            if (initializedThreadId != System.Threading.Thread.CurrentThread.ManagedThreadId)
+            {
+                // 必ず初期化スレッドと同じスレッドじゃないと駄目
+                throw new InvalidOperationException("初期化スレッド以外からのスレッドでアクセスすることは許可されていません");
+            }
         }
         #endregion
     }
