@@ -21,10 +21,10 @@ namespace IceMilkTeaEditor.LayoutSystem
     /// <summary>
     /// エディタのレイアウト構成を持つUIで、ルートに位置するUIクラスです
     /// </summary>
-    public sealed class ImtEditorUiRoot : ImtEditorUi
+    public class ImtEditorUiRoot : ImtEditorUi
     {
         // メンバ変数定義
-        private List<ImtEditorUi> uiList;
+        protected List<ImtEditorUi> uiList;
 
 
 
