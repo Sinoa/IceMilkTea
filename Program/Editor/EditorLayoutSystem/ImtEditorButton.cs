@@ -107,7 +107,7 @@ namespace IceMilkTeaEditor.LayoutSystem
             if (GUILayout.Button(Text) && Enable)
             {
                 // ボタンクリックメッセージをポストする
-                PostMessage(button => Click((ImtEditorButton)button), this);
+                PostMessage(button => Click?.Invoke((ImtEditorButton)button), this);
             }
 
 
