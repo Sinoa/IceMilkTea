@@ -184,14 +184,14 @@ namespace IceMilkTeaEditor.LayoutSystem
         #endregion
 
 
-        #region アセンブリ内公開関数
+        #region 汎用ロジック関数
         /// <summary>
         /// このウィンドウが処理するべきメッセージをポストします
         /// </summary>
         /// <param name="callback">処理するべきメッセージのコールバック</param>
         /// <param name="state">コールバックに渡される任意のオブジェクト</param>
         /// <exception cref="ArgumentNullException">callback が null です</exception>
-        internal void PostMessage(Action<object> callback, object state)
+        protected internal void PostMessage(Action<object> callback, object state)
         {
             // もし callback が null なら
             if (callback == null)
@@ -201,8 +201,9 @@ namespace IceMilkTeaEditor.LayoutSystem
             }
 
 
-            // メッセージキューにメッセージとして追加
+            // メッセージキューにメッセージとして追加して再描画の要求をする
             messageQueue.Enqueue(new Message(callback, state));
+            Repaint();
         }
         #endregion
 
