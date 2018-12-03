@@ -14,14 +14,15 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using UnityEditor;
 using UnityEngine;
 
 namespace IceMilkTeaEditor.LayoutSystem
 {
     /// <summary>
-    /// ボタンを表現するエディタUIです
+    /// テキストフィールドを表現するエディタUIです
     /// </summary>
-    public class ImtEditorButton : ImtEditorUi
+    public class ImtEditorTextField : ImtEditorUi
     {
         // メンバ変数定義
         private string text;
@@ -29,13 +30,19 @@ namespace IceMilkTeaEditor.LayoutSystem
 
 
         /// <summary>
-        /// ボタンの有効状態の取得設定をします
+        /// UIの有効状態の取得設定をします
         /// </summary>
         public bool Enable { get; set; }
 
 
         /// <summary>
-        /// ボタンに表示する文字列の取得設定をします
+        /// テキストフィールドの内容は読み取り専用かどうか
+        /// </summary>
+        public bool ReadOnly { get; set; }
+
+
+        /// <summary>
+        /// 表示する文字列の取得設定をします
         /// </summary>
         /// <exception cref="ArgumentNullException">value が null です</exception>
         public string Text
@@ -63,39 +70,26 @@ namespace IceMilkTeaEditor.LayoutSystem
 
 
         /// <summary>
-        /// ボタンがクリックされた時のイベントです
+        /// テキストフィールド内の文字列が変化した時のイベントです
         /// </summary>
-        public event Action<ImtEditorButton> Click;
+        public event Action<ImtEditorTextField> TextChanged;
 
 
 
         /// <summary>
-        /// ImtEditorButton クラスのインスタンスを初期化します
+        /// ImtEditorTextField クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="ownerWindow">所属するオーナーウィンドウ</param>
-        public ImtEditorButton(ImtEditorWindow ownerWindow) : base(ownerWindow)
+        public ImtEditorTextField(ImtEditorWindow ownerWindow) : base(ownerWindow)
         {
             // 初期状態は有効状態
             Enable = true;
-            Text = "Button";
+            Text = string.Empty;
         }
 
 
         /// <summary>
-        /// ImtEditorButton クラスのインスタンスを初期化します
-        /// </summary>
-        /// <param name="ownerWindow">所属するオーナーウィンドウ</param>
-        /// <param name="text">ボタンに表示するテキスト</param>
-        public ImtEditorButton(ImtEditorWindow ownerWindow, string text) : base(ownerWindow)
-        {
-            // テキストを設定する
-            Enable = true;
-            Text = text;
-        }
-
-
-        /// <summary>
-        /// ボタンのレンダリングを行います
+        /// UIのレンダリングを行います
         /// </summary>
         protected internal override void Render()
         {
@@ -104,11 +98,23 @@ namespace IceMilkTeaEditor.LayoutSystem
             GUI.color = Enable ? GUI.color : Color.gray;
 
 
-            // ボタンを描画して、有効かつ押されたのなら
-            if (GUILayout.Button(Text) && Enable)
+            // 現在のテキストフィールドの文字列を覚えておく
+            var newerText = EditorGUILayout.TextField(text);
+
+
+            // テキストフィールドの返す文字列と入力前の文字列が異なるなら
+            if (text != newerText)
             {
-                // ボタンクリックメッセージをポストする
-                PostMessage(button => Click?.Invoke((ImtEditorButton)button), this);
+                // テキストが変化したイベントをポストする
+                PostMessage(textField => TextChanged?.Invoke((ImtEditorTextField)textField), this);
+
+
+                // もし 読み取り専用でない かつ 有効 なら
+                if (!ReadOnly && Enable)
+                {
+                    // 新しいテキストを覚える
+                    text = newerText;
+                }
             }
 
 
