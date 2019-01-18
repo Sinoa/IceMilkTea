@@ -45,7 +45,7 @@ namespace IceMilkTeaEditor.Utility
     /// <summary>
     /// メッシュ操作を容易に可能とするためのユーティリティクラスです
     /// </summary>
-    public static class MeshUtility
+    public static class ImtMeshUtility
     {
         /// <summary>
         /// ゲームオブジェクトから取り出したメッシュ関連のコンポーネントを保持する構造体です
