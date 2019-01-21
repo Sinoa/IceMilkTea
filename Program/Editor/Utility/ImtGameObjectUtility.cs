@@ -13,6 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -47,11 +48,12 @@ namespace IceMilkTeaEditor.Utility
         /// </summary>
         /// <param name="includeSkinnedMeshRenderer">スキンメッシュレンダラのゲームオブジェクトも含む場合は true を、含まない場合は false を指定</param>
         /// <param name="excludeInactiveObject">ヒエラルキ上における非アクティブ状態または、メッシュレンダラが無効の状態のゲームオブジェクトを除外する場合は true を、含む場合は false を指定</param>
+        /// <param name="materialFilter">レンダラが持っているマテリアルから取得対象とするかを判断する関数。true を返すと取得対象 false を返すと無視対象として扱われます。何もしない場合は null の指定が可能です</param>
         /// <param name="chunkInfo">シーンに含まれる、すべてのモデルゲームオブジェクトの配列と、それの全体を含む境界ボックス情報を持った構造体を出力します</param>
-        public static void GetAllModelObjects(bool includeSkinnedMeshRenderer, bool excludeInactiveObject, out ModelObjectChunkInfo chunkInfo)
+        public static void GetAllModelObjects(bool includeSkinnedMeshRenderer, bool excludeInactiveObject, Func<Material[], bool> materialFilter, out ModelObjectChunkInfo chunkInfo)
         {
             // まずはゲームオブジェクトを取得してから境界ボックスを計算する
-            chunkInfo.GameObjects = GetAllModelObjects(includeSkinnedMeshRenderer, excludeInactiveObject);
+            chunkInfo.GameObjects = GetAllModelObjects(includeSkinnedMeshRenderer, excludeInactiveObject, materialFilter);
             chunkInfo.Bounds = CalculateBoundingBoxEnclosedModel(chunkInfo.GameObjects);
         }
 
@@ -61,21 +63,31 @@ namespace IceMilkTeaEditor.Utility
         /// </summary>
         /// <param name="includeSkinnedMeshRenderer">スキンメッシュレンダラのゲームオブジェクトも含む場合は true を、含まない場合は false を指定</param>
         /// <param name="excludeInactiveObject">ヒエラルキ上における非アクティブ状態または、メッシュレンダラが無効の状態のゲームオブジェクトを除外する場合は true を、含む場合は false を指定</param>
+        /// <param name="materialFilter">レンダラが持っているマテリアルから取得対象とするかを判断する関数。true を返すと取得対象 false を返すと無視対象として扱われます。何もしない場合は null の指定が可能です</param>
         /// <returns>シーンに含まれる、すべてのモデルゲームオブジェクトの配列を返します</returns>
-        public static GameObject[] GetAllModelObjects(bool includeSkinnedMeshRenderer, bool excludeInactiveObject)
+        public static GameObject[] GetAllModelObjects(bool includeSkinnedMeshRenderer, bool excludeInactiveObject, Func<Material[], bool> materialFilter)
         {
-            // 収集したゲームオブジェクトを収めるリストを生成
+            // 収集したゲームオブジェクトを収めるリストを生成して、materialFilterがnullなら無条件通過関数で初期化する
             var gameObjectList = new List<GameObject>();
+            materialFilter = materialFilter ?? new Func<Material[], bool>(x => true);
 
 
             // メッシュフィルタコンポーネントをすべて取得してループする
-            var meshFilters = Object.FindObjectsOfType<MeshFilter>();
+            var meshFilters = UnityEngine.Object.FindObjectsOfType<MeshFilter>();
             foreach (var meshFilter in meshFilters)
             {
                 // メッシュレンダラの取得に失敗または、表示がされないオブジェクトを除外する場合は
                 var gameObject = meshFilter.gameObject;
                 var meshRenderer = gameObject.GetComponent<MeshRenderer>();
                 if (meshRenderer == null || (excludeInactiveObject && (!meshRenderer.enabled || !gameObject.activeInHierarchy)))
+                {
+                    // 収集リストには含めず次へ
+                    continue;
+                }
+
+
+                // マテリアルフィルタを通して拒否されたのなら
+                if (!materialFilter(meshRenderer.sharedMaterials))
                 {
                     // 収集リストには含めず次へ
                     continue;
@@ -91,12 +103,20 @@ namespace IceMilkTeaEditor.Utility
             if (includeSkinnedMeshRenderer)
             {
                 // スキンメッシュレンダラコンポーネントをすべて取得してループする
-                var skinnedMeshRenderers = Object.FindObjectsOfType<SkinnedMeshRenderer>();
+                var skinnedMeshRenderers = UnityEngine.Object.FindObjectsOfType<SkinnedMeshRenderer>();
                 foreach (var skinnedMeshRenderer in skinnedMeshRenderers)
                 {
                     // 表示されない可能性のあるゲームオブジェクトを除外する場合は
                     var gameObject = skinnedMeshRenderer.gameObject;
                     if (excludeInactiveObject && (!skinnedMeshRenderer.enabled || !gameObject.activeInHierarchy))
+                    {
+                        // 収集リストには含めず次へ
+                        continue;
+                    }
+
+
+                    // マテリアルフィルタを通して拒否されたのなら
+                    if (!materialFilter(skinnedMeshRenderer.sharedMaterials))
                     {
                         // 収集リストには含めず次へ
                         continue;
