@@ -182,11 +182,16 @@ namespace IceMilkTeaEditor.Utility
         /// <param name="gameObjects">チャンクに取り込むゲームオブジェクトの配列</param>
         /// <param name="chunkSize">チャンクのサイズ。このサイズはアラインメントのサイズとしても使われます。</param>
         /// <param name="worldSpaceBaseChunk">チャンクの区分けをする原点が、ワールド空間の場合は true を、モデルゲームオブジェクト全体の境界ボックスが原点の場合は false を指定</param>
+        /// <param name="chunkBias">チャンクの領域を判定する場合に、浮動小数点誤差やモデルの頂点精度などによる判定漏れを防ぐためのバイアス</param>
         /// <returns>ゲームオブジェクトが含まれたチャンク情報の配列を返します</returns>
-        public static ModelObjectChunkInfo[] GetModelObjectChunkInfos(GameObject[] gameObjects, Vector3 chunkSize, bool worldSpaceBaseChunk)
+        public static ModelObjectChunkInfo[] GetModelObjectChunkInfos(GameObject[] gameObjects, Vector3 chunkSize, bool worldSpaceBaseChunk, Vector3 chunkBias)
         {
             // チャンクID毎に所属するゲームオブジェクトのリストテーブルを生成する
             var chunkTable = new Dictionary<ulong, List<GameObject>>();
+
+
+            // ワールド空間座標ではなく、モデル全体オブジェクトの境界ボックスを中心とするなら座標計算のオフセットを求める
+            var boundingBoxCenterOffset = worldSpaceBaseChunk ? Vector3.zero : -CalculateBoundingBoxEnclosedModel(gameObjects).center;
 
 
             // 渡されたゲームオブジェクト分ループする
@@ -200,11 +205,12 @@ namespace IceMilkTeaEditor.Utility
                 }
 
 
-                // 境界ボックスの中心座標からチャンクIDを作る（64bit整数を16bitx4（x, y, z, w）として利用するがwは0）
+                // 境界ボックスの中心座標からチャンクIDを作る（64bit整数を16bit x4（x, y, z, w）として利用するがwは0）
+                var center = boundingBox.center + boundingBoxCenterOffset + chunkBias;
                 var chunkID = 0UL;
-                chunkID |= (ulong)(((long)(boundingBox.center.x / chunkSize.x) & 0xFFFF) << 48);
-                chunkID |= (ulong)(((long)(boundingBox.center.y / chunkSize.y) & 0xFFFF) << 32);
-                chunkID |= (ulong)(((long)(boundingBox.center.z / chunkSize.z) & 0xFFFF) << 16);
+                chunkID |= (ulong)((long)((short)Mathf.FloorToInt(center.x / chunkSize.x) & 0xFFFF) << 48);
+                chunkID |= (ulong)((long)((short)Mathf.FloorToInt(center.y / chunkSize.y) & 0xFFFF) << 32);
+                chunkID |= (ulong)((long)((short)Mathf.FloorToInt(center.z / chunkSize.z) & 0xFFFF) << 16);
 
 
                 // もしチャンクIDのデータがまだ未初期化なら
@@ -228,9 +234,9 @@ namespace IceMilkTeaEditor.Utility
             {
                 // チャンクIDから境界ボックスの座標を作る
                 var boundingBoxCenter = new Vector3();
-                boundingBoxCenter.x = (short)((chunkRecord.Key >> 48) & 0xFFFF) * chunkSize.x * 0.5f;
-                boundingBoxCenter.y = (short)((chunkRecord.Key >> 48) & 0xFFFF) * chunkSize.y * 0.5f;
-                boundingBoxCenter.z = (short)((chunkRecord.Key >> 48) & 0xFFFF) * chunkSize.z * 0.5f;
+                boundingBoxCenter.x = (short)((chunkRecord.Key >> 48) & 0xFFFF) * chunkSize.x - boundingBoxCenterOffset.x + chunkSize.x * 0.5f;
+                boundingBoxCenter.y = (short)((chunkRecord.Key >> 32) & 0xFFFF) * chunkSize.y - boundingBoxCenterOffset.y + chunkSize.y * 0.5f;
+                boundingBoxCenter.z = (short)((chunkRecord.Key >> 16) & 0xFFFF) * chunkSize.z - boundingBoxCenterOffset.z + chunkSize.z * 0.5f;
 
 
                 // 境界ボックスを作る
