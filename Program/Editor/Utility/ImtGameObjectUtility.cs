@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace IceMilkTeaEditor.Utility
 {
@@ -324,6 +325,89 @@ namespace IceMilkTeaEditor.Utility
             // ここまで到達してしまったのなら取得に失敗したということなので、初期値を入れて失敗を返す
             boundingBox = new Bounds(Vector3.zero, Vector3.zero);
             return false;
+        }
+
+
+        /// <summary>
+        /// Unityエディタシーン上に存在する、コンポーネントが何も付いていない空のゲームオブジェクトを削除します。
+        /// また、ヒエラルキの構造において、削除される対象のゲームオブジェクトは再帰的に処理されます。
+        /// </summary>
+        /// <param name="filter">本当に削除をしてもよいかを確認するフィルタ関数（削除する場合は true を、削除しない場合は false を返して下さい）。フィルタ処理をしない場合は null の指定が可能です。</param>
+        public static void DestoryEmptyGameObjectOnEditorScene(Func<GameObject, bool> filter)
+        {
+            // 削除する対象を保持するハッシュセットを宣言して、シーンに存在するルートゲームオブジェクト分回る
+            var removeTargetGameObjectSet = new HashSet<GameObject>();
+            foreach (var rootGameObject in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                // 削除するゲームオブジェクトを再帰的に処理をする
+                MarkRemoveGameObject(rootGameObject, removeTargetGameObjectSet, filter ?? new Func<GameObject, bool>(x => true));
+            }
+
+
+            // 削除とマークされたゲームオブジェクトの数分ループする
+            foreach (var targetGameObject in removeTargetGameObjectSet)
+            {
+                // 対象のゲームオブジェクトは直ちに削除をする
+                UnityEngine.Object.DestroyImmediate(targetGameObject);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたゲームオブジェクトが削除されるかどうかのマークをします。
+        /// また、ゲームオブジェクトに子のゲームオブジェクトがいる場合は、再帰的に処理がされます。
+        /// </summary>
+        /// <param name="gameObject">削除されるかマークする対象のゲームオブジェクト</param>
+        /// <param name="removeMarkSet">削除するマークをしたゲームオブジェクトを格納するハッシュセット</param>
+        /// <param name="filter">削除するマークをする時、本当に削除してもよいかを確認する関数（削除する場合は true を、削除しない場合は false を返して下さい）</param>
+        private static void MarkRemoveGameObject(GameObject gameObject, HashSet<GameObject> removeMarkSet, Func<GameObject, bool> filter)
+        {
+            // 対象ゲームオブジェクトのトランスフォーム、アタッチ済みコンポーネント数、子の数を取得する
+            var transform = gameObject.GetComponent<Transform>();
+            var childCount = transform.childCount;
+            var componentCount = gameObject.GetComponents<Component>().Length;
+
+
+            // 自分の子が存在しないなら
+            if (childCount == 0)
+            {
+                // もしコンポーネント数が1つのみ（Transformのみ）かつフィルターがtrueを返すなら
+                if (componentCount == 1 && filter(gameObject))
+                {
+                    // 削除対象としてマーク
+                    removeMarkSet.Add(gameObject);
+                }
+
+
+                // 再帰はここで止まる
+                return;
+            }
+
+
+            // 自分の子の数分回りながら、その子の全員が削除対象になっているかをチェックする変数も宣言
+            var allRemoveChildren = true;
+            for (int i = 0; i < childCount; ++i)
+            {
+                // 子のゲームオブジェクトを取得して再帰的に削除のマーク処理を行う
+                var childGameObject = transform.GetChild(i).gameObject;
+                MarkRemoveGameObject(childGameObject, removeMarkSet, filter);
+
+
+                // もし自分の子が削除対象になっていないのなら
+                if (!removeMarkSet.Contains(childGameObject))
+                {
+                    // 自分の子は全員削除されないとマーク
+                    allRemoveChildren = false;
+                }
+            }
+
+
+            // もし自分の子が全員削除されて、コンポーネント数も1つのみ（Transformのみ）なら
+            if (allRemoveChildren && componentCount == 1)
+            {
+                // 自分も削除対象になる
+                removeMarkSet.Add(gameObject);
+            }
         }
     }
 }
