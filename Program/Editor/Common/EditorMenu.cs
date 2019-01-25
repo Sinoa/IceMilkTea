@@ -13,6 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using IceMilkTeaEditor.Utility;
 using IceMilkTeaEditor.Window;
 using UnityEditor;
 
@@ -26,6 +27,7 @@ namespace IceMilkTeaEditor.Common
         // 定数定義
         private const string RootMenuName = "IceMilkTea";
         private const string WindowMenuName = RootMenuName + "/Window";
+        private const string HierarchyMenuName = RootMenuName + "/Hierarchy";
 
 
 
@@ -59,6 +61,17 @@ namespace IceMilkTeaEditor.Common
         {
             // AssetBundleWindowを開く
             AssetBundleBuildWindow.OpenWindow();
+        }
+
+
+        /// <summary>
+        /// エディタシーン上に存在する、空のゲームオブジェクトを再帰的に削除します
+        /// </summary>
+        [MenuItem(HierarchyMenuName + "/RemoveEmptyGameObject")]
+        public static void DoRemoveEmptyGameObjectOnEditorScene()
+        {
+            // 空のゲームオブジェクトを削除する
+            ImtGameObjectUtility.DestoryEmptyGameObjectOnEditorScene(null);
         }
     }
 }
