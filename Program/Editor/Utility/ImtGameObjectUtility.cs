@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -348,6 +349,7 @@ namespace IceMilkTeaEditor.Utility
             foreach (var targetGameObject in removeTargetGameObjectSet)
             {
                 // 対象のゲームオブジェクトは直ちに削除をする
+                Undo.RegisterCompleteObjectUndo(targetGameObject, "Remove GameObject");
                 UnityEngine.Object.DestroyImmediate(targetGameObject);
             }
         }
