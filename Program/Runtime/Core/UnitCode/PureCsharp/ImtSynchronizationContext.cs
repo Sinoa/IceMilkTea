@@ -1,6 +1,6 @@
 ﻿// zlib/libpng License
 //
-// Copyright (c) 2018 Sinoa
+// Copyright (c) 2018 - 2019 Sinoa
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -59,15 +59,19 @@ namespace IceMilkTea.Core
             /// </summary>
             public void Invoke()
             {
-                // コールバックを叩く
-                callback(state);
-
-
-                // もし待機ハンドルがあるなら
-                if (waitHandle != null)
+                try
                 {
-                    // シグナルを設定する
-                    waitHandle.Set();
+                    // コールバックを叩く
+                    callback(state);
+                }
+                finally
+                {
+                    // もし待機ハンドルがあるなら
+                    if (waitHandle != null)
+                    {
+                        // シグナルを設定する
+                        waitHandle.Set();
+                    }
                 }
             }
 
@@ -103,6 +107,7 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private SynchronizationContext previousContext;
         private Queue<Message> messageQueue;
+        private List<Exception> errorList;
         private int myStartupThreadId;
         private bool disposed;
 
@@ -121,6 +126,7 @@ namespace IceMilkTea.Core
             // メンバの初期化と、メッセージ処理関数を伝える
             previousContext = AsyncOperationManager.SynchronizationContext;
             messageQueue = new Queue<Message>(DefaultMessageQueueCapacity);
+            errorList = new List<Exception>(DefaultMessageQueueCapacity);
             myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
             messagePumpHandler = DoProcessMessage;
         }
@@ -270,6 +276,10 @@ namespace IceMilkTea.Core
             ThrowIfDisposed();
 
 
+            // エラーリストをクリアする
+            errorList.Clear();
+
+
             // メッセージキューをロック
             lock (messageQueue)
             {
@@ -280,9 +290,25 @@ namespace IceMilkTea.Core
                 // 今回処理するべきメッセージの件数分だけループ
                 for (int i = 0; i < processCount; ++i)
                 {
-                    // メッセージを呼ぶ
-                    messageQueue.Dequeue().Invoke();
+                    try
+                    {
+                        // メッセージを呼ぶ
+                        messageQueue.Dequeue().Invoke();
+                    }
+                    catch (Exception exception)
+                    {
+                        // エラーが発生したらエラーリストに詰める
+                        errorList.Add(exception);
+                    }
                 }
+            }
+
+
+            // エラーリストに要素が1つでも存在したら
+            if (errorList.Count > 0)
+            {
+                // エラーリストの内容全てを包んでまとめて例外を投げる
+                throw new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList.ToArray());
             }
         }
 
