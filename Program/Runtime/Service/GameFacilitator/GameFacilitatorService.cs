@@ -19,6 +19,7 @@ using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
+    #region シーンクラス
     /// <summary>
     /// ゲームのシーンとして制御する基本クラスです
     /// </summary>
@@ -44,6 +45,14 @@ namespace IceMilkTea.Service
         /// シーンの更新処理を行います
         /// </summary>
         protected internal virtual void Update()
+        {
+        }
+
+
+        /// <summary>
+        /// シーンが一時停止する時の処理を行います
+        /// </summary>
+        protected internal virtual void Sleep()
         {
         }
 
@@ -87,12 +96,13 @@ namespace IceMilkTea.Service
         {
         }
     }
+    #endregion
 
 
 
     /// <summary>
     /// ゲーム進行を行うサービスクラスです。
-    /// ゲーム進行サービスは、シーンという単位でゲーム進行を管理し、シーンはまるでスタックのように管理します。
+    /// シーンという単位でゲーム進行管理を行い、シーンはまるでスタックのように管理します。
     /// </summary>
     public class GameFacilitatorService<TSceneBase> : GameService where TSceneBase : GameScene
     {
@@ -108,10 +118,24 @@ namespace IceMilkTea.Service
             Ready,
 
             /// <summary>
-            /// シーンは稼働中です。
-            /// ただし Update が呼び出されるかどうかについては、保証していません。
+            /// シーンは稼働中です
             /// </summary>
             Running,
+
+            /// <summary>
+            /// シーンは一時停止します
+            /// </summary>
+            Sleeping,
+
+            /// <summary>
+            /// シーンは一時停止しています
+            /// </summary>
+            Sleeped,
+
+            /// <summary>
+            /// シーンが一時停止から稼動します
+            /// </summary>
+            Wakeup,
 
             /// <summary>
             /// シーンは解放される事のマークをされています
@@ -127,46 +151,9 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// SceneState 列挙型の内容で、破棄対象かどうかを判定する関数です
-        /// </summary>
-        /// <param name="state">判定する SceneState の値</param>
-        /// <returns>渡された SceneState の値が Destroy系（破棄対象マーク値）なら true を、異なる場合は false を返します</returns>
-        private bool IsDestroy(SceneState state)
-        {
-            // Destroy系ステータスの時は true を返す
-            return state == SceneState.Destroy || state == SceneState.ReadyedButDestroy;
-        }
-
-
-        /// <summary>
-        /// SceneState 列挙型の内容で、準備完了かどうかを判定する関数です
-        /// </summary>
-        /// <param name="state">判定する SceneState の値</param>
-        /// <returns>渡された SceneState の値が Ready系（動作開始準備完了状態値）なら true を、異なる場合は false を返します</returns>
-        private bool IsReady(SceneState state)
-        {
-            // Ready系ステータスの時は true を返す
-            return state == SceneState.Ready;
-        }
-
-
-        /// <summary>
-        /// SceneState 列挙型の内容で、動作中かどうかを判定する関数です
-        /// </summary>
-        /// <param name="state">判定する SceneState の値</param>
-        /// <returns>渡された SceneState の値が Running系（動作状態値）なら true を、異なる場合は false を返します</returns>
-        private bool IsRunning(SceneState state)
-        {
-            // Running系ステータスの時は true を返す
-            return state == SceneState.Running;
-        }
-
-
-
-        /// <summary>
         /// シーンの管理状態を保持するコンテキストクラスです
         /// </summary>
-        private class SceneManagementContext
+        private class SceneContext
         {
             /// <summary>
             /// 管理対象になっているシーン本体
@@ -178,21 +165,79 @@ namespace IceMilkTea.Service
             /// シーンの管理状態
             /// </summary>
             public SceneState State { get; set; }
+
+
+            /// <summary>
+            /// シーンの状態が準備完了であるか
+            /// </summary>
+            public bool IsReady => State == SceneState.Ready;
+
+
+            /// <summary>
+            /// シーンの状態が稼働中であるか
+            /// </summary>
+            public bool IsRunning => State == SceneState.Running;
+
+
+            /// <summary>
+            /// シーンの状態が再起動であるか
+            /// </summary>
+            public bool IsWakeup => State == SceneState.Wakeup;
+
+
+            /// <summary>
+            /// シーンの状態が一時停止であるか
+            /// </summary>
+            public bool IsSleep => State == SceneState.Sleeped || State == SceneState.Sleeping;
+
+
+            /// <summary>
+            /// シーンの状態が破棄であるか
+            /// </summary>
+            public bool IsDestroy => State == SceneState.Destroy || State == SceneState.ReadyedButDestroy;
         }
         #endregion
 
 
 
         // メンバ変数定義
-        private List<SceneManagementContext> sceneManagementContextList;
-        private bool needUpdateReferenceCurrentScene;
+        private List<SceneContext> sceneContextList;
+        private SceneContext currentProcessSceneContext;
 
+
+
+        #region プロパティ
+        /// <summary>
+        /// 管理しているシーンの数を取得します
+        /// </summary>
+        public int SceneCount => sceneContextList.Count;
 
 
         /// <summary>
-        /// 現在実行中のシーンを取得します
+        /// 動作中のシーンの数を取得します
         /// </summary>
-        public TSceneBase CurrentScene { get; private set; }
+        public int RunningSceneCount
+        {
+            get
+            {
+                // 管理しているシーンコンテキストの数分ループ
+                int count = 0;
+                for (int i = 0; i < sceneContextList.Count; ++i)
+                {
+                    // 稼働中なら
+                    if (sceneContextList[i].IsRunning)
+                    {
+                        // インクリメント
+                        ++count;
+                    }
+                }
+
+
+                // カウント結果を返す
+                return count;
+            }
+        }
+        #endregion
 
 
 
@@ -203,7 +248,7 @@ namespace IceMilkTea.Service
         public GameFacilitatorService()
         {
             // シーン管理リストの初期化
-            sceneManagementContextList = new List<SceneManagementContext>();
+            sceneContextList = new List<SceneContext>();
         }
 
 
@@ -236,10 +281,10 @@ namespace IceMilkTea.Service
         protected internal override void Shutdown()
         {
             // 管理情報の数分末尾から回る
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            for (int i = sceneContextList.Count - 1; i >= 0; --i)
             {
-                // もし準備完了または準備完了破棄対象のステータスなら
-                if (IsReady(sceneManagementContextList[i].State) || sceneManagementContextList[i].State == SceneState.ReadyedButDestroy)
+                // もし準備完了または準備完了破棄対象または一時停止中のステータスなら
+                if (sceneContextList[i].IsReady || sceneContextList[i].State == SceneState.ReadyedButDestroy || sceneContextList[i].IsSleep)
                 {
                     // 解放処理は実行しないで次へ
                     continue;
@@ -247,12 +292,12 @@ namespace IceMilkTea.Service
 
 
                 // 準備完了以外なら無条件で解放処理を呼ぶ
-                sceneManagementContextList[i].Scene.Terminate();
+                sceneContextList[i].Scene.Terminate();
             }
 
 
             // 管理リストを空にする
-            sceneManagementContextList.Clear();
+            sceneContextList.Clear();
         }
         #endregion
 
@@ -263,63 +308,46 @@ namespace IceMilkTea.Service
         /// </summary>
         private void UpdateService()
         {
-            // 現在のシーンの参照更新が必要な場合は
-            if (needUpdateReferenceCurrentScene)
+            // 現在のシーンの数分ループ
+            var currentSceneCount = SceneCount;
+            for (int i = 0; i < currentSceneCount; ++i)
             {
-                // Updateを呼ぶべきシーンと再スタートを呼ぶべきかのフラグを用意
-                var needUpdateScene = default(TSceneBase);
-                var needCallRestart = false;
+                // シーンコンテキストを取得して、現在処理中のシーンとして覚える
+                var sceneContext = sceneContextList[i];
+                currentProcessSceneContext = sceneContext;
 
 
-                // 管理情報の数分回る（全体を巡回しながら初期化を呼ぶべき子も一緒に探す）
-                foreach (var sceneManagementContext in sceneManagementContextList)
+                // これから起きるなら
+                if (sceneContext.IsWakeup)
                 {
-                    // もし動作開始準備なシーンなら
-                    if (IsReady(sceneManagementContext.State))
-                    {
-                        // 初期化処理を呼び出して実行状態にする
-                        sceneManagementContext.Scene.Initialize();
-                        sceneManagementContext.State = SceneState.Running;
-
-
-                        // そしてUpdateを呼ぶべきシーンとして覚えて、このシーンはRestartを呼ばないようにしてもらう
-                        needUpdateScene = sceneManagementContext.Scene;
-                        needCallRestart = false;
-                        continue;
-                    }
-
-
-                    // もし実行状態なシーンなら
-                    if (IsRunning(sceneManagementContext.State))
-                    {
-                        // Updateを呼ぶべきシーンとして覚えて、Restartを呼ぶようにしてもらう
-                        needUpdateScene = sceneManagementContext.Scene;
-                        needCallRestart = true;
-                        continue;
-                    }
+                    // 稼働中状態にして、シーンが起きたイベントを実行して続行
+                    sceneContext.State = SceneState.Running;
+                    sceneContext.Scene.Restart();
                 }
 
 
-                // 巡回更新が終わったら現在処理するべきシーンの更新をして、もしRestartを呼ぶ必要があるなら
-                CurrentScene = needUpdateScene;
-                if (needCallRestart)
+                // 稼働中なら
+                if (sceneContext.IsRunning)
                 {
-                    // Restartを叩く
-                    CurrentScene.Restart();
+                    // シーンの更新を読んで次へ
+                    sceneContext.Scene.Update();
+                    continue;
                 }
 
 
-                // もう更新の必要はないとする
-                needUpdateReferenceCurrentScene = false;
+                // 動作開始準備なら
+                if (sceneContext.IsReady)
+                {
+                    // 初期化処理を呼び出して実行状態に設定した後、次へ
+                    sceneContext.State = SceneState.Running;
+                    sceneContext.Scene.Initialize();
+                    continue;
+                }
             }
 
 
-            // Updateを呼ぶべきシーンが存在するなら
-            if (CurrentScene != null)
-            {
-                // Updateを呼ぶ
-                CurrentScene.Update();
-            }
+            // 現在処理中のシーンコンテキストをクリアする
+            currentProcessSceneContext = null;
         }
 
 
@@ -328,32 +356,44 @@ namespace IceMilkTea.Service
         /// </summary>
         private void FinalFrameUpdate()
         {
+            // 管理情報リストの先頭から回る
+            for (int i = 0; i < sceneContextList.Count; ++i)
+            {
+                // 一時停止開始状態なら
+                if (sceneContextList[i].State == SceneState.Sleeping)
+                {
+                    // 一時停止処理を読んで一時停止状態にする
+                    sceneContextList[i].Scene.Sleep();
+                    sceneContextList[i].State = SceneState.Sleeped;
+                }
+            }
+
+
             // 管理情報の数分末尾から回る
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            for (int i = sceneContextList.Count - 1; i >= 0; --i)
             {
                 // 破棄対象なら
-                if (IsDestroy(sceneManagementContextList[i].State))
+                if (sceneContextList[i].IsDestroy)
                 {
                     // 本当の破棄処理なら
-                    if (sceneManagementContextList[i].State == SceneState.Destroy)
+                    if (sceneContextList[i].State == SceneState.Destroy)
                     {
                         // 破棄処理を呼ぶ
-                        sceneManagementContextList[i].Scene.Terminate();
-                    }
-
-
-                    // もし現在のシーンと同じなら
-                    if (sceneManagementContextList[i].Scene == CurrentScene)
-                    {
-                        // 現在のシーンの参照をすてて参照を更新する必要があることを示す
-                        CurrentScene = null;
-                        needUpdateReferenceCurrentScene = true;
+                        sceneContextList[i].Scene.Terminate();
                     }
 
 
                     // 要素を削除する
-                    sceneManagementContextList.RemoveAt(i);
+                    sceneContextList.RemoveAt(i);
                 }
+            }
+
+
+            // リストの末尾にあるシーンがもし一時停止中なら
+            if (sceneContextList.Count > 0 && sceneContextList[sceneContextList.Count - 1].IsSleep)
+            {
+                // 再起動状態にする
+                sceneContextList[sceneContextList.Count - 1].State = SceneState.Wakeup;
             }
         }
 
@@ -363,11 +403,15 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationSuspend()
         {
-            // 現在のシーンが存在するなら
-            if (CurrentScene != null)
+            // 管理リストの先頭から回る
+            for (int i = 0; i < sceneContextList.Count; ++i)
             {
-                // アプリケーションが一時停止したイベントを呼ぶ
-                CurrentScene.OnApplicationSleep();
+                // もし稼働状態なら
+                if (sceneContextList[i].IsRunning)
+                {
+                    // アプリケーションが一時停止するイベントを呼ぶ
+                    sceneContextList[i].Scene.OnApplicationSleep();
+                }
             }
         }
 
@@ -377,11 +421,15 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationResume()
         {
-            // 現在のシーンが存在するなら
-            if (CurrentScene != null)
+            // 管理リストの先頭から回る
+            for (int i = 0; i < sceneContextList.Count; ++i)
             {
-                // アプリケーションが再開したイベントを呼ぶ
-                CurrentScene.OnApplicationResume();
+                // もし稼働状態なら
+                if (sceneContextList[i].IsRunning)
+                {
+                    // アプリケーションが再開したイベントを呼ぶ
+                    sceneContextList[i].Scene.OnApplicationResume();
+                }
             }
         }
 
@@ -391,11 +439,15 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationFocusOut()
         {
-            // 現在のシーンが存在するなら
-            if (CurrentScene != null)
+            // 管理リストの先頭から回る
+            for (int i = 0; i < sceneContextList.Count; ++i)
             {
-                // アプリケーションがフォーカスを失ったイベントを呼ぶ
-                CurrentScene.OnApplicationFocusOut();
+                // もし稼働状態なら
+                if (sceneContextList[i].IsRunning)
+                {
+                    // アプリケーションがフォーカスを失ったイベントを呼ぶ
+                    sceneContextList[i].Scene.OnApplicationFocusOut();
+                }
             }
         }
 
@@ -405,11 +457,15 @@ namespace IceMilkTea.Service
         /// </summary>
         private void OnApplicationFocusIn()
         {
-            // 現在のシーンが存在するなら
-            if (CurrentScene != null)
+            // 管理リストの先頭から回る
+            for (int i = 0; i < sceneContextList.Count; ++i)
             {
-                // アプリケーションがフォーカスを得られたイベントを呼ぶ
-                CurrentScene.OnApplicationFocusIn();
+                // もし稼働状態なら
+                if (sceneContextList[i].IsRunning)
+                {
+                    // アプリケーションがフォーカスを得たイベントを呼ぶ
+                    sceneContextList[i].Scene.OnApplicationFocusIn();
+                }
             }
         }
         #endregion
@@ -417,36 +473,108 @@ namespace IceMilkTea.Service
 
         #region シーンリスト操作系
         /// <summary>
+        /// RequestDropScene() 関数の呼び出し後 RequestNextScene() 関数を呼び出します
+        /// </summary>
+        /// <param name="scene">新しく切り替えるシーン</param>
+        /// <exception cref="ArgumentNullException">scene が null です</exception>
+        public void ChangeScene(TSceneBase scene)
+        {
+            // もし scene が null なら
+            if (scene == null)
+            {
+                // 処理の続行が出来ない
+                throw new ArgumentNullException(nameof(scene));
+            }
+
+
+            // 破棄要求関数呼び出し後、シーン実行要求関数を呼ぶだけ
+            RequestDropScene();
+            RequestNextScene(scene);
+        }
+
+
+        /// <summary>
         /// 指定されたシーンを次に実行するシーンとしてリクエストします。
+        /// また、既定どうさとしては、現在処理中のシーンが一時停止するようになっています。
         /// </summary>
         /// <remarks>
-        /// 同一フレーム内で複数のリクエストをすることは可能ですが、
-        /// 初期化処理は要求した順に行われ Update が呼び出されるのは、最後に要求したシーンとなります。
+        /// 同一フレーム内で複数のリクエストをすることが可能であり、初期化処理は要求した順に行われます。
         /// また、初期化処理から実際に更新処理が実行されるタイミングは、次のフレームの開始タイミングとなります。
         /// </remarks>
         /// <param name="scene">次に実行するシーン</param>
         /// <exception cref="ArgumentNullException">scene が null です</exception>
         public void RequestNextScene(TSceneBase scene)
         {
-            // scene が null なら
-            if (scene == null)
-            {
-                // そんな追加は許されない
-                throw new ArgumentNullException(nameof(scene));
-            }
+            // 自身のシーンが一時停止するRequestNextScene関数呼び出しをする
+            RequestNextScene(scene, true);
+        }
 
 
+        /// <summary>
+        /// 指定されたシーンを次に実行するシーンとしてリクエストします。
+        /// </summary>
+        /// <remarks>
+        /// 同一フレーム内で複数のリクエストをすることが可能であり、初期化処理は要求した順に行われます。
+        /// また、初期化処理から実際に更新処理が実行されるタイミングは、次のフレームの開始タイミングとなります。
+        /// </remarks>
+        /// <param name="scene">次に実行するシーン</param>
+        /// <param name="sleepCurrentScene">現在の処理しているシーンが一時停止する場合は true を、継続動作する場合は false を指定</param>
+        public void RequestNextScene(TSceneBase scene, bool sleepCurrentScene)
+        {
             // 初期化準備完了ステータスとしてシーンを管理リストに追加する
-            sceneManagementContextList.Add(new SceneManagementContext()
+            sceneContextList.Add(new SceneContext()
             {
                 // 管理情報の設定
-                Scene = scene,
+                Scene = scene ?? throw new ArgumentNullException(nameof(scene)),
                 State = SceneState.Ready,
             });
 
 
-            // 現在の動作シーンの参照を更新する必要があることを示す
-            needUpdateReferenceCurrentScene = true;
+            // もし自身を寝かすなら
+            if (sleepCurrentScene)
+            {
+                // 自分自身を寝かすようにリクエストする
+                RequestSleepScene(currentProcessSceneContext.Scene);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたシーンを一時停止要求をします。
+        /// ただし、指定されたシーンは既に動作経験がある必要があります。
+        /// さらに、破棄対象となったシーンは一時停止することは出来ません。
+        /// </summary>
+        /// <remarks>
+        /// 任意のタイミングでシーンを一時停止する事が出来ますが、全てのシーンが一時停止してしまい
+        /// ゲームの進行が停止してしまわないように注意をして下さい。
+        /// また、この関数はシーンの管理対象でありかつ動作中である必要があります。
+        /// </remarks>
+        /// <param name="scene">一時停止要求するシーン</param>
+        /// <exception cref="ArgumentNullException">scene が null です</exception>
+        public void RequestSleepScene(TSceneBase scene)
+        {
+            // シーンの数分ループする
+            foreach (var sceneContext in sceneContextList)
+            {
+                // もしシーンの参照が一致しないなら
+                if (sceneContext.Scene == scene)
+                {
+                    // 次へ
+                    continue;
+                }
+
+
+                // 動作中以外なら
+                if (!sceneContext.IsRunning)
+                {
+                    // 何もせずループを終了
+                    break;
+                }
+
+
+                // 一時停止することを示す
+                sceneContext.State = SceneState.Sleeping;
+            }
         }
 
 
@@ -459,47 +587,37 @@ namespace IceMilkTea.Service
         public void RequestDropScene()
         {
             // 管理リストの末尾からループする
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            for (int i = sceneContextList.Count - 1; i >= 0; --i)
             {
+                // シーンコンテキストを取得する
+                var sceneContext = sceneContextList[i];
+
+
                 // ステータスが Destroy系 なら
-                var status = sceneManagementContextList[i].State;
-                if (IsDestroy(status))
+                if (sceneContext.IsDestroy)
                 {
                     // 次のシーン管理情報へ
                     continue;
                 }
 
 
-                // もし動作中状態なら
-                if (IsRunning(status))
+                // もし動作中状態または一時停止なら
+                if (sceneContext.IsRunning || sceneContext.IsSleep || sceneContext.IsWakeup)
                 {
                     // 通常の破棄ステータスを設定して終了
-                    sceneManagementContextList[i].State = SceneState.Destroy;
+                    sceneContext.State = SceneState.Destroy;
                     return;
                 }
 
 
                 // もし準備完了状態なら
-                if (IsReady(status))
+                if (sceneContext.IsReady)
                 {
                     // 準備完了だが破棄されるというステータスを設定して終了
-                    sceneManagementContextList[i].State = SceneState.ReadyedButDestroy;
+                    sceneContext.State = SceneState.ReadyedButDestroy;
                     return;
                 }
             }
-        }
-
-
-        /// <summary>
-        /// RequestDropScene() 関数の呼び出し後 RequestNextScene() 関数を呼び出します
-        /// </summary>
-        /// <param name="scene">新しく切り替えるシーン</param>
-        /// <exception cref="ArgumentNullException">scene が null です</exception>
-        public void ChangeScene(TSceneBase scene)
-        {
-            // 破棄要求関数呼び出し後、シーン実行要求関数を呼ぶだけ
-            RequestDropScene();
-            RequestNextScene(scene);
         }
 
 
@@ -509,257 +627,25 @@ namespace IceMilkTea.Service
         public void RequestDropAllScene()
         {
             // 管理情報の数分回る
-            foreach (var sceneManagementContext in sceneManagementContextList)
+            foreach (var sceneContext in sceneContextList)
             {
-                // もし動作中状態なら
-                if (IsRunning(sceneManagementContext.State))
+                // もし動作中、一時停止中、再起動状態なら
+                if (sceneContext.IsRunning || sceneContext.IsSleep || sceneContext.IsWakeup)
                 {
                     // 通常の破棄ステータスを設定して次へ
-                    sceneManagementContext.State = SceneState.Destroy;
+                    sceneContext.State = SceneState.Destroy;
                     continue;
                 }
 
 
                 // もし準備完了状態なら
-                if (IsReady(sceneManagementContext.State))
+                if (sceneContext.IsReady)
                 {
                     // 準備完了だが破棄されるというステータスを設定して次へ
-                    sceneManagementContext.State = SceneState.ReadyedButDestroy;
+                    sceneContext.State = SceneState.ReadyedButDestroy;
                     continue;
                 }
             }
-        }
-
-
-        /// <summary>
-        /// 最も新しい実行状態または実行準備状態のある、指定のシーン型のインスタンスを検索します
-        /// </summary>
-        /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <returns>最も新しい実行状態または実行準備状態の指定シーンが見つかった場合は、そのインスタンスを返します。見つからなかった場合は null を返します</returns>
-        public TScene FindNewestScene<TScene>() where TScene : TSceneBase
-        {
-            // 検索する型の取得
-            var sceneType = typeof(TScene);
-
-
-            // 管理情報の数分末尾から回る
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
-            {
-                // シーンの状態が Ready か Running 以外なら
-                var state = sceneManagementContextList[i].State;
-                if (!(IsReady(state) || IsRunning(state)))
-                {
-                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
-                    continue;
-                }
-
-
-                // シーンの型が一致したのなら
-                var scene = sceneManagementContextList[i].Scene;
-                if (scene.GetType() == sceneType)
-                {
-                    // このシーンを返す
-                    return scene as TScene;
-                }
-            }
-
-
-            // ループから抜けてきたということは見つからなかったとして null を返す
-            return null;
-        }
-
-
-        /// <summary>
-        /// 最も古い実行状態または実行準備状態のある、指定のシーン型のインスタンスを検索します
-        /// </summary>
-        /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <returns>最も古い実行状態または実行準備状態の指定シーンが見つかった場合は、そのインスタンスを返します。見つからなかった場合は null を返します</returns>
-        public TScene FindOldestScene<TScene>() where TScene : TSceneBase
-        {
-            // 検索する型の取得
-            var sceneType = typeof(TScene);
-
-
-            // 管理情報の数分先頭から回る
-            foreach (var sceneManagementContext in sceneManagementContextList)
-            {
-                // シーンの状態が Ready か Running 以外なら
-                var state = sceneManagementContext.State;
-                if (!(IsReady(state) || IsRunning(state)))
-                {
-                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
-                    continue;
-                }
-
-
-                // シーンの型が一致したのなら
-                var scene = sceneManagementContext.Scene;
-                if (scene.GetType() == sceneType)
-                {
-                    // このシーンを返す
-                    return scene as TScene;
-                }
-            }
-
-
-            // ループから抜けてきたということは見つからなかったとして null を返す
-            return null;
-        }
-
-
-        /// <summary>
-        /// このサービスが保持している実行状態または実行準備のある、指定されたシーン型のインスタンスをすべて検索します
-        /// </summary>
-        /// <remarks>
-        /// この関数が返す配列の順序は、新しく実行要求のあった順に整列しています。
-        /// </remarks>
-        /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <returns>シーンインスタンスを見つけた場合は、見つけたインスタンスの配列を返します。しかし、見つけられなかった場合は長さ 0 の配列を返します。</returns>
-        public TScene[] FindAllScene<TScene>() where TScene : TSceneBase
-        {
-            // 検索する型の取得と検索結果を一時的に蓄えるリスト
-            var sceneType = typeof(TScene);
-            var resultList = new List<TScene>(sceneManagementContextList.Count);
-
-
-            // 管理情報の数分末尾から回る
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
-            {
-                // もしシーンの状態が Ready か Running 以外なら
-                var state = sceneManagementContextList[i].State;
-                if (!(IsReady(state) || IsRunning(state)))
-                {
-                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
-                    continue;
-                }
-
-
-                // シーンの型が一致したのなら
-                var scene = sceneManagementContextList[i].Scene;
-                if (scene.GetType() == sceneType)
-                {
-                    // このシーンを返す候補に詰める
-                    resultList.Add(scene as TScene);
-                }
-            }
-
-
-            // 配列として返す
-            return resultList.ToArray();
-        }
-
-
-        /// <summary>
-        /// このサービスが保持している実行状態または実行準備のある、指定されたシーン型のインスタンスをすべて検索します
-        /// </summary>
-        /// <remarks>
-        /// この関数は、殆ど FindAllScene() と、同じ挙動ですが、違いとしては検索結果を格納するバッファを呼び出し元から受け取る点にあります。
-        /// 非常に、高い頻度でシーン全体検索を行う場合において FindAllScene() 関数は内部で結果バッファを生成することにより
-        /// ヒープを沢山消費してしまいパフォーマンスに悪影響を与えてしまうため、事前にバッファを用意することで、この問題を回避します。
-        /// また、バッファサイズが実際に検索結果の数を下回ったとしても、バッファを超える検索は行わずバッファが満たされた状態で関数は終了します。
-        /// </remarks>
-        /// <typeparam name="TScene">検索するシーン型</typeparam>
-        /// <param name="result">検索結果を格納する GameScene バッファ</param>
-        /// <returns>result 引数に与えられたバッファに格納した総数を返します。</returns>
-        /// <exception cref="ArgumentNullException">result が null です</exception>
-        public int FindAllSceneNonAlloc<TScene>(TScene[] result) where TScene : TSceneBase
-        {
-            // nullを渡されてしまったら
-            if (result == null)
-            {
-                // そんな要求は受け付けられない！
-                throw new ArgumentNullException(nameof(result));
-            }
-
-
-            // バッファサイズが0なら
-            if (result.Length == 0)
-            {
-                // 直ちに終了
-                return 0;
-            }
-
-
-            // 検索する型の取得
-            var sceneType = typeof(TScene);
-
-
-            // 管理情報の数分末尾から回る
-            var insertIndex = 0;
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
-            {
-                // もし渡されたバッファを満たしている状態なら
-                if (result.Length == insertIndex)
-                {
-                    // ループから脱出して検索を終了する
-                    break;
-                }
-
-
-                // もしシーンの状態が Ready か Running 以外なら
-                var state = sceneManagementContextList[i].State;
-                if (!(IsReady(state) || IsRunning(state)))
-                {
-                    // 状態が稼働状態でないなら、型が一致しても収拾する気はない
-                    continue;
-                }
-
-
-                // シーンの型が一致したのなら
-                var scene = sceneManagementContextList[i].Scene;
-                if (scene.GetType() == sceneType)
-                {
-                    // バッファに情報を入れて挿入インデックス位置をずらす
-                    result[insertIndex] = scene as TScene;
-                    ++insertIndex;
-                }
-            }
-
-
-            // 取得した件数を返す（挿入インデックスの位置がちょうど検索件数と一致する）
-            return insertIndex;
-        }
-
-
-        /// <summary>
-        /// 指定されたシーンが、このサービスによって管理され含まれているか確認をします。
-        /// また、含まれているかどうかについては、シーンの状態が 実行状態 か 実行準備完了状態 の場合に限ります。
-        /// </summary>
-        /// <param name="scene">確認をするシーン</param>
-        /// <returns>該当のシーンが、サービスに含まれている場合は true を、含まれていない場合は false を返します</returns>
-        /// <exception cref="ArgumentNullException">scene が null です</exception>
-        public bool ContainsScene(TSceneBase scene)
-        {
-            // nullを渡されてしまったら
-            if (scene == null)
-            {
-                // そのような確認は許されない！
-                throw new ArgumentNullException(nameof(scene));
-            }
-
-
-            // 管理情報の数分回る
-            foreach (var sceneManagementContext in sceneManagementContextList)
-            {
-                // もし参照が一致するシーンの管理情報が見つかったのなら
-                if (sceneManagementContext.Scene == scene)
-                {
-                    // 直ちに見つかったことを返したいが、破棄対象になっているのなら
-                    if (IsDestroy(sceneManagementContext.State))
-                    {
-                        // 見つかったとしてもこれは破棄される予定なので次を探す
-                        continue;
-                    }
-
-
-                    // 破棄対象でも無いのなら存在していることを返す
-                    return true;
-                }
-            }
-
-
-            // ループから抜けてきてしまったのなら存在していないことになる
-            return false;
         }
 
 
@@ -770,10 +656,9 @@ namespace IceMilkTea.Service
         /// この関数は、一つ前のシーンが動作可能状態で有ることを保証したシーンを取得します
         /// </remarks>
         /// <param name="scene">取り出すシーンの一つ次に存在するシーン。このシーンは破棄対象になったシーンでも構いません</param>
-        /// <returns>指定されたシーンのひとつ前の、動作可能な状態のシーンを返します</returns>
+        /// <returns>指定されたシーンのひとつ前の、動作可能な状態のシーンを返しますが、シーンを見つけられなかった場合は null を返します</returns>
         /// <exception cref="ArgumentNullException">scene が null です</exception>
         /// <exception cref="InvalidOperationException">指定された scene は、管理対象になっていません</exception>
-        /// <exception cref="InvalidOperationException">指定された scene より前に動作可能なシーンが存在しません</exception>
         public TSceneBase GetPreviousScene(TSceneBase scene)
         {
             // nullを渡されてしまったら
@@ -785,34 +670,26 @@ namespace IceMilkTea.Service
 
 
             // 管理情報の数分末尾から回る
-            for (int i = sceneManagementContextList.Count - 1; i >= 0; --i)
+            for (int i = sceneContextList.Count - 1; i >= 0; --i)
             {
                 // もしシーンが一致するインデックスを見つけたのなら
-                if (sceneManagementContextList[i].Scene == scene)
+                if (sceneContextList[i].Scene == scene)
                 {
-                    // ただしインデックス0なら
-                    if (i == 0)
-                    {
-                        // 一つ前にシーンが存在していない事を吐く
-                        throw new InvalidOperationException($"'{scene.GetType().Name}'より前に動作可能なシーンが存在しません");
-                    }
-
-
                     // さらにここから動作可能なシーンを割り出す
                     for (i = i - 1; i >= 0; --i)
                     {
-                        // もしシーンの状態が Ready か Running なら
-                        var state = sceneManagementContextList[i].State;
-                        if (IsReady(state) || IsRunning(state))
+                        // もしシーンの状態が Ready か Running か Sleep なら
+                        var state = sceneContextList[i].State;
+                        if (sceneContextList[i].IsReady || sceneContextList[i].IsRunning || sceneContextList[i].IsSleep)
                         {
                             // このシーンを返す
-                            return sceneManagementContextList[i].Scene;
+                            return sceneContextList[i].Scene;
                         }
                     }
 
 
-                    // ループから抜けてきてしまったのなら、一つ前にシーンが存在していない事を吐く
-                    throw new InvalidOperationException($"'{scene.GetType().Name}'より前に動作可能なシーンが存在しません");
+                    // ループから抜けてきてしまったのなら、一つ前にシーンが存在していないのでnullを返す
+                    return null;
                 }
             }
 
