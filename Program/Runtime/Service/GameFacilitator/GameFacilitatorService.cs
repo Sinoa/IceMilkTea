@@ -202,7 +202,6 @@ namespace IceMilkTea.Service
 
         // メンバ変数定義
         private List<SceneContext> sceneContextList;
-        private SceneContext currentProcessSceneContext;
 
 
 
@@ -312,9 +311,8 @@ namespace IceMilkTea.Service
             var currentSceneCount = SceneCount;
             for (int i = 0; i < currentSceneCount; ++i)
             {
-                // シーンコンテキストを取得して、現在処理中のシーンとして覚える
+                // シーンコンテキストを取得する
                 var sceneContext = sceneContextList[i];
-                currentProcessSceneContext = sceneContext;
 
 
                 // これから起きるなら
@@ -344,10 +342,6 @@ namespace IceMilkTea.Service
                     continue;
                 }
             }
-
-
-            // 現在処理中のシーンコンテキストをクリアする
-            currentProcessSceneContext = null;
         }
 
 
@@ -495,7 +489,7 @@ namespace IceMilkTea.Service
 
         /// <summary>
         /// 指定されたシーンを次に実行するシーンとしてリクエストします。
-        /// また、既定どうさとしては、現在処理中のシーンが一時停止するようになっています。
+        /// また、既定動作としてはトップシーンが一時停止するようになっています。
         /// </summary>
         /// <remarks>
         /// 同一フレーム内で複数のリクエストをすることが可能であり、初期化処理は要求した順に行われます。
@@ -518,24 +512,38 @@ namespace IceMilkTea.Service
         /// また、初期化処理から実際に更新処理が実行されるタイミングは、次のフレームの開始タイミングとなります。
         /// </remarks>
         /// <param name="scene">次に実行するシーン</param>
-        /// <param name="sleepCurrentScene">現在の処理しているシーンが一時停止する場合は true を、継続動作する場合は false を指定</param>
-        public void RequestNextScene(TSceneBase scene, bool sleepCurrentScene)
+        /// <param name="sleepTopRunningScene">トップシーンを一時停止する場合は true を、継続動作する場合は false を指定</param>
+        /// <exception cref="ArgumentNullException">scene が null です</exception>
+        public void RequestNextScene(TSceneBase scene, bool sleepTopRunningScene)
         {
+            // null を渡されたら
+            if (scene == null)
+            {
+                // nullの受付は許容しない
+                throw new ArgumentNullException(nameof(scene));
+            }
+
+
+            // もしトップシーンを寝かす指示が出ていて、かつシーンの数が空でないなら
+            if (sleepTopRunningScene && SceneCount > 0)
+            {
+                // 末尾のシーンコンテキストを取得して稼働中なら
+                var sceneContext = sceneContextList[SceneCount - 1];
+                if (sceneContext.IsRunning)
+                {
+                    // 寝かせる
+                    RequestSleepScene(sceneContext.Scene);
+                }
+            }
+
+
             // 初期化準備完了ステータスとしてシーンを管理リストに追加する
             sceneContextList.Add(new SceneContext()
             {
                 // 管理情報の設定
-                Scene = scene ?? throw new ArgumentNullException(nameof(scene)),
+                Scene = scene,
                 State = SceneState.Ready,
             });
-
-
-            // もし自身を寝かすなら
-            if (sleepCurrentScene)
-            {
-                // 自分自身を寝かすようにリクエストする
-                RequestSleepScene(currentProcessSceneContext.Scene);
-            }
         }
 
 
@@ -557,7 +565,7 @@ namespace IceMilkTea.Service
             foreach (var sceneContext in sceneContextList)
             {
                 // もしシーンの参照が一致しないなら
-                if (sceneContext.Scene == scene)
+                if (sceneContext.Scene != scene)
                 {
                     // 次へ
                     continue;
