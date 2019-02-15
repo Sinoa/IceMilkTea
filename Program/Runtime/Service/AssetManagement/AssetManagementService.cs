@@ -15,6 +15,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
 using UnityEngine;
@@ -288,7 +289,9 @@ namespace IceMilkTea.Service
 
 
                 // マルチスプライトアセットとしてインスタンスを生成して結果に納める
-                result = (T)(UnityEngine.Object)new MultiSprite(sprites);
+                var multiSprite = ScriptableObject.CreateInstance<MultiSprite>();
+                multiSprite.SetSprites(sprites);
+                result = (T)(UnityEngine.Object)multiSprite;
             }
             else if (typeof(T) == typeof(SceneAsset))
             {
@@ -357,8 +360,10 @@ namespace IceMilkTea.Service
                 else
                 {
                     // 読み込み結果を格納する
-                    var spriteArray = Array.ConvertAll(requestTask.allAssets, x => (Sprite)x);
-                    result = (T)(UnityEngine.Object)new MultiSprite(spriteArray);
+                    var spriteArray = requestTask.allAssets.OfType<Sprite>().ToArray();
+                    var multiSprite = ScriptableObject.CreateInstance<MultiSprite>();
+                    multiSprite.SetSprites(spriteArray);
+                    result = (T)(UnityEngine.Object)multiSprite;
                 }
             }
             else if (typeof(T) == typeof(SceneAsset))
@@ -437,7 +442,9 @@ namespace IceMilkTea.Service
 
 
                 // マルチスプライトアセットとしてインスタンスを生成して結果に納める
-                result = (T)(UnityEngine.Object)new MultiSprite(sprites);
+                var multiSprite = ScriptableObject.CreateInstance<MultiSprite>();
+                multiSprite.SetSprites(sprites);
+                result = (T)(UnityEngine.Object)multiSprite;
             }
             else if (typeof(T) == typeof(SceneAsset))
             {

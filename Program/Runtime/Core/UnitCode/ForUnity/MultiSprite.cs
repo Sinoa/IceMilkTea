@@ -22,7 +22,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// Unityのマルチスプライトを扱うアセット型クラスです
     /// </summary>
-    public class MultiSprite : UnityEngine.Object
+    public class MultiSprite : UnityEngine.ScriptableObject
     {
         // メンバ変数定義
         private Dictionary<string, Sprite> spriteTable;
@@ -51,7 +51,7 @@ namespace IceMilkTea.Core
         /// MultiSprite のインスタンスを初期化します
         /// </summary>
         /// <param name="sprites">マルチスプライトとして扱うスプライトの配列</param>
-        internal MultiSprite(Sprite[] sprites)
+        internal void SetSprites(Sprite[] sprites)
         {
             // nullを渡されたら
             if (sprites == null)
