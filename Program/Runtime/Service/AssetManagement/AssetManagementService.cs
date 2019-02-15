@@ -433,7 +433,7 @@ namespace IceMilkTea.Service
             if (typeof(T) == typeof(MultiSprite))
             {
                 // 残念ながら非同期ロード関数がないのでここで同期読み込みをするが、ロードに失敗したら
-                var sprites = Array.ConvertAll(UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath), x => (Sprite)x);
+                var sprites = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath).OfType<Sprite>().ToArray();
                 if (sprites == null)
                 {
                     // ロードが出来なかったということでnullを返す
