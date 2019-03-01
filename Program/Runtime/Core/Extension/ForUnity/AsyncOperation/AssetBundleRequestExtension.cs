@@ -74,9 +74,6 @@ namespace IceMilkTea.Core
     /// </summary>
     public struct AssetBundleRequestAwaiter : INotifyCompletion
     {
-        // 構造体変数宣言
-        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
         // メンバ変数定義
         private AssetBundleRequest request;
 
@@ -115,9 +112,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 現在の同期コンテキストを取得して、ロード完了イベントからコンテキストにPostするように登録する
-            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            request.completed += _ => context.Post(cache, continuation);
+            // コールバックのタイミングで直ちに継続関数を叩くようにする
+            request.completed += _ => continuation();
         }
 
 

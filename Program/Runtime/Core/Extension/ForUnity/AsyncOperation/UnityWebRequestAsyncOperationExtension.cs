@@ -86,9 +86,6 @@ namespace IceMilkTea.Core
         // 定数定義
         private const string DefaultErrorMessage = "不明な'UniWebRequet'のエラーが発生しました";
 
-        // 構造体変数宣言
-        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
         // メンバ変数定義
         private UnityWebRequestAsyncOperation operation;
 
@@ -127,9 +124,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 同期コンテキストを取得して、イベントハンドラ経由から継続関数を叩いてもらうように登録する
-            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            operation.completed += _ => context.Post(cache, continuation);
+            // コールバックのタイミングで直ちに継続関数を叩くようにする
+            operation.completed += _ => continuation();
         }
 
 

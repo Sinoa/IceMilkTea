@@ -82,9 +82,6 @@ namespace IceMilkTea.Core
     /// </summary>
     public struct AsyncOperationAwaiter : INotifyCompletion
     {
-        // 構造体変数宣言
-        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
         // メンバ変数定義
         private AsyncOperation asyncOperation;
 
@@ -123,9 +120,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 現在の同期コンテキストを取り出して、イベント時に呼び出してもらうようにする
-            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            asyncOperation.completed += _ => context.Post(cache, continuation);
+            // コールバックのタイミングで直ちに継続関数を叩くようにする
+            asyncOperation.completed += _ => continuation();
         }
 
 

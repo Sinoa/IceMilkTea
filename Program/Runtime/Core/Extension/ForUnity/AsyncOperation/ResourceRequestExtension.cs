@@ -74,9 +74,6 @@ namespace IceMilkTea.Core
     /// </summary>
     public struct ResourceRequestAwaiter : INotifyCompletion
     {
-        // 構造体変数宣言
-        private static SendOrPostCallback cache = new SendOrPostCallback(_ => ((Action)_)());
-
         // メンバ変数定義
         private ResourceRequest resourceRequest;
 
@@ -115,9 +112,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // 現在の同期コンテキストを取り出して、同期コンテキストにPostするような非同期完了イベントを登録
-            var context = System.ComponentModel.AsyncOperationManager.SynchronizationContext;
-            resourceRequest.completed += _ => context.Post(cache, continuation);
+            // コールバックのタイミングで直ちに継続関数を叩くようにする
+            resourceRequest.completed += _ => continuation();
         }
 
 
