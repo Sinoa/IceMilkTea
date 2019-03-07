@@ -22,7 +22,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// Unityのマルチスプライトを扱うアセット型クラスです
     /// </summary>
-    public class MultiSprite : UnityEngine.ScriptableObject
+    public class MultiSprite : ScriptableObject
     {
         // メンバ変数定義
         private Dictionary<string, Sprite> spriteTable;
@@ -45,6 +45,42 @@ namespace IceMilkTea.Core
             }
         }
 
+
+        /// <summary>
+        /// このマルチスプライトに含まれるスプライト名のコレクションを取得します
+        /// </summary>
+        public Dictionary<string, Sprite>.KeyCollection SpriteNames => spriteTable.Keys;
+
+
+        /// <summary>
+        /// このマルチスプライトに含まれるスプライトのコレクションを取得します
+        /// </summary>
+        public Dictionary<string, Sprite>.ValueCollection Sprites => spriteTable.Values;
+
+
+
+        /// <summary>
+        /// このマルチスプライトに含まれる全てのスプライトに対して列挙操作を行います
+        /// </summary>
+        /// <param name="handler">スプライトの列挙操作を行うハンドラ関数（引数2:スプライト名 引数2:スプライト）</param>
+        /// <exception cref="ArgumentNullException">action が null です</exception>
+        public void ForEach(Action<string, Sprite> handler)
+        {
+            // null を渡されたら
+            if (handler == null)
+            {
+                // どうやって処理をすれば良いのだ
+                throw new ArgumentNullException(nameof(handler));
+            }
+
+
+            // レコードの数分回る
+            foreach (var pair in spriteTable)
+            {
+                // ハンドラに値を渡す
+                handler(pair.Key, pair.Value);
+            }
+        }
 
 
         /// <summary>
