@@ -236,6 +236,42 @@ namespace IceMilkTea.Service
                 return count;
             }
         }
+
+
+        /// <summary>
+        /// 現在動作中である最新のシーンを取得します。動作中のシーンがない場合は null を取得することがあります。
+        /// </summary>
+        [Obsolete("このプロパティは古い実装です。将来のバージョンで削除される可能性があります。代わりに RunningTopScene プロパティを利用して下さい。", false)]
+        public TSceneBase CurrentScene => RunningTopScene;
+
+
+        /// <summary>
+        /// 現在動作中である最新のシーンを取得します。動作中のシーンがない場合は null を取得することがあります。
+        /// </summary>
+        public TSceneBase RunningTopScene
+        {
+            get
+            {
+                // 管理しているシーンコンテキストの数分逆ループ
+                for (int i = sceneContextList.Count - 1; i >= 0; --i)
+                {
+                    // コンテキストの取得
+                    var sceneContext = sceneContextList[i];
+
+
+                    // 稼働中または再起動のシーンなら
+                    if (sceneContext.IsRunning || sceneContext.IsWakeup)
+                    {
+                        // このシーンを返す
+                        return sceneContext.Scene;
+                    }
+                }
+
+
+                // ループから抜けてきたということは動作中のシーンが見つからなかった
+                return null;
+            }
+        }
         #endregion
 
 
