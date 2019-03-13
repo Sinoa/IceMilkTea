@@ -76,7 +76,7 @@ namespace IceMilkTea.Service
         /// <param name="installer">アセットバンドルをストレージにインストールするインストーラ</param>
         /// <param name="manifestFetcher">マニフェストをフェッチするフェッチャー</param>
         /// <param name="storageDirectoryInfo">アセットマネージャが利用するディレクトリ情報</param>
-        /// <param name="isSimulate">アセットバンドルロード時にシミュレートするか否か</param>
+        /// <param name="loadMode">アセットバンドルのロードモード</param>
         /// <exception cref="ArgumentNullException">storageController が null です</exception>
         /// <exception cref="ArgumentNullException">installer が null です</exception>
         /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
