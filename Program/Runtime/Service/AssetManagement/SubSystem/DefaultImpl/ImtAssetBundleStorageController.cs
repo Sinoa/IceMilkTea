@@ -174,7 +174,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたローカルパスのアセットバンドルを非同期で開きます
         /// </summary>
-        /// <param name="localPath">開くアセットバンドルパス</param>
+        /// <param name="info">開くアセットバンドル情報</param>
         /// <returns>アセットバンドルを非同期で開くタスクを返します</returns>
         /// <exception cref="ArgumentNullException">localPath が null です</exception>
         /// <exception cref="FileNotFoundException">指定されたパスにアセットバンドルが存在しません</exception>
@@ -214,7 +214,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 指定されたローカルパスのアセットバンドルを閉じます
         /// </summary>
-        /// <param name="localPath">閉じるアセットバンドルのパス</param>
+        /// <param name="assetBundle">閉じるアセットバンドル</param>
         /// <exception cref="ArgumentNullException">localPath が null です</exception>
         public override void Close(AssetBundle assetBundle)
         {

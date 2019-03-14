@@ -35,7 +35,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// ImtWebAssetBundleManifestFetcher のインスタンスを初期化します
         /// </summary>
-        /// <param name="manifestUrl">取得元になるマニフェストURL</param>
+        /// <param name="rootAssetBundlePath">取得元になるマニフェストパス</param>
         /// <exception cref="ArgumentNullException">manifestUrl が null です</exception>
         /// <exception cref="NotSupportedException">アセットバンドルマニフェストのフェッチURLにサポートしない '{manifestUrl.Scheme}' スキームが指定されました。サポートしているスキームは http および https です</exception>
         public ImtEditorAssetBundleManifestFetcher(string rootAssetBundlePath)
