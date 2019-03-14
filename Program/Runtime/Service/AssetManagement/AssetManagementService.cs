@@ -469,10 +469,10 @@ namespace IceMilkTea.Service
 
         #region Manifest
         // TODO : 今はフル更新というひどい実装
-        public async Task UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
+        public async Task<bool> UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
             // シミュレートモードなら何もせず終了
-            if (loadMode == AssetBundleLoadMode.Simulate) return;
+            if (loadMode == AssetBundleLoadMode.Simulate) return false;
 
 
             // マニフェストの更新を行う
@@ -482,7 +482,11 @@ namespace IceMilkTea.Service
             if (updatableList.Length > 0)
             {
                 await manifestManager.UpdateManifestAsync(manifest);
+                return true;
             }
+
+
+            return false;
         }
 
 
