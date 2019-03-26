@@ -114,8 +114,29 @@ namespace IceMilkTea.Service
             var assetBundleFileInfo = new FileInfo(Path.Combine(baseDirectoryInfo.FullName, info.LocalPath));
             if (!assetBundleFileInfo.Directory.Exists)
             {
+                // 存在しているパスの種別（ディレクトリ or ファイル）が変わったときの対処として削除も行う
+                void CreateDirectoryWithDelete(DirectoryInfo path)
+                {
+                    try {
+                        // 普通に作成要求
+                        path.Create();
+                    }
+                    catch(IOException) {
+
+                        // 例外が出力されたのでそのパスがファイルだったら削除してから再実行
+                        if( File.Exists(path.FullName) ) {
+                            File.Delete(path.FullName);
+                            path.Create();
+                        }
+                        else {
+                            // 末端ディレクトリがファイルでないのに失敗している場合は途中のパスのどこかがファイルなので再帰的に処理する
+                            CreateDirectoryWithDelete(path.Parent);
+                        }
+                    }
+                }
+
                 // サブディレクトリの生成もやる
-                assetBundleFileInfo.Directory.Create();
+                CreateDirectoryWithDelete(assetBundleFileInfo.Directory);
             }
 
 
