@@ -63,6 +63,14 @@ namespace IceMilkTea.Service
         protected internal virtual void Restart()
         {
         }
+
+
+        /// <summary>
+        /// 別のシーンがDropされこのシーンがシーントップになる時の処理を行います
+        /// </summary>
+        protected internal virtual void GotTopSceneFocus()
+        {
+        }
     }
     #endregion
 
@@ -106,6 +114,11 @@ namespace IceMilkTea.Service
             Wakeup,
 
             /// <summary>
+            /// シーンはトップシーンの状態を取得しました
+            /// </summary>
+            GotTopSceneFocus,
+
+            /// <summary>
             /// シーンは解放される事のマークをされています
             /// </summary>
             Destroy,
@@ -144,7 +157,7 @@ namespace IceMilkTea.Service
             /// <summary>
             /// シーンの状態が稼働中であるか
             /// </summary>
-            public bool IsRunning => State == SceneState.Running;
+            public bool IsRunning => State == SceneState.Running || State == SceneState.GotTopSceneFocus;
 
 
             /// <summary>
@@ -317,6 +330,15 @@ namespace IceMilkTea.Service
                 }
 
 
+                // シーントップのフォーカスを得た状態なら
+                if (sceneContext.State == SceneState.GotTopSceneFocus)
+                {
+                    // 稼働中状態にして、シーンのトップシーンフォーカスを得たイベントを実行して続行
+                    sceneContext.State = SceneState.Running;
+                    sceneContext.Scene.GotTopSceneFocus();
+                }
+
+
                 // 稼働中なら
                 if (sceneContext.IsRunning)
                 {
@@ -357,6 +379,7 @@ namespace IceMilkTea.Service
 
 
             // 管理情報の数分末尾から回る
+            var destroyExecuted = false;
             for (int i = sceneContextList.Count - 1; i >= 0; --i)
             {
                 // 破棄対象なら
@@ -370,9 +393,18 @@ namespace IceMilkTea.Service
                     }
 
 
-                    // 要素を削除する
+                    // 要素を削除して削除処理をしたことを示す
                     sceneContextList.RemoveAt(i);
+                    destroyExecuted = true;
                 }
+            }
+
+
+            // もし削除処理の経験があって末尾のシーンがもし稼働中なら
+            if (destroyExecuted && sceneContextList.Count > 0 && sceneContextList[sceneContextList.Count - 1].IsRunning)
+            {
+                // フォーカスを得た状態にする
+                sceneContextList[sceneContextList.Count - 1].State = SceneState.GotTopSceneFocus;
             }
 
 
