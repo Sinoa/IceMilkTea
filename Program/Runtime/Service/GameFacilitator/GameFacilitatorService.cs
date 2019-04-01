@@ -63,38 +63,6 @@ namespace IceMilkTea.Service
         protected internal virtual void Restart()
         {
         }
-
-
-        /// <summary>
-        /// アプリケーションの要因でシーンの一時停止処理を行います
-        /// </summary>
-        protected internal virtual void OnApplicationSleep()
-        {
-        }
-
-
-        /// <summary>
-        /// アプリケーションの要因でシーンの再開処理を行います
-        /// </summary>
-        protected internal virtual void OnApplicationResume()
-        {
-        }
-
-
-        /// <summary>
-        /// アプリケーションの要因でフォーカスを失った処理を行います
-        /// </summary>
-        protected internal virtual void OnApplicationFocusOut()
-        {
-        }
-
-
-        /// <summary>
-        /// アプリケーションの要因でフォーカスを取得した処理を行います
-        /// </summary>
-        protected internal virtual void OnApplicationFocusIn()
-        {
-        }
     }
     #endregion
 
@@ -241,13 +209,6 @@ namespace IceMilkTea.Service
         /// <summary>
         /// 現在動作中である最新のシーンを取得します。動作中のシーンがない場合は null を取得することがあります。
         /// </summary>
-        [Obsolete("このプロパティは古い実装です。将来のバージョンで削除される可能性があります。代わりに RunningTopScene プロパティを利用して下さい。", false)]
-        public TSceneBase CurrentScene => RunningTopScene;
-
-
-        /// <summary>
-        /// 現在動作中である最新のシーンを取得します。動作中のシーンがない場合は null を取得することがあります。
-        /// </summary>
         public TSceneBase RunningTopScene
         {
             get
@@ -301,10 +262,6 @@ namespace IceMilkTea.Service
                 {
                     { GameServiceUpdateTiming.MainLoopHead, UpdateService },
                     { GameServiceUpdateTiming.MainLoopTail, FinalFrameUpdate },
-                    { GameServiceUpdateTiming.OnApplicationSuspend, OnApplicationSuspend },
-                    { GameServiceUpdateTiming.OnApplicationResume, OnApplicationResume },
-                    { GameServiceUpdateTiming.OnApplicationFocusOut, OnApplicationFocusOut },
-                    { GameServiceUpdateTiming.OnApplicationFocusIn, OnApplicationFocusIn },
                 }
             };
         }
@@ -424,78 +381,6 @@ namespace IceMilkTea.Service
             {
                 // 再起動状態にする
                 sceneContextList[sceneContextList.Count - 1].State = SceneState.Wakeup;
-            }
-        }
-
-
-        /// <summary>
-        /// アプリケーションが一時停止した時の処理を行います
-        /// </summary>
-        private void OnApplicationSuspend()
-        {
-            // 管理リストの先頭から回る
-            for (int i = 0; i < sceneContextList.Count; ++i)
-            {
-                // もし稼働状態なら
-                if (sceneContextList[i].IsRunning)
-                {
-                    // アプリケーションが一時停止するイベントを呼ぶ
-                    sceneContextList[i].Scene.OnApplicationSleep();
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// アプリケーションが再開した時の処理を行います
-        /// </summary>
-        private void OnApplicationResume()
-        {
-            // 管理リストの先頭から回る
-            for (int i = 0; i < sceneContextList.Count; ++i)
-            {
-                // もし稼働状態なら
-                if (sceneContextList[i].IsRunning)
-                {
-                    // アプリケーションが再開したイベントを呼ぶ
-                    sceneContextList[i].Scene.OnApplicationResume();
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// アプリケーションのフォーカスを失った時の処理を行います
-        /// </summary>
-        private void OnApplicationFocusOut()
-        {
-            // 管理リストの先頭から回る
-            for (int i = 0; i < sceneContextList.Count; ++i)
-            {
-                // もし稼働状態なら
-                if (sceneContextList[i].IsRunning)
-                {
-                    // アプリケーションがフォーカスを失ったイベントを呼ぶ
-                    sceneContextList[i].Scene.OnApplicationFocusOut();
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// アプリケーションのフォーカスを得られた時の処理を行います
-        /// </summary>
-        private void OnApplicationFocusIn()
-        {
-            // 管理リストの先頭から回る
-            for (int i = 0; i < sceneContextList.Count; ++i)
-            {
-                // もし稼働状態なら
-                if (sceneContextList[i].IsRunning)
-                {
-                    // アプリケーションがフォーカスを得たイベントを呼ぶ
-                    sceneContextList[i].Scene.OnApplicationFocusIn();
-                }
             }
         }
         #endregion
