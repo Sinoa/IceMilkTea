@@ -350,7 +350,6 @@ namespace IceMilkTea.Service
             // 新しくコントローラからアセットバンドルを開くことを要求する
             var createContextTask = CreateAssetBundleManagementContextAsync(info);
             assetBundleTable[info.Name] = createContextTask;
-            Debug.Log($"assetBundleTable {info.Name}");
             return (await createContextTask).GetAssetBundle();
         }
 
