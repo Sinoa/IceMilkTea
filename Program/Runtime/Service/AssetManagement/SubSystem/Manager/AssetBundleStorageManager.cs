@@ -130,11 +130,10 @@ namespace IceMilkTea.Service
         private const int DefaultAssetBundleTableCapacity = 2 << 10;
 
         // メンバ変数定義
-        private ImtAwaitableManualReset loadAwaitable;
         private AssetBundleManifestManager manifestManager;
         private AssetBundleStorageController storageController;
         private AssetBundleInstaller installer;
-        private Dictionary<string, AssetBundleManagementContext> assetBundleTable;
+        private Dictionary<string, Task<AssetBundleManagementContext>> assetBundleTable;
 
 
 
@@ -179,11 +178,7 @@ namespace IceMilkTea.Service
 
 
             // 管理テーブルを生成する
-            assetBundleTable = new Dictionary<string, AssetBundleManagementContext>(DefaultAssetBundleTableCapacity);
-
-
-            // ロードマニュアル待機ハンドルをシグナル状態で初期化
-            loadAwaitable = new ImtAwaitableManualReset(true);
+            assetBundleTable = new Dictionary<string, Task<AssetBundleManagementContext>>(DefaultAssetBundleTableCapacity);
         }
 
 
@@ -335,20 +330,13 @@ namespace IceMilkTea.Service
                 // 依存するアセットバンドルを再帰的に開くが開いたアセットバンドルの参照はそのまま
                 await OpenAsync(dependenceAssetBundleInfo);
             }
-
-
-            // 他の非同期処理が開こうとしていたらココで待って抜けたら直ぐに非シグナル状態にする
-            await loadAwaitable;
-            loadAwaitable.Reset();
-
-
+            
             // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
-            AssetBundleManagementContext context;
+            Task<AssetBundleManagementContext> context;
             if (assetBundleTable.TryGetValue(info.Name, out context))
             {
                 // コンテキストからアセットバンドルを取得して返す
-                loadAwaitable.Set();
-                return context.GetAssetBundle();
+                return (await context).GetAssetBundle();
             }
 
 
@@ -356,21 +344,21 @@ namespace IceMilkTea.Service
             if (!storageController.Exists(info))
             {
                 // 未インストールアセットバンドルが存在することを例外で吐く
-                loadAwaitable.Set();
                 throw new InvalidOperationException($"アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません");
             }
 
-
             // 新しくコントローラからアセットバンドルを開くことを要求する
-            var assetBundle = await storageController.OpenAsync(info);
-
-
-            // 新しいコンテキストを生成して参照を返す
-            assetBundleTable[info.Name] = new AssetBundleManagementContext(assetBundle);
-            loadAwaitable.Set();
-            return assetBundle;
+            var createContextTask = CreateAssetBundleManagementContextAsync(info);
+            assetBundleTable[info.Name] = createContextTask;
+            Debug.Log($"assetBundleTable {info.Name}");
+            return (await createContextTask).GetAssetBundle();
         }
 
+        private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(AssetBundleInfo info)
+        {
+            var assetBundle = await storageController.OpenAsync(info);
+            return new AssetBundleManagementContext(assetBundle);
+        }
 
         /// <summary>
         /// 指定されたアセットバンドルの利用を破棄します。
@@ -383,8 +371,9 @@ namespace IceMilkTea.Service
             var assetBundleInfo = default(AssetBundleInfo);
             foreach (var managementRecord in assetBundleTable)
             {
-                // 参照が違うアセットバンドルなら
-                if (!managementRecord.Value.EqualAssetBundleReference(assetBundle))
+                // そもそもLoadが終わってない場合や参照が違うアセットバンドルなら
+                var task = managementRecord.Value;
+                if (!task.IsCompleted || !task.Result.EqualAssetBundleReference(assetBundle))
                 {
                     // 次のレコードへ
                     continue;
@@ -409,17 +398,24 @@ namespace IceMilkTea.Service
             foreach (var dependenceAssetBundleName in assetBundleInfo.DependenceAssetBundleNames)
             {
                 // 依存先アセットバンドル名からアセットバンドル管理コンテキストを取得するが、管理テーブルに無いなら
-                var dependenceContext = default(AssetBundleManagementContext);
-                if (!assetBundleTable.TryGetValue(dependenceAssetBundleName, out dependenceContext))
+                var dependenceContextTask = default(Task<AssetBundleManagementContext>);
+                if (!assetBundleTable.TryGetValue(dependenceAssetBundleName, out dependenceContextTask))
                 {
                     // 次の依存アセットバンドルへ
                     continue;
                 }
 
+                //まだLoad中のAssetBundle
+                if (!dependenceContextTask.IsCompleted)
+                {
+                    //memo:<e.kudaka>正直スキップしていいのかはわからない
+                    //Release候補においてもいいかもしれない
+                    continue;
+                }
 
                 // 依存先アセットバンドルの参照を取り出す
-                var dependenceAssetBundle = dependenceContext.GetAssetBundle();
-                dependenceContext.ReleaseAssetBundle(dependenceAssetBundle);
+                var dependenceAssetBundle = dependenceContextTask.Result.GetAssetBundle();
+                dependenceContextTask.Result.ReleaseAssetBundle(dependenceAssetBundle);
 
 
                 // 再帰的に解放を行う
@@ -428,17 +424,19 @@ namespace IceMilkTea.Service
 
 
             // 自身のアセットバンドル管理コンテキストを取得して存在しないなら
-            var context = default(AssetBundleManagementContext);
-            if (!assetBundleTable.TryGetValue(assetBundleInfo.Name, out context))
+            var contextTask = default(Task<AssetBundleManagementContext>);
+            if (!assetBundleTable.TryGetValue(assetBundleInfo.Name, out contextTask))
             {
                 // 何もせず終了
                 return;
             }
 
+            if (!contextTask.IsCompleted)
+                return;
 
             // コンテキストから解放を行い参照が無くなった場合は
-            context.ReleaseAssetBundle(assetBundle);
-            if (context.Unreferenced)
+            contextTask.Result.ReleaseAssetBundle(assetBundle);
+            if (contextTask.Result.Unreferenced)
             {
                 // アセットストレージコントローラに閉じるように要求して、管理テーブルからレコードを削除する
                 storageController.Close(assetBundle);
