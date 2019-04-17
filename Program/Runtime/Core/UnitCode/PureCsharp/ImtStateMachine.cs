@@ -249,6 +249,12 @@ namespace IceMilkTea.Core
         public int LastUpdateThreadId { get; private set; }
 
 
+        /// <summary>
+        /// このステートマシンが最後に受け付けたイベントID
+        /// </summary>
+        public int LastAcceptedEventID { get; private set; }
+
+
 
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
@@ -629,7 +635,8 @@ namespace IceMilkTea.Core
             }
 
 
-            // イベントの受付をした事を返す
+            // 最後に受け付けたイベントIDを覚えてイベントの受付をした事を返す
+            LastAcceptedEventID = eventId;
             return true;
         }
 
