@@ -33,3 +33,4 @@ IceMilkTeaの、開発の協力や貢献をしてくれた方々のリストに�
 
 * mitchydeath <michiwaki.shohei@gmail.com>
 * enrike3 <eiki.kudaka@live.jp>
+* y2-tada <48617807+y2-tada@users.noreply.github.com>
