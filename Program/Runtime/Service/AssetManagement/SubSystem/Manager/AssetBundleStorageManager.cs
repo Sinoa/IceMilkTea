@@ -231,6 +231,7 @@ namespace IceMilkTea.Service
             // ストレージコントローラからインストールストリームをもらってインストールを行う
             var installStream = await storageController.GetInstallStreamAsync(info);
             await installer.InstallAsync(info, installStream, internalProgress);
+            installStream.Close();
         }
 
 
