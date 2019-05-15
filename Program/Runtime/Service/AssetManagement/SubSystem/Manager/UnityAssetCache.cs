@@ -107,8 +107,18 @@ namespace IceMilkTea.Service
             }
 
 
-            // 参照変数からキャッシュへの参照を取得を試み結果をそのまま返す（参照が途切れてレコードの削除は別関数で行う）
-            return weakUnityAsset.TryGetTarget(out asset);
+            // 参照変数からキャッシュへの参照を取得を試み結果を返す（参照が途切れてレコードの削除は別関数で行う）
+            UnityAsset assetTemp = null;
+            if(weakUnityAsset.TryGetTarget(out assetTemp) &&  assetTemp == null)
+            {
+                //WeakRefが指す対象がC#的なnullではないが、Unityのアセットとして不正な場合
+                //assetCacheから削除する
+                asset = null;
+                assetCacheTable.Remove(assetUrl);
+                return false;
+            }
+            asset = assetTemp;
+            return true;
         }
 
 
