@@ -540,6 +540,83 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// 指定されたシーンの再起動を要求をします。
+        /// ただし、指定されたシーンは既に一時停止中である必要があります。
+        /// </summary>
+        /// <param name="scene">再起動要求するシーン</param>
+        public void RequestWakeUpScene(TSceneBase scene)
+        {
+            // シーンの数分ループする
+            foreach (var sceneContext in sceneContextList)
+            {
+                // もしシーンの参照が一致しないなら
+                if (sceneContext.Scene != scene)
+                {
+                    // 次へ
+                    continue;
+                }
+
+                // 一時停止中以外なら
+                if (!sceneContext.IsSleep)
+                {
+                    // 何もせずループを終了
+                    break;
+                }
+
+                // 再起動状態にする
+                sceneContext.State  = SceneState.Wakeup;
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたシーンの破棄要求をします。
+        /// </summary>
+        /// <remarks>
+        /// 破棄要求のあったシーンが、実際に破棄されるタイミングはフレームの最後のタイミングとなります
+        /// </remarks>
+        /// <param name="scene">破棄要求するシーン</param>
+        public void RequestDropScene(TSceneBase scene)
+        {
+            // シーンの数分ループする
+            foreach (var sceneContext in sceneContextList)
+            {
+                // もしシーンの参照が一致しないなら
+                if (sceneContext.Scene != scene)
+                {
+                    // 次へ
+                    continue;
+                }
+
+                // ステータスが Destroy系 なら
+                if (sceneContext.IsDestroy)
+                {
+                    // 何もせずループを終了
+                    break;
+                }
+
+
+                // もし動作中状態または一時停止なら
+                if (sceneContext.IsRunning || sceneContext.IsSleep || sceneContext.IsWakeup)
+                {
+                    // 通常の破棄ステータスを設定して終了
+                    sceneContext.State = SceneState.Destroy;
+                    break;
+                }
+
+
+                // もし準備完了状態なら
+                if (sceneContext.IsReady)
+                {
+                    // 準備完了だが破棄されるというステータスを設定して終了
+                    sceneContext.State = SceneState.ReadyedButDestroy;
+                    break;
+                }
+            }
+        }
+
+
+        /// <summary>
         /// 最後に NextScene 要求のあったシーンまたは、次に破棄可能なシーンの破棄要求をします。
         /// </summary>
         /// <remarks>
