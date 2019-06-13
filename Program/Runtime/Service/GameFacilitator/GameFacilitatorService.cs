@@ -86,7 +86,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// リストに存在するシーンのステータスを表します
         /// </summary>
-        private enum SceneState
+        public enum SceneState
         {
             /// <summary>
             /// シーンの開始準備が完了しました
@@ -564,7 +564,7 @@ namespace IceMilkTea.Service
                 }
 
                 // 再起動状態にする
-                sceneContext.State  = SceneState.Wakeup;
+                sceneContext.State = SceneState.Wakeup;
             }
         }
 
@@ -734,6 +734,64 @@ namespace IceMilkTea.Service
 
             // そもそも外枠のループから抜けてきたということは、管理対象ですらない事を吐く
             throw new InvalidOperationException($"'{scene.GetType().Name}'は、管理対象のシーンではありません");
+        }
+
+
+        /// <summary>
+        /// 指定されたシーン状態条件判定関数に一致するシーンを取得し、指定された結果配列に設定します。
+        /// </summary>
+        /// <param name="results">指定された条件に一致するシーンの結果を設定する配列、一致したシーンの数が配列の長さを超えても配列の長さまでしか格納しません</param>
+        /// <param name="match">シーン状態を判定する関数</param>
+        /// <returns>指定されたシーン状態に一致したシーンを results に設定した数を返します。もし results より大きい条件一致があっても超えることはありません</returns>
+        /// <exception cref="ArgumentNullException">results が null です</exception>
+        /// <exception cref="ArgumentNullException">match が null です</exception>
+        public int GetSceneList(TSceneBase[] results, Func<SceneState, bool> match)
+        {
+            // results に null を渡されてしまったら
+            if (results == null)
+            {
+                // どこに結果を納めればよいのだろうか
+                throw new ArgumentNullException(nameof(results));
+            }
+
+
+            // match に null を渡されてしまったら
+            if (match == null)
+            {
+                // どうやって判定すればよいのか
+                throw new ArgumentNullException(nameof(match));
+            }
+
+
+            // もし結果格納バッファの長さが0なら
+            if (results.Length == 0)
+            {
+                // そもそも回らず直ちに0を返す
+                return 0;
+            }
+
+
+            // 管理情報の数分回る
+            var resultCount = 0;
+            for (int i = 0; i < sceneContextList.Count; ++i)
+            {
+                // もし指定された条件を満たすシーンなら
+                var sceneContext = sceneContextList[i];
+                if (match(sceneContext.State))
+                {
+                    // 結果配列にシーンを追加してバッファの長さいっぱいになったら
+                    results[resultCount++] = sceneContext.Scene;
+                    if (results.Length == resultCount)
+                    {
+                        // このまま結果の数を返す
+                        return resultCount;
+                    }
+                }
+            }
+
+
+            // 回りきったら現在の結果の数を返す
+            return resultCount;
         }
         #endregion
     }
