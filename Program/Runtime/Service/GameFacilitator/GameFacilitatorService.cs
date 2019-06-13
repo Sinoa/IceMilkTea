@@ -793,6 +793,54 @@ namespace IceMilkTea.Service
             // 回りきったら現在の結果の数を返す
             return resultCount;
         }
+
+
+        /// <summary>
+        /// 実行中とされるシーン状態を取得し、指定された結果配列に設定します
+        /// </summary>
+        /// <param name="results">実行中シーンの結果を設定する配列、シーンの取得数が配列の長さを超えても配列の長さまでしか格納しません</param>
+        /// <returns>取得された実行中シーンを results に設定した数を返します。もし results より大きい条件一致があっても超えることはありません</returns>
+        /// <exception cref="ArgumentNullException">results が null です</exception>
+        public int GetRunningSceneList(TSceneBase[] results)
+        {
+            // results に null を渡されてしまったら
+            if (results == null)
+            {
+                // どこに結果を納めればよいのだろうか
+                throw new ArgumentNullException(nameof(results));
+            }
+
+
+            // もし結果格納バッファの長さが0なら
+            if (results.Length == 0)
+            {
+                // そもそも回らず直ちに0を返す
+                return 0;
+            }
+
+
+            // 管理情報の数分回る
+            var resultCount = 0;
+            for (int i = 0; i < sceneContextList.Count; ++i)
+            {
+                // もし指定された条件を満たすシーンなら
+                var sceneContext = sceneContextList[i];
+                if (sceneContext.IsRunning)
+                {
+                    // 結果配列にシーンを追加してバッファの長さいっぱいになったら
+                    results[resultCount++] = sceneContext.Scene;
+                    if (results.Length == resultCount)
+                    {
+                        // このまま結果の数を返す
+                        return resultCount;
+                    }
+                }
+            }
+
+
+            // 回りきったら現在の結果の数を返す
+            return resultCount;
+        }
         #endregion
     }
 }
