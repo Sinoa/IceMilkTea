@@ -22,7 +22,7 @@ namespace IceMilkTea.Service
     /// <summary>
     /// Uriとクエリの情報を持つクラスです
     /// </summary>
-    internal class UriInfo
+    internal class UriInfo : IEquatable<UriInfo>
     {
         /// <summary>
         /// Uriインスタンスへの参照
@@ -68,8 +68,22 @@ namespace IceMilkTea.Service
         /// <returns>UriInfo インスタンスのハッシュ値を返します</returns>
         public override int GetHashCode()
         {
-            // UriのGetHashCodeを使う
-            return Uri.GetHashCode();
+            //Uri.GetHashCode is too slow, so use string.GetHashCode for Dictionary Key
+            return Uri.OriginalString.GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            return this.Equals(obj);
+        }
+
+        public bool Equals(UriInfo other)
+        {
+            if (other is null)
+                return false;
+            
+            //see GetHashCode
+            return this.Uri.OriginalString == other.Uri.OriginalString;
         }
     }
 }
