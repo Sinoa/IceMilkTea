@@ -126,6 +126,12 @@ namespace IceMilkTea.UI
         /// レンダリングに用いるメインテクスチャを返します
         /// </summary>
         public override Texture mainTexture => GetFontTexture();
+
+
+        /// <summary>
+        /// テキストを取得設定します
+        /// </summary>
+        public string Text { get { return text; } set { text = value; needRebuild = true; gameText.Parse(text); SetAllDirty(); } }
         #endregion
 
 
