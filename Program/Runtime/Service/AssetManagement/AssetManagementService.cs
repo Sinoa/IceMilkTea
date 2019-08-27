@@ -159,12 +159,26 @@ namespace IceMilkTea.Service
         /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
         public Task<T> LoadAssetAsync<T>(string assetUrl) where T : UnityEngine.Object
         {
-            // 例外ハンドリングをする
-            ThrowIfOtherThreadAccess();
-
-
             // 進捗通知を受けずに非同期ロードを行う
             return LoadAssetAsync<T>(assetUrl, null);
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットURLのアセットを非同期でロードを試みます
+        /// </summary>
+        /// <typeparam name="T">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットのURL</param>
+        /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
+        /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
+        /// <exception cref="ArgumentException">不明なスキーム '{uriInfo.Uri.Scheme}' が指定されました。AssetManagementServiceは 'asset' スキームのみサポートしています。</exception>
+        /// <exception cref="ArgumentException">不明なストレージホスト '{storageName}' が指定されたました。 'resources' または 'assetbundle' を指定してください。</exception>
+        /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
+        public Task<T> TryLoadAssetAsync<T>(string assetUrl) where T : UnityEngine.Object
+        {
+            // 進捗通知を受けずに非同期ロードを行う
+            return TryLoadAssetAsync<T>(assetUrl, null);
         }
 
 
@@ -182,20 +196,40 @@ namespace IceMilkTea.Service
         /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
         public async Task<T> LoadAssetAsync<T>(string assetUrl, IProgress<float> progress) where T : UnityEngine.Object
         {
+            // もしアセットのロードに失敗していたら null を返す
+            var result = await TryLoadAssetAsync<T>(assetUrl, progress);
+            if (result == null)
+            {
+                // アセットのロードに失敗したことを通知する
+                throw new InvalidOperationException($"指定されたアセットのロードに失敗しました Url={assetUrl}");
+            }
+
+
+            // ロード結果を返す
+            return result;
+        }
+
+
+        /// <summary>
+        /// 指定されたアセットURLのアセットを非同期でロードを試みます
+        /// </summary>
+        /// <typeparam name="T">ロードするアセットの型</typeparam>
+        /// <param name="assetUrl">ロードするアセットのURL</param>
+        /// <param name="progress">アセットロードの進捗通知を受ける IProgress</param>
+        /// <returns>指定されたアセットの非同期ロードを操作しているタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">assetUrl が null です</exception>
+        /// <exception cref="InvalidOperationException">指定されたアセットのロードに失敗しました Url={assetUrl}</exception>
+        /// <exception cref="ArgumentException">不明なスキーム '{uriInfo.Uri.Scheme}' が指定されました。AssetManagementServiceは 'asset' スキームのみサポートしています。</exception>
+        /// <exception cref="ArgumentException">不明なストレージホスト '{storageName}' が指定されたました。 'resources' または 'assetbundle' を指定してください。</exception>
+        /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>
+        public async Task<T> TryLoadAssetAsync<T>(string assetUrl, IProgress<float> progress) where T : UnityEngine.Object
+        {
             // 例外ハンドリングをする
             ThrowIfOtherThreadAccess();
 
 
-            // もしURLがnullなら
-            if (assetUrl == null)
-            {
-                // 何をロードするのか不明
-                throw new ArgumentNullException(nameof(assetUrl));
-            }
-
-
             // UriキャッシュからUri情報を取得する
-            var uriInfo = uriCache.GetOrCreateUri(assetUrl);
+            var uriInfo = uriCache.GetOrCreateUri(assetUrl ?? throw new ArgumentNullException(nameof(assetUrl)));
 
 
             // もしアセットキャッシュからアセットを取り出せるのなら
@@ -246,8 +280,8 @@ namespace IceMilkTea.Service
             // もしアセットのロードに失敗していたら
             if (asset == null)
             {
-                // アセットのロードに失敗したことを通知する
-                throw new InvalidOperationException($"指定されたアセットのロードに失敗しました Url={assetUrl}");
+                // null を返す
+                return null;
             }
 
 
