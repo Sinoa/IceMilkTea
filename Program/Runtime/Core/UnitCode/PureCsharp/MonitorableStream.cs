@@ -323,7 +323,7 @@ namespace IceMilkTea.Core
         {
             // 初めての計測なのかを求めて合計書き込みサイズに加算
             var firstMeasure = TotalWriteSize == 0;
-            TotalWriteSize = writeSize;
+            TotalWriteSize += writeSize;
 
 
             // もし初めての計測または、計測更新時間間隔超過なら
