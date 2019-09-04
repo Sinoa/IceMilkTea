@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace IceMilkTea.Core
@@ -23,12 +24,20 @@ namespace IceMilkTea.Core
     /// </summary>
     public class MonitorableStream : Stream
     {
+        // 定数定義
+        public const int DefaultMeasureUpdateIntervalTime = 1000;
+
         // メンバ変数定義
+        private Stopwatch readStopwatch;
+        private Stopwatch writeStopwatch;
+        private long previousTotalReadSize;
+        private long previousTotalWriteSize;
         private bool leaveOpen;
         private bool disposed;
 
 
 
+        #region プロパティ
         /// <summary>
         /// 参照ストリームの CanRead をそのまま返します
         /// </summary>
@@ -65,13 +74,57 @@ namespace IceMilkTea.Core
         public Stream BaseStream { get; private set; }
 
 
+        /// <summary>
+        /// 参照ストリームによる合計の読み込みサイズを取得します
+        /// </summary>
+        public long TotalReadSize { get; private set; }
 
+
+        /// <summary>
+        /// 参照ストリームによる合計の書き込みサイズを取得します
+        /// </summary>
+        public long TotalWriteSize { get; private set; }
+
+
+        /// <summary>
+        /// 参照ストリームによる前回の計測合計読み込みサイズの変化量を取得します
+        /// </summary>
+        public long DeltaReadSize { get; private set; }
+
+
+        /// <summary>
+        /// 参照ストリームによる前回の計測合計書き込みサイズの変化量を取得します
+        /// </summary>
+        public long DeltaWriteSize { get; private set; }
+
+
+        /// <summary>
+        /// 参照ストリームによる読み込みビットレート（bps）を取得します
+        /// </summary>
+        public long ReadBitRate { get; private set; }
+
+
+        /// <summary>
+        /// 参照ストリームによる書き込みビットレート（bps）を取得します
+        /// </summary>
+        public long WriteBitRate { get; private set; }
+
+
+        /// <summary>
+        /// 計測更新間隔時間をミリ秒で指定できます。（更新間隔が短いほど誤差が広くなる傾向があります）
+        /// </summary>
+        public int MeasureUpdateIntervalTime { get; set; }
+        #endregion
+
+
+
+        #region 初期化＆破棄
         /// <summary>
         /// MonitorableStream クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="baseStream">監視対象となる Stream の参照</param>
         /// <exception cref="ArgumentNullException">baseStream が null です</exception>
-        public MonitorableStream(Stream baseStream) : this(baseStream, false)
+        public MonitorableStream(Stream baseStream) : this(baseStream, DefaultMeasureUpdateIntervalTime, false)
         {
         }
 
@@ -80,13 +133,34 @@ namespace IceMilkTea.Core
         /// MonitorableStream クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="baseStream">監視対象となる Stream の参照</param>
+        /// <param name="measureUpdateIntervalTime">計測更新間隔時間をミリ秒で指定。既定は DefaultMeasureUpdateIntervalTime です。</param>
+        /// <exception cref="ArgumentNullException">baseStream が null です</exception>
+        public MonitorableStream(Stream baseStream, int measureUpdateIntervalTime) : this(baseStream, measureUpdateIntervalTime, false)
+        {
+        }
+
+
+        /// <summary>
+        /// MonitorableStream クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="baseStream">監視対象となる Stream の参照</param>
+        /// <param name="measureUpdateIntervalTime">計測更新間隔時間をミリ秒で指定。既定は DefaultMeasureUpdateIntervalTime です。</param>
         /// <param name="leaveOpen">このインスタンスが破棄される時に baseStream を継続して開き続ける場合は true を、破棄する場合は false を指定。既定は false です。</param>
         /// <exception cref="ArgumentNullException">baseStream が null です</exception>
-        public MonitorableStream(Stream baseStream, bool leaveOpen)
+        public MonitorableStream(Stream baseStream, int measureUpdateIntervalTime, bool leaveOpen)
         {
+            // 計測用ストップウォッチのインスタンスを作っておく
+            readStopwatch = Stopwatch.StartNew();
+            writeStopwatch = Stopwatch.StartNew();
+
+
             // 受け取ったパラメータをそのまま覚える
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
             this.leaveOpen = leaveOpen;
+
+
+            // 計測更新間隔の既定値を設定
+            MeasureUpdateIntervalTime = measureUpdateIntervalTime;
         }
 
 
@@ -123,8 +197,10 @@ namespace IceMilkTea.Core
             // 基本クラスのDisposeも呼ぶ
             base.Dispose(disposing);
         }
+        #endregion
 
 
+        #region IO関数
         /// <summary>
         /// 参照ストリームの Write をそのまま呼び出します
         /// </summary>
@@ -133,9 +209,18 @@ namespace IceMilkTea.Core
         /// <param name="count">ストリームに書き込むデータの数</param>
         public override void Write(byte[] buffer, int offset, int count)
         {
-            // そのまま受け取る
+            // もし初めての書き込みなら
+            if (TotalWriteSize == 0)
+            {
+                // 書き込み計測ストップウォッチを再起動する
+                writeStopwatch.Restart();
+            }
+
+
+            // そのまま受け取って計測する
             ThrowExceptionIfObjectDisposed();
             BaseStream.Write(buffer, offset, count);
+            MeasureWriteInformation(count);
         }
 
 
@@ -148,9 +233,19 @@ namespace IceMilkTea.Core
         /// <returns>参照ストリームの結果をそのまま返します</returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
-            // そのまま受け取ってそのまま返す
+            // もし初めての読み込みなら
+            if (TotalReadSize == 0)
+            {
+                // 読み込み計測ストップウォッチを再起動する
+                readStopwatch.Restart();
+            }
+
+
+            // そのまま受け取って計測してからそのまま返す
             ThrowExceptionIfObjectDisposed();
-            return BaseStream.Read(buffer, offset, count);
+            var readSize = BaseStream.Read(buffer, offset, count);
+            MeasureReadInformation(readSize);
+            return readSize;
         }
 
 
@@ -189,8 +284,66 @@ namespace IceMilkTea.Core
             ThrowExceptionIfObjectDisposed();
             BaseStream.Flush();
         }
+        #endregion
 
 
+        #region 計測関数
+        /// <summary>
+        /// 参照ストリームの読み込み情報を計測します
+        /// </summary>
+        /// <param name="readSize">ストリームが実際に読み込んだデータサイズ</param>
+        private void MeasureReadInformation(int readSize)
+        {
+            // 初めての計測なのかを求めて合計読み込みサイズに加算
+            var firstMeasure = TotalReadSize == 0;
+            TotalReadSize += readSize;
+
+
+            // もし初めての計測または、計測更新時間間隔超過なら
+            var elapsed = readStopwatch.ElapsedMilliseconds;
+            if (firstMeasure || elapsed >= MeasureUpdateIntervalTime)
+            {
+                // 読み込みサイズの、差分、前回の合計値、ビットレートを計算する
+                DeltaReadSize = TotalReadSize - previousTotalReadSize;
+                previousTotalReadSize = TotalReadSize;
+                ReadBitRate = (long)(DeltaReadSize * (1.0 / (elapsed / 1000.0)) * 8.0);
+
+
+                // 読み込み計測更新用ストップウォッチを再起動
+                readStopwatch.Restart();
+            }
+        }
+
+
+        /// <summary>
+        /// 参照ストリームの書き込み情報を計測します
+        /// </summary>
+        /// <param name="writeSize">ストリームが実際に書き込んだデータサイズ</param>
+        private void MeasureWriteInformation(int writeSize)
+        {
+            // 初めての計測なのかを求めて合計書き込みサイズに加算
+            var firstMeasure = TotalWriteSize == 0;
+            TotalWriteSize = writeSize;
+
+
+            // もし初めての計測または、計測更新時間間隔超過なら
+            var elapsed = writeStopwatch.ElapsedMilliseconds;
+            if (firstMeasure || elapsed >= MeasureUpdateIntervalTime)
+            {
+                // 書き込みサイズの、差分、前回の合計値、ビットレートを計算する
+                DeltaWriteSize = TotalWriteSize - previousTotalWriteSize;
+                previousTotalWriteSize = TotalWriteSize;
+                WriteBitRate = (long)(DeltaWriteSize * (1.0 / (elapsed / 1000.0)) * 8.0);
+
+
+                // 書き込み計測更新用ストップウォッチを再起動
+                writeStopwatch.Restart();
+            }
+        }
+        #endregion
+
+
+        #region 例外スロー関数
         /// <summary>
         /// もし、このクラスのインスタンスが破棄済みなら例外をスローします
         /// </summary>
@@ -204,5 +357,6 @@ namespace IceMilkTea.Core
                 throw new ObjectDisposedException(null);
             }
         }
+        #endregion
     }
 }
