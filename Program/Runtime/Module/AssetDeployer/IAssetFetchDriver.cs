@@ -15,6 +15,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace IceMilkTea.Module
@@ -25,18 +26,11 @@ namespace IceMilkTea.Module
     public interface IAssetFetchDriver : IDisposable
     {
         /// <summary>
-        /// アセットフェッチを行う前にドライバの動作準備を非同期で行います
-        /// </summary>
-        /// <param name="deployer">このドライバを起動するデプロイヤ</param>
-        /// <returns>動作準備を行っているタスクを返します</returns>
-        Task PrepareAsync(AssetDeployer deployer);
-
-
-        /// <summary>
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <returns>実際に出力したデータの長さを返すタスクを返します</returns>
-        Task<int> FetchAsync(Stream outStream);
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        Task FetchAsync(Stream outStream, CancellationToken cancellationToken);
     }
 }

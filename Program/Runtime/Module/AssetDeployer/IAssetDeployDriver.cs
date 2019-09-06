@@ -15,6 +15,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace IceMilkTea.Module
@@ -28,7 +29,8 @@ namespace IceMilkTea.Module
         /// アセットデプロイを行う前にドライバの動作準備を非同期で行います
         /// </summary>
         /// <param name="deployer">このドライバを起動するデプロイヤ</param>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>デプロイ先に出力するためのストリーム動作準備を行っているタスクを返します</returns>
-        Task<Stream> PrepareAsync(AssetDeployer deployer);
+        Task<Stream> PrepareAsync(AssetDeployer deployer, CancellationToken cancellationToken);
     }
 }

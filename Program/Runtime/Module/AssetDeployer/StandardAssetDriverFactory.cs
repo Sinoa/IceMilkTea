@@ -17,6 +17,9 @@ using System;
 
 namespace IceMilkTea.Module
 {
+    /// <summary>
+    /// 標準的なアセットドライバのファクトリクラスです
+    /// </summary>
     public class StandardAssetDriverFactory : IAssetDriverFactory
     {
         /// <summary>

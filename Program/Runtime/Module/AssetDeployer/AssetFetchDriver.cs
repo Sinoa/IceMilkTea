@@ -15,6 +15,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace IceMilkTea.Module
@@ -57,18 +58,23 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
-        /// アセットフェッチを行う前にドライバの動作準備を非同期で行います
+        /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
-        /// <param name="deployer">このドライバを起動するデプロイヤ</param>
-        /// <returns>動作準備を行っているタスクを返します</returns>
-        public abstract Task PrepareAsync(AssetDeployer deployer);
+        /// <param name="outStream">出力先のストリーム</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        public Task FetchAsync(Stream outStream)
+        {
+            // キャンセルトークンなしで呼び出す
+            return FetchAsync(outStream, CancellationToken.None);
+        }
 
 
         /// <summary>
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <returns>実際に出力したデータの長さを返すタスクを返します</returns>
-        public abstract Task<int> FetchAsync(Stream outStream);
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        public abstract Task FetchAsync(Stream outStream, CancellationToken cancellationToken);
     }
 }
