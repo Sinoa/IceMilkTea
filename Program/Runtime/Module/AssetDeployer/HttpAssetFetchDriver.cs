@@ -43,7 +43,7 @@ namespace IceMilkTea.Module
         /// <param name="assetUri">ダウンロードするアセットのURI</param>
         /// <param name="bufferSize">ダウンロードバッファサイズ。既定は DefaultBufferSize です。</param>
         /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public HttpAssetFetchDriver(Uri assetUri) : this(assetUri, DefaultBufferSize)
+        public HttpAssetFetchDriver(Uri assetUri) : this(assetUri, DefaultBufferSize, DefaultTimeOutInterval)
         {
         }
 
@@ -91,11 +91,8 @@ namespace IceMilkTea.Module
             cancellationToken.ThrowIfCancellationRequested();
 
 
-            // まずはWebRequestのインスタンスを生成
+            // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
             var request = WebRequest.CreateHttp(assetUri);
-
-
-            // レスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
             var responseTask = request.GetResponseAsync();
             var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
             var finishTask = await Task.WhenAny(responseTask, timeoutTask);
