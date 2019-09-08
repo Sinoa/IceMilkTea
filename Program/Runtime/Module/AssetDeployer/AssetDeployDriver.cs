@@ -58,23 +58,21 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
-        /// アセットデプロイを行う前にドライバの動作準備を非同期で行います
+        /// アセットをデプロイするすためのストリームを非同期で開きます
         /// </summary>
-        /// <param name="deployer">このドライバを起動するデプロイヤ</param>
         /// <returns>デプロイ先に出力するためのストリーム動作準備を行っているタスクを返します</returns>
-        public Task<Stream> PrepareAsync(AssetDeployer deployer)
+        public Task<Stream> OpenAsync()
         {
             // キャンセルトークンなしで呼び出す
-            return PrepareAsync(deployer, CancellationToken.None);
+            return OpenAsync(CancellationToken.None);
         }
 
 
         /// <summary>
-        /// アセットデプロイを行う前にドライバの動作準備を非同期で行います
+        /// アセットをデプロイするすためのストリームを非同期で開きます
         /// </summary>
-        /// <param name="deployer">このドライバを起動するデプロイヤ</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>デプロイ先に出力するためのストリーム動作準備を行っているタスクを返します</returns>
-        public abstract Task<Stream> PrepareAsync(AssetDeployer deployer, CancellationToken cancellationToken);
+        public abstract Task<Stream> OpenAsync(CancellationToken cancellationToken);
     }
 }

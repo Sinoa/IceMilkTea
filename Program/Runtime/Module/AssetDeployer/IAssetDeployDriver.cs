@@ -26,11 +26,10 @@ namespace IceMilkTea.Module
     public interface IAssetDeployDriver : IDisposable
     {
         /// <summary>
-        /// アセットデプロイを行う前にドライバの動作準備を非同期で行います
+        /// アセットをデプロイするすためのストリームを非同期で開きます
         /// </summary>
-        /// <param name="deployer">このドライバを起動するデプロイヤ</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>デプロイ先に出力するためのストリーム動作準備を行っているタスクを返します</returns>
-        Task<Stream> PrepareAsync(AssetDeployer deployer, CancellationToken cancellationToken);
+        Task<Stream> OpenAsync(CancellationToken cancellationToken);
     }
 }
