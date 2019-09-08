@@ -13,12 +13,18 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace IceMilkTea.Module
 {
-    /// <summary>
-    /// アセットのデプロイ進捗の情報を扱うインターフェイスです
-    /// </summary>
-    public interface IAssetDeployProgressInfo
+    public class FileAssetDeployDriver : AssetDeployDriver
     {
+        public override Task<Stream> OpenAsync(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

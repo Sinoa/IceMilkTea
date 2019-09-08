@@ -29,8 +29,9 @@ namespace IceMilkTea.Module
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
-        Task FetchAsync(Stream outStream, CancellationToken cancellationToken);
+        Task FetchAsync(Stream outStream, IProgress<double> progress, CancellationToken cancellationToken);
     }
 }

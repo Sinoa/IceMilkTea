@@ -64,8 +64,8 @@ namespace IceMilkTea.Module
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         public Task FetchAsync(Stream outStream)
         {
-            // キャンセルトークンなしで呼び出す
-            return FetchAsync(outStream, CancellationToken.None);
+            // 通知なし、キャンセルトークンなしで呼び出す
+            return FetchAsync(outStream, null, CancellationToken.None);
         }
 
 
@@ -73,8 +73,22 @@ namespace IceMilkTea.Module
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス。既定は null です。</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        public Task FetchAsync(Stream outStream, IProgress<double> progress)
+        {
+            // キャンセルなしで呼び出す
+            return FetchAsync(outStream, progress, CancellationToken.None);
+        }
+
+
+        /// <summary>
+        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// </summary>
+        /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス。既定は null です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
-        public abstract Task FetchAsync(Stream outStream, CancellationToken cancellationToken);
+        public abstract Task FetchAsync(Stream outStream, IProgress<double> progress, CancellationToken cancellationToken);
     }
 }
