@@ -20,11 +20,38 @@ using System.Threading.Tasks;
 
 namespace IceMilkTea.Module
 {
+    /// <summary>
+    /// ファイルシステムにアセットをデプロイするドライバクラスです
+    /// </summary>
     public class FileAssetDeployDriver : AssetDeployDriver
     {
+        // メンバ変数定義
+        private FileInfo fileInfo;
+
+
+
+        /// <summary>
+        /// FileAssetDeployDriver クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="path">デプロイ先のファイルパス</param>
+        /// <exception cref="ArgumentNullException">path が null です</exception>
+        public FileAssetDeployDriver(string path)
+        {
+            // 情報クラスとしてインスタンスを生成する
+            fileInfo = new FileInfo(path);
+        }
+
+
+        /// <summary>
+        /// アセットをデプロイするすためのストリームを非同期で開きます
+        /// </summary>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
+        /// <returns>デプロイ先に出力するためのストリーム動作準備を行っているタスクを返します</returns>
         public override Task<Stream> OpenAsync(CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // 非同期IOになるべく最適なファイルを書き込みとして開いてすぐに返す（バッファサイズが16KiBなのはiOS向けに雑に大きい方に合わせただけです）
+            var fileStream = new FileStream(fileInfo.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 16 << 10, true);
+            return Task.FromResult((Stream)fileStream);
         }
     }
 }
