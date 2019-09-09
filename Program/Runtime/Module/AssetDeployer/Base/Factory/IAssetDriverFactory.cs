@@ -18,31 +18,23 @@ using System;
 namespace IceMilkTea.Module
 {
     /// <summary>
-    /// 標準的なアセットドライバのファクトリクラスです
+    /// アセットのフェッチおよびデプロイを行うドライバを生成するインターフェイスです
     /// </summary>
-    public class StandardAssetDriverFactory : IAssetDriverFactory
+    public interface IAssetDriverFactory
     {
         /// <summary>
         /// フェッチするアセットの情報からフェッチドライバを生成します
         /// </summary>
-        /// <param name="info">フェッチドライバを生成するためのフェッチ情報</param>
+        /// <param name="assetUri">フェッチする元になるアセットURI</param>
         /// <returns>生成されたフェッチドライバを返します</returns>
-        /// <exception cref="ArgumentNullException">info が null です</exception>
-        public IAssetFetchDriver CreateFetchDriver(IAssetFetchInfo info)
-        {
-            throw new System.NotImplementedException();
-        }
+        IAssetFetchDriver CreateFetchDriver(Uri assetUri);
 
 
         /// <summary>
         /// デプロイするアセットの情報からデプロイドライバを生成します
         /// </summary>
-        /// <param name="info">デプロイドライバを生成するためのデプロイ情報</param>
+        /// <param name="assetUri">デプロイする先になるアセットURI</param>
         /// <returns>生成されたデプロイドライバを返します</returns>
-        /// <exception cref="ArgumentNullException">info が null です</exception>
-        public IAssetDeployDriver CreateDeployDriver(IAssetDeployInfo info)
-        {
-            throw new System.NotImplementedException();
-        }
+        IAssetDeployDriver CreateDeployDriver(Uri assetUri);
     }
 }
