@@ -18,15 +18,15 @@ using System;
 namespace IceMilkTea.Module
 {
     /// <summary>
-    /// アセットのフェッチを行うインスタンスを生成するインターフェイスです
+    /// アセットフェッチャのインスタンスを生成するインターフェイスです
     /// </summary>
     public interface IAssetFetcherFactory
     {
         /// <summary>
-        /// フェッチするアセットの情報からフェッチドライバを生成します
+        /// フェッチするアセットURIからアセットフェッチャのインスタンスを生成します
         /// </summary>
         /// <param name="assetUri">フェッチする元になるアセットURI</param>
-        /// <returns>生成されたフェッチドライバを返します</returns>
-        IAssetFetchDriver CreateFetchDriver(Uri assetUri);
+        /// <returns>生成されたアセットフェッチャのインスタンスを返します</returns>
+        IAssetFetcher CreateFetcher(Uri assetUri);
     }
 }
