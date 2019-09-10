@@ -23,7 +23,7 @@ namespace IceMilkTea.Module
     /// <summary>
     /// アセットのフェッチを行うインターフェイスです
     /// </summary>
-    public interface IAssetFetcher : IDisposable
+    public interface IAssetFetcher
     {
         /// <summary>
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
