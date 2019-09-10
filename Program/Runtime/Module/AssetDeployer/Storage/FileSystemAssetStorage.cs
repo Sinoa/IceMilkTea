@@ -144,7 +144,7 @@ namespace IceMilkTea.Module
         /// <param name="assetUri">確認するアセットURI</param>
         /// <returns>アセットが存在する場合は true を、存在しない場合は false を返します</returns>
         /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public bool Exists(Uri assetUri)
+        public virtual bool Exists(Uri assetUri)
         {
             // ベースディレクトリがない または ファイルスキームではないのなら
             if (!ExistsBaseDirectory || !IsFileScheme(assetUri))
@@ -159,24 +159,77 @@ namespace IceMilkTea.Module
         }
 
 
-        public void Delete(Uri assetUri)
+        /// <summary>
+        /// 指定したアセットURIのアセットを読み込みストリームとして開きます
+        /// </summary>
+        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
+        public virtual Stream OpenRead(Uri assetUri)
         {
-            throw new NotImplementedException();
+            // ファイルが存在しないのなら
+            if (!Exists(assetUri))
+            {
+                // ストリームとして開けないので null を返す
+                return null;
+            }
+
+
+            // ファイルパスとして取得して読み取りストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
+            var filePath = ToFilePath(assetUri);
+            return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None, 16 << 10, true);
         }
 
-        public void DeleteAll()
+
+        /// <summary>
+        /// 指定したアセットURIのアセットを書き込みストリームとして開きます
+        /// </summary>
+        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
+        public virtual Stream OpenWrite(Uri assetUri)
         {
-            throw new NotImplementedException();
+            // ファイルパスとして取得して書き込みストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
+            var filePath = ToFilePath(assetUri);
+            return new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 16 << 10, true);
         }
 
-        public Stream OpenRead(Uri assetUri)
+
+        /// <summary>
+        /// 指定したアセットURIのアセットを削除します
+        /// </summary>
+        /// <param name="assetUri">削除するアセットURI</param>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
+        public virtual void Delete(Uri assetUri)
         {
-            throw new NotImplementedException();
+            // ファイルが存在しないのなら
+            if (!Exists(assetUri))
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // ファイルパスとして取得して削除をする
+            File.Delete(ToFilePath(assetUri));
         }
 
-        public Stream OpenWrite(Uri assetUri)
+
+        /// <summary>
+        /// このストレージインスタンスが管理している全てのアセットを削除します
+        /// </summary>
+        public virtual void DeleteAll()
         {
-            throw new NotImplementedException();
+            // ベースディレクトリが存在しないのなら
+            if (!ExistsBaseDirectory)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // ディレクトリごと削除する
+            baseDirectoryInfo.Delete(true);
         }
     }
 }

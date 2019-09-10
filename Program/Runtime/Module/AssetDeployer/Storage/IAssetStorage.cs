@@ -43,6 +43,7 @@ namespace IceMilkTea.Module
         /// </summary>
         /// <param name="assetUri">確認するアセットURI</param>
         /// <returns>アセットが存在する場合は true を、存在しない場合は false を返します</returns>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         bool Exists(Uri assetUri);
 
 
@@ -51,6 +52,7 @@ namespace IceMilkTea.Module
         /// </summary>
         /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
         /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         Stream OpenRead(Uri assetUri);
 
 
@@ -59,6 +61,7 @@ namespace IceMilkTea.Module
         /// </summary>
         /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
         /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         Stream OpenWrite(Uri assetUri);
 
 
@@ -66,6 +69,7 @@ namespace IceMilkTea.Module
         /// 指定したアセットURIのアセットを削除します
         /// </summary>
         /// <param name="assetUri">削除するアセットURI</param>
+        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         void Delete(Uri assetUri);
 
 
