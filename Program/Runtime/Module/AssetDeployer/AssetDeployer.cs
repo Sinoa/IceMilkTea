@@ -13,8 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
-
 namespace IceMilkTea.Module
 {
     /// <summary>
@@ -22,20 +20,5 @@ namespace IceMilkTea.Module
     /// </summary>
     public class AssetDeployer
     {
-        // メンバ変数定義
-        private IAssetDriverFactory driverFactory;
-
-
-
-        /// <summary>
-        /// AssetDeployer クラスのインスタンスを生成します
-        /// </summary>
-        /// <param name="driverFactory">ドライバを生成するファクトリ</param>
-        /// <exception cref="ArgumentNullException">driverFactory が null です</exception>
-        public AssetDeployer(IAssetDriverFactory driverFactory)
-        {
-            // 初期化する
-            this.driverFactory = driverFactory;
-        }
     }
 }
