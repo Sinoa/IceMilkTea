@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Collections.Generic;
+
 namespace IceMilkTea.Module
 {
     /// <summary>
@@ -20,5 +22,24 @@ namespace IceMilkTea.Module
     /// </summary>
     public interface IAssetCatalog
     {
+        /// <summary>
+        /// カタログ名
+        /// </summary>
+        string Name { get; }
+
+
+        /// <summary>
+        /// 指定した名前のアセットカタログアイテムを取得します
+        /// </summary>
+        /// <param name="name">取得するアセット名</param>
+        /// <returns>指定された名前からカタログアイテムを取得された場合はインスタンスを返しますが、見つからない場合は null を返します</returns>
+        IAssetCatalogItem GetItem(string name);
+
+
+        /// <summary>
+        /// カタログに含まれている全てのカタログアイテムを取得して列挙可能なオブジェクトを取得します
+        /// </summary>
+        /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
+        IEnumerable<IAssetCatalogItem> GetItemAll();
     }
 }

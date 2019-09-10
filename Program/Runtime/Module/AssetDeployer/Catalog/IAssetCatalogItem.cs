@@ -23,6 +23,12 @@ namespace IceMilkTea.Module
     public interface IAssetCatalogItem
     {
         /// <summary>
+        /// アセット名
+        /// </summary>
+        string Name { get; }
+
+
+        /// <summary>
         /// フェッチする参照先アセットURI
         /// </summary>
         Uri RemoteAssetUri { get; }
