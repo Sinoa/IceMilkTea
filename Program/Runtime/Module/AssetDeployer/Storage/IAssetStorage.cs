@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace IceMilkTea.Module
@@ -33,8 +34,8 @@ namespace IceMilkTea.Module
         /// <summary>
         /// このストレージインスタンスが管理している全てのアセットURIを取得します
         /// </summary>
-        /// <returns>取得されたURIの配列を返します</returns>
-        Uri[] GetAssetUris();
+        /// <returns>取得されたURIの全てを列挙できる IEnumerable のインスタンスとして返します。1つもアセットがない場合は長さ0の IEnumerable を返します。</returns>
+        IEnumerable<Uri> GetAssetUris();
 
 
         /// <summary>
