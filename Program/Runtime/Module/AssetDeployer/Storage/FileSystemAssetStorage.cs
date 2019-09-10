@@ -20,9 +20,9 @@ using System.IO;
 namespace IceMilkTea.Module
 {
     /// <summary>
-    /// 標準的なファイルシステムを利用して動作するファイルシステムアセットストレージ抽象クラスです
+    /// 標準的なファイルシステムを利用して動作するファイルシステムアセットストレージクラスです
     /// </summary>
-    public abstract class FileSystemAssetStorage : IAssetStorage
+    public class FileSystemAssetStorage : IAssetStorage
     {
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
@@ -49,8 +49,9 @@ namespace IceMilkTea.Module
         /// <exception cref="ArgumentNullException">baseDirectoryInfo が null です</exception>
         public FileSystemAssetStorage(DirectoryInfo baseDirectoryInfo)
         {
-            // ベースディレクトリ情報を受け取る
+            // ベースディレクトリ情報を受け取って自分のクラス名をそのままストレージ名にする
             this.baseDirectoryInfo = baseDirectoryInfo ?? throw new ArgumentNullException(nameof(baseDirectoryInfo));
+            Name = GetType().Name;
         }
 
 
