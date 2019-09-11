@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.IO;
 
 namespace IceMilkTea.Module
 {
@@ -36,6 +37,11 @@ namespace IceMilkTea.Module
             {
                 // HTTP向けアセットフェッチャを生成して返す
                 return new HttpAssetFetcher(assetUri);
+            }
+            else if (scheme == Uri.UriSchemeFile)
+            {
+                // FILEスキームの場合ならファイルアセットフェッチャを生成して返す
+                return new FileAssetFetcher(new FileInfo(assetUri.LocalPath));
             }
 
 
