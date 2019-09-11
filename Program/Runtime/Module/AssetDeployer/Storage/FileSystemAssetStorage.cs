@@ -166,7 +166,7 @@ namespace IceMilkTea.Module
 
             // ファイルパスとして取得して読み取りストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
             var filePath = ToFilePath(assetUri);
-            return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None, 16 << 10, true);
+            return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 16 << 10, true);
         }
 
 
@@ -180,7 +180,7 @@ namespace IceMilkTea.Module
         {
             // ファイルパスとして取得して書き込みストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
             var filePath = ToFilePath(assetUri);
-            return new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 16 << 10, true);
+            return new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 16 << 10, true);
         }
 
 
