@@ -34,7 +34,7 @@ namespace IceMilkTea.Module
         /// <summary>
         /// このストレージインスタンスが管理している全てのアセットURIを取得します
         /// </summary>
-        /// <returns>取得されたURIの全てを列挙できる IEnumerable のインスタンスとして返します。1つもアセットがない場合は長さ0の IEnumerable を返します。</returns>
+        /// <returns>取得されたURIの全てを列挙できる IEnumerable のインスタンスとして返します</returns>
         IEnumerable<Uri> GetAssetUris();
 
 
