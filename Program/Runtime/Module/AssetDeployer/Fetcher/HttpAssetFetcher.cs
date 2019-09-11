@@ -110,6 +110,10 @@ namespace IceMilkTea.Module
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
         public async Task FetchAsync(Stream outStream, CancellationToken cancellationToken)
         {
+            // 進捗率をリセット
+            Progress = 0.0;
+
+
             // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
             cancellationToken.ThrowIfCancellationRequested();
             if (outStream == null)
