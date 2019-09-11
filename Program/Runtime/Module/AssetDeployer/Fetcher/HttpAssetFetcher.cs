@@ -14,7 +14,6 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Threading;
@@ -30,34 +29,25 @@ namespace IceMilkTea.Module
         // 定数定義
         public const int DefaultBufferSize = 1 << 20;
         public const int DefaultTimeOutInterval = 10 * 1000;
-        public const int NotifyInterval = 100;
-
-        // クラス変数宣言
-        private static readonly Progress<double> emptyProgress;
 
         // メンバ変数定義
         private Uri assetUri;
         private int bufferSize;
         private int timeoutInterval;
-        private Stopwatch notifyIntervalStopwatch;
 
 
 
         /// <summary>
-        /// HttpAssetFetcher クラスの初期化をします
+        /// フェッチの進捗を割合で取得します
         /// </summary>
-        static HttpAssetFetcher()
-        {
-            // クラス変数の初期化
-            emptyProgress = new Progress<double>();
-        }
+        public double Progress { get; private set; }
+
 
 
         /// <summary>
         /// HttpAssetFetcher クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="assetUri">ダウンロードするアセットのURI</param>
-        /// <param name="bufferSize">ダウンロードバッファサイズ。既定は DefaultBufferSize です。</param>
         /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         public HttpAssetFetcher(Uri assetUri) : this(assetUri, DefaultBufferSize, DefaultTimeOutInterval)
         {
@@ -88,7 +78,6 @@ namespace IceMilkTea.Module
             this.assetUri = assetUri ?? throw new ArgumentNullException(nameof(assetUri));
             this.bufferSize = bufferSize;
             this.timeoutInterval = timeoutInterval;
-            notifyIntervalStopwatch = Stopwatch.StartNew();
         }
 
 
@@ -103,8 +92,8 @@ namespace IceMilkTea.Module
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
         public Task FetchAsync(Stream outStream)
         {
-            // プログレス通知もキャンセルもしない同じ関数を叩く
-            return FetchAsync(outStream, null, CancellationToken.None);
+            // キャンセルはしない同じ関数を叩く
+            return FetchAsync(outStream, CancellationToken.None);
         }
 
 
@@ -112,38 +101,22 @@ namespace IceMilkTea.Module
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス。既定は null です。</param>
-        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
-        /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
-        /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
-        /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
-        /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
-        public Task FetchAsync(Stream outStream, IProgress<double> progress)
-        {
-            // キャンセルはしないで同じ関数を叩く
-            return FetchAsync(outStream, progress, CancellationToken.None);
-        }
-
-
-        /// <summary>
-        /// アセットのフェッチを非同期で行い対象のストリームに出力します
-        /// </summary>
-        /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス。既定は null です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
         /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
-        public async Task FetchAsync(Stream outStream, IProgress<double> progress, CancellationToken cancellationToken)
+        /// <exception cref="ArgumentNullException">outStream が null です</exception>
+        public async Task FetchAsync(Stream outStream, CancellationToken cancellationToken)
         {
-            // この時点でのキャンセルリクエストを判定する
+            // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
             cancellationToken.ThrowIfCancellationRequested();
-
-
-            // プログレスのインスタンス保証をする
-            progress = progress ?? emptyProgress;
+            if (outStream == null)
+            {
+                // 出力先ストリームが無いとどうすればよいのか
+                throw new ArgumentNullException(nameof(outStream));
+            }
 
 
             // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
@@ -173,23 +146,15 @@ namespace IceMilkTea.Module
                 int readSize = 0;
                 while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                 {
-                    // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズを求める
+                    // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズと進捗を求める
                     await outStream.WriteAsync(buffer, 0, readSize, cancellationToken);
                     totalReadSize += readSize;
-
-
-                    // 通知インターバル時間を超えている場合は
-                    if (notifyIntervalStopwatch.ElapsedMilliseconds >= NotifyInterval)
-                    {
-                        // 現在の進捗を通知してストップウォットのリセットをする
-                        progress.Report(contentLength == -1 ? 0.0 : totalReadSize / (double)contentLength);
-                        notifyIntervalStopwatch.Restart();
-                    }
+                    Progress = contentLength == -1 ? 0.0 : totalReadSize / (double)contentLength;
                 }
 
 
-                // 最後に通知をする
-                progress.Report(1.0);
+                // 最後は無条件に進捗を1.0にする
+                Progress = 1.0;
             }
         }
     }

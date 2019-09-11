@@ -13,7 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,12 +25,18 @@ namespace IceMilkTea.Module
     public interface IAssetFetcher
     {
         /// <summary>
+        /// フェッチの進捗を割合で取得します
+        /// </summary>
+        double Progress { get; }
+
+
+
+        /// <summary>
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
-        Task FetchAsync(Stream outStream, IProgress<double> progress, CancellationToken cancellationToken);
+        Task FetchAsync(Stream outStream, CancellationToken cancellationToken);
     }
 }
