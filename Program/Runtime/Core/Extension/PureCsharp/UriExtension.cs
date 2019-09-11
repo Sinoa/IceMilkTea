@@ -83,5 +83,26 @@ namespace IceMilkTea.Core
             // スキームがHTTPかHTTPSかの判定を返す
             return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
         }
+
+
+        /// <summary>
+        /// URIのスキームがFILEかどうかを確認します。
+        /// 判定されるスキームは "file" です。
+        /// </summary>
+        /// <param name="uri">FILEスキームかどうか調べるURI</param>
+        /// <returns>FILEスキームである場合は true を、違う場合は false を返します</returns>
+        public static bool IsFileScheme(this Uri uri)
+        {
+            // そもそも絶対パスでないなら
+            if (!uri.IsAbsoluteUri)
+            {
+                // 判定は出来ない
+                return false;
+            }
+
+
+            // スキームがFILEかの判定を返す
+            return uri.Scheme == Uri.UriSchemeFile;
+        }
     }
 }
