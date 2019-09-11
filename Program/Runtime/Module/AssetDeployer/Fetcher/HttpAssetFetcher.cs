@@ -96,6 +96,39 @@ namespace IceMilkTea.Module
         /// アセットのフェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
+        /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
+        public Task FetchAsync(Stream outStream)
+        {
+            // プログレス通知もキャンセルもしない同じ関数を叩く
+            return FetchAsync(outStream, null, CancellationToken.None);
+        }
+
+
+        /// <summary>
+        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// </summary>
+        /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス。既定は null です。</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
+        /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
+        public Task FetchAsync(Stream outStream, IProgress<double> progress)
+        {
+            // キャンセルはしないで同じ関数を叩く
+            return FetchAsync(outStream, progress, CancellationToken.None);
+        }
+
+
+        /// <summary>
+        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// </summary>
+        /// <param name="outStream">出力先のストリーム</param>
         /// <param name="progress">アセットのフェッチ進捗の通知をするプログレス。既定は null です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
