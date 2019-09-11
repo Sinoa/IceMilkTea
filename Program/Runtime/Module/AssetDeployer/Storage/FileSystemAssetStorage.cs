@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.Module
 {
@@ -90,19 +91,6 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
-        /// 指定されたアセットURIがファイルスキームとして構成するURIかどうかを判断します
-        /// </summary>
-        /// <param name="assetUri">判断するURI</param>
-        /// <returns>ファイルスキームなら true を、違う場合は false を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public bool IsFileScheme(Uri assetUri)
-        {
-            // null判定しつつスキーム比較結果を返す
-            return (assetUri ?? throw new ArgumentNullException(nameof(assetUri))).Scheme == Uri.UriSchemeFile;
-        }
-
-
-        /// <summary>
         /// このストレージインスタンスが管理している全てのアセットURIを取得します
         /// </summary>
         /// <returns>取得されたURIの全てを列挙できる IEnumerable のインスタンスとして返します。1つもアセットがない場合は長さ0の IEnumerable を返します。</returns>
@@ -148,7 +136,7 @@ namespace IceMilkTea.Module
         public virtual bool Exists(Uri assetUri)
         {
             // ベースディレクトリがない または ファイルスキームではないのなら
-            if (!ExistsBaseDirectory || !IsFileScheme(assetUri))
+            if (!ExistsBaseDirectory || !(assetUri ?? throw new ArgumentException(nameof(assetUri))).IsFileScheme())
             {
                 // そもそも存在し得ない
                 return false;
