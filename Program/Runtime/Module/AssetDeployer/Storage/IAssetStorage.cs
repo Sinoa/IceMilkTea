@@ -20,24 +20,10 @@ using System.IO;
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// アセットの貯蔵を行うインターフェイスです
+    /// アセットとカタログの貯蔵を行うインターフェイスです
     /// </summary>
     public interface IAssetStorage
     {
-        /// <summary>
-        /// アセットストレージ名
-        /// </summary>
-        string Name { get; }
-
-
-
-        /// <summary>
-        /// このストレージインスタンスが管理している全てのアセットURIを取得します
-        /// </summary>
-        /// <returns>取得されたURIの全てを列挙できる IEnumerable のインスタンスとして返します</returns>
-        IEnumerable<Uri> GetAssetUris();
-
-
         /// <summary>
         /// 指定したアセットURIのアセットが存在するかどうか確認します
         /// </summary>

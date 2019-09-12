@@ -21,9 +21,9 @@ using System.Threading.Tasks;
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// ファイルシステムを用いたアセットフェッチャクラスです
+    /// ファイルシステムを用いたフェッチャクラスです
     /// </summary>
-    public class FileAssetFetcher : IAssetFetcher
+    public class FileFetcher : IFetcher
     {
         // メンバ変数定義
         private FileInfo assetFileInfo;
@@ -38,11 +38,11 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// FileAssetFetcher クラスのインスタンスを初期化します
+        /// FileFetcher クラスのインスタンスを初期化します
         /// </summary>
-        /// <param name="assetFileInfo">コピー元となるファイルアセット情報</param>
+        /// <param name="assetFileInfo">コピー元となるファイル情報</param>
         /// <exception cref="ArgumentNullException">assetFileInfo が null です</exception>
-        public FileAssetFetcher(FileInfo assetFileInfo)
+        public FileFetcher(FileInfo assetFileInfo)
         {
             // ファイル情報を受け取る
             this.assetFileInfo = assetFileInfo ?? throw new ArgumentNullException(nameof(assetFileInfo));
@@ -50,7 +50,7 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
@@ -64,14 +64,14 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
-        /// <exception cref="FileNotFoundException">コピー元となるアセットファイル '{assetFilePath}' が見つかりません</exception>
+        /// <exception cref="FileNotFoundException">コピー元となるファイル '{assetFilePath}' が見つかりません</exception>
         public async Task FetchAsync(Stream outStream, CancellationToken cancellationToken)
         {
             // 進捗率をリセット
@@ -87,16 +87,16 @@ namespace IceMilkTea.SubSystem
             }
 
 
-            // コピー元のアセットファイルのフルパスを取得する
+            // コピー元のファイルのフルパスを取得する
             var assetFilePath = assetFileInfo.FullName;
 
 
-            // コピー元となるアセットファイルが存在しないなら
+            // コピー元となるファイルが存在しないなら
             assetFileInfo.Refresh();
             if (!assetFileInfo.Exists)
             {
                 // 例外を吐く
-                throw new FileNotFoundException($"コピー元となるアセットファイル '{assetFilePath}' が見つかりません", assetFilePath);
+                throw new FileNotFoundException($"コピー元となるファイル '{assetFilePath}' が見つかりません", assetFilePath);
             }
 
 

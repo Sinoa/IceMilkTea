@@ -20,9 +20,9 @@ using System.Threading.Tasks;
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// アセットのフェッチを行うインターフェイスです
+    /// フェッチを行うインターフェイスです
     /// </summary>
-    public interface IAssetFetcher
+    public interface IFetcher
     {
         /// <summary>
         /// フェッチの進捗を割合で取得します
@@ -32,7 +32,7 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>

@@ -41,20 +41,8 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// このアセットが貯蔵されるべきストレージの名前
-        /// </summary>
-        string StorageName { get; }
-
-
-        /// <summary>
         /// このアセットのハッシュデータ
         /// </summary>
         byte[] HashData { get; }
-
-
-        /// <summary>
-        /// ハッシュ検証を行うセキュリティ名
-        /// </summary>
-        string SecurityName { get; }
     }
 }

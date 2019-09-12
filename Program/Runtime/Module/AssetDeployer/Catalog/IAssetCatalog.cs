@@ -18,28 +18,23 @@ using System.Collections.Generic;
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// デプロイするアセットの一覧を表現するインターフェイスです
+    /// アセットの一覧を表現するインターフェイスです
     /// </summary>
-    public interface IAssetCatalog
+    /// <typeparam name="TItem">カタログが扱うアイテムの型</typeparam>
+    public interface IAssetCatalog<TItem> where TItem : IAssetCatalogItem
     {
-        /// <summary>
-        /// カタログ名
-        /// </summary>
-        string Name { get; }
-
-
         /// <summary>
         /// 指定した名前のアセットカタログアイテムを取得します
         /// </summary>
         /// <param name="name">取得するアセット名</param>
         /// <returns>指定された名前からカタログアイテムを取得された場合はインスタンスを返しますが、見つからない場合は null を返します</returns>
-        IAssetCatalogItem GetItem(string name);
+        TItem GetItem(string name);
 
 
         /// <summary>
         /// カタログに含まれている全てのカタログアイテムを取得して列挙可能なオブジェクトを取得します
         /// </summary>
         /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
-        IEnumerable<IAssetCatalogItem> GetItemAll();
+        IEnumerable<TItem> GetItemAll();
     }
 }

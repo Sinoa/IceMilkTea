@@ -22,16 +22,16 @@ using System.Threading.Tasks;
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// HTTPを用いたアセットフェッチャクラスです
+    /// HTTPを用いたフェッチャクラスです
     /// </summary>
-    public class HttpAssetFetcher : IAssetFetcher
+    public class HttpFetcher : IFetcher
     {
         // 定数定義
         public const int DefaultBufferSize = 1 << 20;
         public const int DefaultTimeOutInterval = 10 * 1000;
 
         // メンバ変数定義
-        private Uri assetUri;
+        private Uri remoteUri;
         private int bufferSize;
         private int timeoutInterval;
 
@@ -45,44 +45,44 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// HttpAssetFetcher クラスのインスタンスを初期化します
+        /// HttpFetcher クラスのインスタンスを初期化します
         /// </summary>
-        /// <param name="assetUri">ダウンロードするアセットのURI</param>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public HttpAssetFetcher(Uri assetUri) : this(assetUri, DefaultBufferSize, DefaultTimeOutInterval)
+        /// <param name="remoteUri">ダウンロードするリモートURI</param>
+        /// <exception cref="ArgumentNullException">remoteUri が null です</exception>
+        public HttpFetcher(Uri remoteUri) : this(remoteUri, DefaultBufferSize, DefaultTimeOutInterval)
         {
         }
 
 
         /// <summary>
-        /// HttpAssetFetcher クラスのインスタンスを初期化します
+        /// HttpFetcher クラスのインスタンスを初期化します
         /// </summary>
-        /// <param name="assetUri">ダウンロードするアセットのURI</param>
+        /// <param name="remoteUri">ダウンロードするリモートURI</param>
         /// <param name="bufferSize">ダウンロードバッファサイズ。既定は DefaultBufferSize です。</param>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public HttpAssetFetcher(Uri assetUri, int bufferSize) : this(assetUri, bufferSize, DefaultTimeOutInterval)
+        /// <exception cref="ArgumentNullException">remoteUri が null です</exception>
+        public HttpFetcher(Uri remoteUri, int bufferSize) : this(remoteUri, bufferSize, DefaultTimeOutInterval)
         {
         }
 
 
         /// <summary>
-        /// HttpAssetFetcher クラスのインスタンスを初期化します
+        /// HttpFetcher クラスのインスタンスを初期化します
         /// </summary>
-        /// <param name="assetUri">ダウンロードするアセットのURI</param>
+        /// <param name="remoteUri">ダウンロードするリモートURI</param>
         /// <param name="bufferSize">ダウンロードバッファサイズ。既定は DefaultBufferSize です。</param>
         /// <param name="timeoutInterval">レスポンスを受け取るまでのタイムアウト時間をミリ秒で指定します。無限に待ち続ける場合は -1 を指定します。既定は DefaultTimeOutInterval です</param>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public HttpAssetFetcher(Uri assetUri, int bufferSize, int timeoutInterval)
+        /// <exception cref="ArgumentNullException">remoteUri が null です</exception>
+        public HttpFetcher(Uri remoteUri, int bufferSize, int timeoutInterval)
         {
             // 初期化する
-            this.assetUri = assetUri ?? throw new ArgumentNullException(nameof(assetUri));
+            this.remoteUri = remoteUri ?? throw new ArgumentNullException(nameof(remoteUri));
             this.bufferSize = bufferSize;
             this.timeoutInterval = timeoutInterval;
         }
 
 
         /// <summary>
-        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
@@ -98,7 +98,7 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// アセットのフェッチを非同期で行い対象のストリームに出力します
+        /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
@@ -124,7 +124,7 @@ namespace IceMilkTea.SubSystem
 
 
             // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
-            var request = WebRequest.CreateHttp(assetUri);
+            var request = WebRequest.CreateHttp(remoteUri);
             var responseTask = request.GetResponseAsync();
             var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
             var finishTask = await Task.WhenAny(responseTask, timeoutTask);
