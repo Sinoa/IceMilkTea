@@ -165,7 +165,7 @@ namespace IceMilkTea.Module
         /// <exception cref="ArgumentNullException">name が null です</exception>
         public Stream OpenTemporaryRead(string name)
         {
-            // 一時ディレクトリまたは一時カテゴリファイルが無いなら
+            // 一時ディレクトリまたは一時カタログファイルが無いなら
             var path = Path.Combine(tempDirectoryInfo.FullName, name);
             if (!ExistsTempDirectory || !File.Exists(path))
             {
