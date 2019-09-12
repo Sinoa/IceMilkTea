@@ -178,6 +178,14 @@ namespace IceMilkTea.Module
         /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         public virtual Stream OpenWrite(Uri assetUri)
         {
+            // ベースディレクトリが存在しないなら
+            if (!ExistsBaseDirectory)
+            {
+                // 新しく作る
+                baseDirectoryInfo.Create();
+            }
+
+
             // ファイルパスとして取得して書き込みストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
             var filePath = ToFilePath(assetUri);
             return new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 16 << 10, true);

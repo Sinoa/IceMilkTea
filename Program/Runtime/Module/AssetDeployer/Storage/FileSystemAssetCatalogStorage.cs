@@ -26,6 +26,7 @@ namespace IceMilkTea.Module
     {
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
+        private DirectoryInfo tempDirectoryInfo;
 
 
 
@@ -35,16 +36,25 @@ namespace IceMilkTea.Module
         public bool ExistsBaseDirectory { get { baseDirectoryInfo.Refresh(); return baseDirectoryInfo.Exists; } }
 
 
+        /// <summary>
+        /// このストレージが管理する一時ディレクトリが存在するか否か
+        /// </summary>
+        public bool ExistsTempDirectory { get { tempDirectoryInfo.Refresh(); return tempDirectoryInfo.Exists; } }
+
+
 
         /// <summary>
         /// FileSystemAssetCatalogStorage クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="baseDirectoryInfo">このストレージが管理するベースディレクトリ情報</param>
+        /// <param name="tempDirectoryInfo">このストレージが管理する一時カタログ格納用ディレクトリ情報</param>
         /// <exception cref="ArgumentNullException">baseDirectoryInfo が null です</exception>
-        public FileSystemAssetCatalogStorage(DirectoryInfo baseDirectoryInfo)
+        /// <exception cref="ArgumentNullException">tempDirectoryInfo が null です</exception>
+        public FileSystemAssetCatalogStorage(DirectoryInfo baseDirectoryInfo, DirectoryInfo tempDirectoryInfo)
         {
             // ベースディレクトリ情報を受け取る
             this.baseDirectoryInfo = baseDirectoryInfo ?? throw new ArgumentNullException(nameof(baseDirectoryInfo));
+            this.tempDirectoryInfo = tempDirectoryInfo ?? throw new ArgumentNullException(nameof(tempDirectoryInfo));
         }
 
 
@@ -133,16 +143,59 @@ namespace IceMilkTea.Module
         /// <returns>指定されたカタログ名のストリームを開けた場合はインスタンスを返しますが、開けなかった場合は null を返します</returns>
         public Stream OpenWrite(string name)
         {
-            // カタログが存在しないなら
-            if (!Exists(name))
+            // ベースディレクトリが存在しないなら
+            if (ExistsBaseDirectory)
             {
-                // 開けないよ
-                return null;
+                // 新しくディレクトリを作る
+                baseDirectoryInfo.Create();
             }
 
 
             // ファイルをストリームとして開いて返す
             var path = Path.Combine(baseDirectoryInfo.FullName, name);
+            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 16 << 10, true);
+        }
+
+
+        /// <summary>
+        /// 指定された名前のカタログを一時的に読み込むためのストリームを開きます
+        /// </summary>
+        /// <param name="name">一時的に保持されたカタログの名前</param>
+        /// <returns>指定されたカタログ名のストリームを開けた場合はインスタンスを返しますが、開けなかった場合は null を返します</returns>
+        /// <exception cref="ArgumentNullException">name が null です</exception>
+        public Stream OpenTemporaryRead(string name)
+        {
+            // 一時ディレクトリまたは一時カテゴリファイルが無いなら
+            var path = Path.Combine(tempDirectoryInfo.FullName, name);
+            if (!ExistsTempDirectory || !File.Exists(path))
+            {
+                // 何も出来ない
+                return null;
+            }
+
+
+            // ストリームを開いて返す
+            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 16 << 10, true);
+        }
+
+
+        /// <summary>
+        /// 指定された名前のカタログを一時的に書き込むためのストリームを開きます
+        /// </summary>
+        /// <param name="name">一時的に書き込むためのカタログの名前</param>
+        /// <returns>指定されたカタログ名のストリームを開けた場合はインスタンスを返しますが、開けなかった場合は null を返します</returns>
+        public Stream OpenTemporaryWrite(string name)
+        {
+            // 一時ディレクトリが無いなら
+            if (!ExistsTempDirectory)
+            {
+                // 新しく作る
+                tempDirectoryInfo.Create();
+            }
+
+
+            // ストリームを開いて返す
+            var path = Path.Combine(tempDirectoryInfo.FullName, name);
             return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 16 << 10, true);
         }
 
@@ -181,6 +234,44 @@ namespace IceMilkTea.Module
 
             // ディレクトリごと削除する
             baseDirectoryInfo.Delete(true);
+        }
+
+
+        /// <summary>
+        /// 指定された名前の一時カタログを削除します
+        /// </summary>
+        /// <param name="name">削除する一時カタログの名前</param>
+        public void DeleteTemporary(string name)
+        {
+            // ファイルが存在しないのなら
+            var path = Path.Combine(tempDirectoryInfo.FullName, name);
+            if (!File.Exists(path))
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // ファイルを削除する
+            File.Delete(path);
+        }
+
+
+        /// <summary>
+        /// このストレージが管理している全ての一時カタログを削除します
+        /// </summary>
+        public void DeleteAllTemporary()
+        {
+            // 一時ディレクトリが存在しないのなら
+            if (!ExistsTempDirectory)
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // ディレクトリごと削除する
+            tempDirectoryInfo.Delete(true);
         }
     }
 }

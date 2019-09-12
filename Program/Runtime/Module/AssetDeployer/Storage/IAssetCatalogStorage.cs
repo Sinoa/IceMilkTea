@@ -55,6 +55,22 @@ namespace IceMilkTea.Module
 
 
         /// <summary>
+        /// 指定された名前のカタログを一時的に読み込むためのストリームを開きます
+        /// </summary>
+        /// <param name="name">一時的に保持されたカタログの名前</param>
+        /// <returns>指定されたカタログ名のストリームを開けた場合はインスタンスを返しますが、開けなかった場合は null を返します</returns>
+        Stream OpenTemporaryRead(string name);
+
+
+        /// <summary>
+        /// 指定された名前のカタログを一時的に書き込むためのストリームを開きます
+        /// </summary>
+        /// <param name="name">一時的に書き込むためのカタログの名前</param>
+        /// <returns>指定されたカタログ名のストリームを開けた場合はインスタンスを返しますが、開けなかった場合は null を返します</returns>
+        Stream OpenTemporaryWrite(string name);
+
+
+        /// <summary>
         /// 指定された名前のカタログを削除します
         /// </summary>
         /// <param name="name">削除するカタログ</param>
@@ -65,5 +81,18 @@ namespace IceMilkTea.Module
         /// このストレージが管理している全てのカタログを削除します
         /// </summary>
         void DeleteAll();
+
+
+        /// <summary>
+        /// 指定された名前の一時カタログを削除します
+        /// </summary>
+        /// <param name="name">削除する一時カタログの名前</param>
+        void DeleteTemporary(string name);
+
+
+        /// <summary>
+        /// このストレージが管理している全ての一時カタログを削除します
+        /// </summary>
+        void DeleteAllTemporary();
     }
 }
