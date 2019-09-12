@@ -21,7 +21,7 @@ namespace IceMilkTea.Module
     /// <summary>
     /// IceMilkTea 標準アセットフェッチャファクトリクラスです
     /// </summary>
-    public class ImtStandardAssetFetcherFactory : IAssetFetcherFactory
+    public class ImtAssetFetcherFactory : IAssetFetcherFactory
     {
         /// <summary>
         /// フェッチするアセットURIからアセットフェッチャのインスタンスを生成します

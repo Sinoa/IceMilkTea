@@ -24,7 +24,7 @@ namespace IceMilkTea.Module
     /// <summary>
     /// HTTPを用いたアセットカタログフェッチャクラスです
     /// </summary>
-    public class HttpAssetCatalogFetcher : IAssetFetcher
+    public class HttpAssetCatalogFetcher : IAssetCatalogFetcher
     {
         // 定数定義
         public const int DefaultBufferSize = 1 << 20;
