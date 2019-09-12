@@ -15,7 +15,7 @@
 
 using System.Collections.Generic;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// デプロイするアセットの一覧を表現するインターフェイスです

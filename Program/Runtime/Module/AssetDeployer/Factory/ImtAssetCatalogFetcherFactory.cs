@@ -15,7 +15,7 @@
 
 using System;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// IceMilkTea 標準アセットカタログフェッチャファクトリクラスです

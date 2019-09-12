@@ -19,7 +19,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// HTTPを用いたアセットカタログフェッチャクラスです

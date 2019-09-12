@@ -18,7 +18,7 @@ using System.Collections.Generic;
 using System.IO;
 using IceMilkTea.Core;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// 標準的なファイルシステムを利用して動作するファイルシステムアセットストレージクラスです

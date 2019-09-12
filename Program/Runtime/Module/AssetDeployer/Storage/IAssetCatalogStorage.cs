@@ -16,7 +16,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// アセットカタログの貯蔵をするインターフェイスです

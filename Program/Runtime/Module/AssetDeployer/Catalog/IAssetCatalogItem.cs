@@ -15,7 +15,7 @@
 
 using System;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// カタログに含まれるアセットの情報を表現するインターフェイスです

@@ -15,7 +15,7 @@
 
 using System;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// アセットカタログフェッチャのインスタンスを生成するインターフェイスです
