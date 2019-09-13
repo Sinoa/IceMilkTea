@@ -38,6 +38,13 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 進捗通知を処理しない空の進捗オブジェクトです
+        /// </summary>
+        public static ThrottleableProgress<T> Empty { get; private set; } = new ThrottleableProgress<T>();
+
+
+
+        /// <summary>
         /// ThrottleableProgress クラスのインスタンスを初期化します
         /// </summary>
         public ThrottleableProgress() : this(null)
