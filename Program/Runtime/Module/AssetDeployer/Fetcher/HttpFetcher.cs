@@ -18,6 +18,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
 {
@@ -38,9 +39,15 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// フェッチの進捗を割合で取得します
+        /// フェッチするコンテンツの長さ。ただし長さが不明の場合は -1 になる場合があります。
         /// </summary>
-        public double Progress { get; private set; }
+        public long ContentLength { get; private set; }
+
+
+        /// <summary>
+        /// フェッチした長さ
+        /// </summary>
+        public long FetchedLength { get; private set; }
 
 
 
@@ -92,8 +99,8 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
         public Task FetchAsync(Stream outStream)
         {
-            // キャンセルはしない同じ関数を叩く
-            return FetchAsync(outStream, CancellationToken.None);
+            // 進捗通知も受け取らずキャンセルしない
+            return FetchAsync(outStream, null, CancellationToken.None);
         }
 
 
@@ -101,6 +108,25 @@ namespace IceMilkTea.SubSystem
         /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
+        /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
+        /// <exception cref="ArgumentNullException">outStream が null です</exception>
+        public Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress)
+        {
+            // キャンセルはしない
+            return FetchAsync(outStream, progress, CancellationToken.None);
+        }
+
+
+        /// <summary>
+        /// フェッチを非同期で行い対象のストリームに出力します
+        /// </summary>
+        /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
@@ -108,12 +134,8 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
-        public async Task FetchAsync(Stream outStream, CancellationToken cancellationToken)
+        public async Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
         {
-            // 進捗率をリセット
-            Progress = 0.0;
-
-
             // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
             cancellationToken.ThrowIfCancellationRequested();
             if (outStream == null)
@@ -121,6 +143,10 @@ namespace IceMilkTea.SubSystem
                 // 出力先ストリームが無いとどうすればよいのか
                 throw new ArgumentNullException(nameof(outStream));
             }
+
+
+            // 進捗通知のインスタンス保証をする
+            progress = progress ?? NullProgress<FetcherReport>.Null;
 
 
             // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
@@ -140,9 +166,9 @@ namespace IceMilkTea.SubSystem
             using (var response = (HttpWebResponse)responseTask.Result)
             using (var stream = response.GetResponseStream())
             {
-                // 受信バッファを生成
-                var contentLength = response.ContentLength;
-                var totalReadSize = 0L;
+                // 状態初期化と受信バッファを生成
+                ContentLength = response.ContentLength;
+                FetchedLength = 0;
                 var buffer = new byte[bufferSize];
 
 
@@ -150,15 +176,11 @@ namespace IceMilkTea.SubSystem
                 int readSize = 0;
                 while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                 {
-                    // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズと進捗を求める
+                    // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズと進捗を求めて進捗通知をする
                     await outStream.WriteAsync(buffer, 0, readSize, cancellationToken);
-                    totalReadSize += readSize;
-                    Progress = contentLength == -1 ? 0.0 : totalReadSize / (double)contentLength;
+                    FetchedLength += readSize;
+                    progress.Report(new FetcherReport(ContentLength, FetchedLength));
                 }
-
-
-                // 最後は無条件に進捗を1.0にする
-                Progress = 1.0;
             }
         }
     }

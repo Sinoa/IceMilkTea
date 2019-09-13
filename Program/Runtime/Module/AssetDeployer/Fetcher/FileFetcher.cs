@@ -17,6 +17,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
 {
@@ -31,9 +32,15 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// フェッチの進捗を割合で取得します
+        /// フェッチするコンテンツの長さ
         /// </summary>
-        public double Progress { get; private set; }
+        public long ContentLength { get; private set; }
+
+
+        /// <summary>
+        /// フェッチした長さ
+        /// </summary>
+        public long FetchedLength { get; private set; }
 
 
 
@@ -58,8 +65,8 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
         public Task FetchAsync(Stream outStream)
         {
-            // キャンセルはしない同じ関数を叩く
-            return FetchAsync(outStream, CancellationToken.None);
+            // 通知も受け取らないしキャンセルもしない
+            return FetchAsync(outStream, null, CancellationToken.None);
         }
 
 
@@ -67,17 +74,30 @@ namespace IceMilkTea.SubSystem
         /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
+        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
+        /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="ArgumentNullException">outStream が null です</exception>
+        /// <exception cref="FileNotFoundException">コピー元となるファイル '{assetFilePath}' が見つかりません</exception>
+        public Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress)
+        {
+            // キャンセルはしない
+            return FetchAsync(outStream, progress, CancellationToken.None);
+        }
+
+
+        /// <summary>
+        /// フェッチを非同期で行い対象のストリームに出力します
+        /// </summary>
+        /// <param name="outStream">出力先のストリーム</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
         /// <exception cref="FileNotFoundException">コピー元となるファイル '{assetFilePath}' が見つかりません</exception>
-        public async Task FetchAsync(Stream outStream, CancellationToken cancellationToken)
+        public async Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
         {
-            // 進捗率をリセット
-            Progress = 0.0;
-
-
             // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
             cancellationToken.ThrowIfCancellationRequested();
             if (outStream == null)
@@ -85,6 +105,10 @@ namespace IceMilkTea.SubSystem
                 // 出力先ストリームが無いとどうすればよいのか
                 throw new ArgumentNullException(nameof(outStream));
             }
+
+
+            // 進捗通知のインスタンス保証をする
+            progress = progress ?? NullProgress<FetcherReport>.Null;
 
 
             // コピー元のファイルのフルパスを取得する
@@ -104,27 +128,20 @@ namespace IceMilkTea.SubSystem
             using (var fileStream = new FileStream(assetFilePath, FileMode.Open, FileAccess.Read, FileShare.None, 16 << 10, true))
             {
                 // 必要な情報を用意
+                ContentLength = fileStream.Length;
+                FetchedLength = 0;
                 int readSize = 0;
-                int totalReadSize = 0;
-                long contentLength = fileStream.Length;
                 var buffer = new byte[1 << 20];
 
 
                 // 読み切るまでループ
                 while ((readSize = await fileStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                 {
-                    // 出力先ストリームに書き込んで合計読み込みサイズに加算
+                    // 出力先ストリームに書き込んで合計読み込みサイズに加算して進捗通知
                     await outStream.WriteAsync(buffer, 0, readSize);
-                    totalReadSize += readSize;
-
-
-                    // コピー進捗を更新する
-                    Progress = totalReadSize / (double)contentLength;
+                    FetchedLength += readSize;
+                    progress.Report(new FetcherReport(ContentLength, FetchedLength));
                 }
-
-
-                // 最後は無条件に1.0を進捗率に設定
-                Progress = 1.0;
             }
         }
     }

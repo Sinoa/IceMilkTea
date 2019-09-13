@@ -13,28 +13,36 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System.Collections.Generic;
+using System;
 
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// アセットの一覧を表現するインターフェイスです
+    /// カタログに含まれるアイテムの情報を表現するインターフェイスです
     /// </summary>
-    /// <typeparam name="TItem">カタログが扱うアイテムの型</typeparam>
-    public interface IAssetCatalog<TItem> where TItem : IAssetCatalogItem
+    public interface ICatalogItem
     {
         /// <summary>
-        /// 指定した名前のアセットカタログアイテムを取得します
+        /// アイテム名
         /// </summary>
-        /// <param name="name">取得するアセット名</param>
-        /// <returns>指定された名前からカタログアイテムを取得された場合はインスタンスを返しますが、見つからない場合は null を返します</returns>
-        TItem GetItem(string name);
+        string Name { get; }
 
 
         /// <summary>
-        /// カタログに含まれている全てのカタログアイテムを取得して列挙可能なオブジェクトを取得します
+        /// フェッチする参照先アイテムURI
         /// </summary>
-        /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
-        IEnumerable<TItem> GetItemAll();
+        Uri RemoteAssetUri { get; }
+
+
+        /// <summary>
+        /// ストレージからアイテムをアクセスするためのアイテムURI
+        /// </summary>
+        Uri LocalAssetUri { get; }
+
+
+        /// <summary>
+        /// このアイテムのハッシュデータ
+        /// </summary>
+        byte[] HashData { get; }
     }
 }

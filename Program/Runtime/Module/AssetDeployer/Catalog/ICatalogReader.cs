@@ -13,38 +13,21 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// フェッチを行うインターフェイスです
+    /// ストリームからカタログを読み込むインターフェイスです
     /// </summary>
-    public interface IFetcher
+    public interface ICatalogReader
     {
         /// <summary>
-        /// フェッチするコンテンツの長さ
+        /// 指定されたストリームからカタログを非同期で読み込みます
         /// </summary>
-        long ContentLength { get; }
-
-
-        /// <summary>
-        /// フェッチした長さ
-        /// </summary>
-        long FetchedLength { get; }
-
-
-
-        /// <summary>
-        /// フェッチを非同期で行い対象のストリームに出力します
-        /// </summary>
-        /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト</param>
-        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
-        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
-        Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken);
+        /// <param name="stream">カタログのデータを読み込むストリーム</param>
+        /// <returns>正常に読み込まれた場合はカタログのインスタンスを返しますが、読み込まれなかった場合は null を返します</returns>
+        Task<ICatalog> ReadCatalogAsync(Stream stream);
     }
 }

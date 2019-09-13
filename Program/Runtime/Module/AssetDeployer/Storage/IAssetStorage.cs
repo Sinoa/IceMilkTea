@@ -14,7 +14,6 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace IceMilkTea.SubSystem
@@ -25,11 +24,27 @@ namespace IceMilkTea.SubSystem
     public interface IAssetStorage
     {
         /// <summary>
+        /// 一時カタログを読み込みストリームとして開きます
+        /// </summary>
+        /// <param name="name">開く一時カタログ名</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenTempCatalogRead(string name);
+
+
+        /// <summary>
+        /// 一時カタログを書き込みストリームとして開きます
+        /// </summary>
+        /// <param name="name">開く一時カタログ名</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        /// <returns></returns>
+        Stream OpenTempCatalogWrite(string name);
+
+
+        /// <summary>
         /// 指定したアセットURIのアセットが存在するかどうか確認します
         /// </summary>
         /// <param name="assetUri">確認するアセットURI</param>
         /// <returns>アセットが存在する場合は true を、存在しない場合は false を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         bool Exists(Uri assetUri);
 
 
@@ -38,7 +53,6 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
         /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         Stream OpenRead(Uri assetUri);
 
 
@@ -47,7 +61,6 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
         /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         Stream OpenWrite(Uri assetUri);
 
 
@@ -55,7 +68,6 @@ namespace IceMilkTea.SubSystem
         /// 指定したアセットURIのアセットを削除します
         /// </summary>
         /// <param name="assetUri">削除するアセットURI</param>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
         void Delete(Uri assetUri);
 
 

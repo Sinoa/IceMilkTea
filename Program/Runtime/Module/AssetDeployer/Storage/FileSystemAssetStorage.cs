@@ -43,6 +43,10 @@ namespace IceMilkTea.SubSystem
 
 
 
+        public Stream OpenTempCatalogRead(string name) { return Stream.Null; }
+        public Stream OpenTempCatalogWrite(string name) { return Stream.Null; }
+
+
         /// <summary>
         /// FileSystemAssetStorage クラスのインスタンスを初期化します
         /// </summary>

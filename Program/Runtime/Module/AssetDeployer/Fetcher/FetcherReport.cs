@@ -13,38 +13,36 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// フェッチを行うインターフェイスです
+    /// フェッチャの進捗通知レポートを持つ構造体です
     /// </summary>
-    public interface IFetcher
+    public readonly struct FetcherReport
     {
         /// <summary>
         /// フェッチするコンテンツの長さ
         /// </summary>
-        long ContentLength { get; }
+        public readonly long ContentLength;
 
 
         /// <summary>
         /// フェッチした長さ
         /// </summary>
-        long FetchedLength { get; }
+        public readonly long FetchedLength;
 
 
 
         /// <summary>
-        /// フェッチを非同期で行い対象のストリームに出力します
+        /// FetcherReport 構造体のインスタンスを初期化します
         /// </summary>
-        /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト</param>
-        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
-        /// <returns>フェッチ処理を実行しているタスクを返します</returns>
-        Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken);
+        /// <param name="contentLength">フェッチするコンテンツの長さ</param>
+        /// <param name="fetchedLength">フェッチ済みの長さ</param>
+        public FetcherReport(long contentLength, long fetchedLength)
+        {
+            // メンバの初期化
+            ContentLength = contentLength;
+            FetchedLength = fetchedLength;
+        }
     }
 }
