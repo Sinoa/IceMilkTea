@@ -44,6 +44,29 @@ namespace IceMilkTea.SubSystem
 
 
     /// <summary>
+    /// 一覧を表現し内容の型も定義できるインターフェイスです
+    /// </summary>
+    /// <typeparam name="TItem">カタログが持つアイテムの型</typeparam>
+    public interface ICatalog<TItem> : ICatalog where TItem : ICatalogItem
+    {
+        /// <summary>
+        /// 指定した名前のカタログアイテムを取得します
+        /// </summary>
+        /// <param name="name">取得するアイテム名</param>
+        /// <returns>指定された名前からカタログアイテムを取得された場合はインスタンスを返しますが、見つからない場合は null を返します</returns>
+        new TItem GetItem(string name);
+
+
+        /// <summary>
+        /// カタログに含まれている全てのカタログアイテムを取得して列挙可能なオブジェクトを取得します
+        /// </summary>
+        /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
+        new IEnumerable<TItem> GetItemAll();
+    }
+
+
+
+    /// <summary>
     /// カタログに含まれるアイテムの情報を表現するインターフェイスです
     /// </summary>
     public interface ICatalogItem
@@ -85,6 +108,22 @@ namespace IceMilkTea.SubSystem
         /// <param name="stream">カタログのデータを読み込むストリーム</param>
         /// <returns>正常に読み込まれた場合はカタログのインスタンスを返しますが、読み込まれなかった場合は null を返します</returns>
         Task<ICatalog> ReadCatalogAsync(Stream stream);
+    }
+
+
+
+    /// <summary>
+    /// ストリームからカタログを読み込むインターフェイスです
+    /// </summary>
+    /// <typeparam name="TCatalog">読み込まれるカタログの型</typeparam>
+    public interface ICatalogReader<TCatalog> : ICatalogReader where TCatalog : ICatalog
+    {
+        /// <summary>
+        /// 指定されたストリームからカタログを非同期で読み込みます
+        /// </summary>
+        /// <param name="stream">カタログのデータを読み込むストリーム</param>
+        /// <returns>正常に読み込まれた場合はカタログのインスタンスを返しますが、読み込まれなかった場合は null を返します</returns>
+        new Task<TCatalog> ReadCatalogAsync(Stream stream);
     }
     #endregion
 }
