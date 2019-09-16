@@ -13,10 +13,14 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace IceMilkTea.SubSystem
 {
+    #region インターフェイス
     /// <summary>
     /// 一覧を表現するインターフェイスです
     /// </summary>
@@ -36,4 +40,51 @@ namespace IceMilkTea.SubSystem
         /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
         IEnumerable<ICatalogItem> GetItemAll();
     }
+
+
+
+    /// <summary>
+    /// カタログに含まれるアイテムの情報を表現するインターフェイスです
+    /// </summary>
+    public interface ICatalogItem
+    {
+        /// <summary>
+        /// アイテム名
+        /// </summary>
+        string Name { get; }
+
+
+        /// <summary>
+        /// フェッチする参照先アイテムURI
+        /// </summary>
+        Uri RemoteAssetUri { get; }
+
+
+        /// <summary>
+        /// ストレージからアイテムをアクセスするためのアイテムURI
+        /// </summary>
+        Uri LocalAssetUri { get; }
+
+
+        /// <summary>
+        /// このアイテムのハッシュデータ
+        /// </summary>
+        byte[] HashData { get; }
+    }
+
+
+
+    /// <summary>
+    /// ストリームからカタログを読み込むインターフェイスです
+    /// </summary>
+    public interface ICatalogReader
+    {
+        /// <summary>
+        /// 指定されたストリームからカタログを非同期で読み込みます
+        /// </summary>
+        /// <param name="stream">カタログのデータを読み込むストリーム</param>
+        /// <returns>正常に読み込まれた場合はカタログのインスタンスを返しますが、読み込まれなかった場合は null を返します</returns>
+        Task<ICatalog> ReadCatalogAsync(Stream stream);
+    }
+    #endregion
 }
