@@ -20,6 +20,70 @@ using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
 {
+    #region インターフェイス
+    /// <summary>
+    /// アセットとカタログの貯蔵を行うインターフェイスです
+    /// </summary>
+    public interface IAssetStorage
+    {
+        /// <summary>
+        /// 一時カタログを読み込みストリームとして開きます
+        /// </summary>
+        /// <param name="name">開く一時カタログ名</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenTempCatalogRead(string name);
+
+
+        /// <summary>
+        /// 一時カタログを書き込みストリームとして開きます
+        /// </summary>
+        /// <param name="name">開く一時カタログ名</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        /// <returns></returns>
+        Stream OpenTempCatalogWrite(string name);
+
+
+        /// <summary>
+        /// 指定したアセットURIのアセットが存在するかどうか確認します
+        /// </summary>
+        /// <param name="assetUri">確認するアセットURI</param>
+        /// <returns>アセットが存在する場合は true を、存在しない場合は false を返します</returns>
+        bool Exists(Uri assetUri);
+
+
+        /// <summary>
+        /// 指定したアセットURIのアセットを読み込みストリームとして開きます
+        /// </summary>
+        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenRead(Uri assetUri);
+
+
+        /// <summary>
+        /// 指定したアセットURIのアセットを書き込みストリームとして開きます
+        /// </summary>
+        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
+        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenWrite(Uri assetUri);
+
+
+        /// <summary>
+        /// 指定したアセットURIのアセットを削除します
+        /// </summary>
+        /// <param name="assetUri">削除するアセットURI</param>
+        void Delete(Uri assetUri);
+
+
+        /// <summary>
+        /// このストレージインスタンスが管理している全てのアセットを削除します
+        /// </summary>
+        void DeleteAll();
+    }
+    #endregion
+
+
+
+    #region ファイルシステム実装
     /// <summary>
     /// 標準的なファイルシステムを利用して動作するファイルシステムアセットストレージクラスです
     /// </summary>
@@ -233,4 +297,5 @@ namespace IceMilkTea.SubSystem
             baseDirectoryInfo.Delete(true);
         }
     }
+    #endregion
 }
