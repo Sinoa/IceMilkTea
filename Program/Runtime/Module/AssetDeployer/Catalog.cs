@@ -80,13 +80,13 @@ namespace IceMilkTea.SubSystem
         /// <summary>
         /// フェッチする参照先アイテムURI
         /// </summary>
-        Uri RemoteAssetUri { get; }
+        Uri RemoteUri { get; }
 
 
         /// <summary>
         /// ストレージからアイテムをアクセスするためのアイテムURI
         /// </summary>
-        Uri LocalAssetUri { get; }
+        Uri LocalUri { get; }
 
 
         /// <summary>
