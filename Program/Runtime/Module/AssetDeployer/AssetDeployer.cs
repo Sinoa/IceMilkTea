@@ -155,19 +155,19 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="remoteUri">フェッチする元になるリモートURI</param>
         /// <returns>生成されたフェッチャのインスタンスを返しますが、生成出来なかった場合は null を返します。</returns>
-        protected virtual IFetcher CreateFetcher(Uri remoteUri)
+        protected virtual IDataFetcher CreateFetcher(Uri remoteUri)
         {
             // HTTP、HTTPSスキームの場合
             var scheme = remoteUri.Scheme;
             if (scheme == Uri.UriSchemeHttp || scheme == Uri.UriSchemeHttps)
             {
                 // HTTP向けフェッチャを生成して返す
-                return new HttpFetcher(remoteUri);
+                return new HttpDataFetcher(remoteUri);
             }
             else if (scheme == Uri.UriSchemeFile)
             {
                 // FILEスキームの場合ならファイルフェッチャを生成して返す
-                return new FileFetcher(new FileInfo(remoteUri.LocalPath));
+                return new FileDataFetcher(new FileInfo(remoteUri.LocalPath));
             }
 
 
