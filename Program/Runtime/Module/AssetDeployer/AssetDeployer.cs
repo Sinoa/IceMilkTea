@@ -110,7 +110,7 @@ namespace IceMilkTea.SubSystem
             // カタログ情報を取得してフェッチャと書き込みストリームを用意
             var catalogInfo = catalogInfoTable[name];
             var fetcher = CreateFetcher(catalogInfo.RemoteUri);
-            var writeStream = assetStorage.OpenTempCatalogWrite(name);
+            var writeStream = assetStorage.OpenCatalog(name, AssetStorageAccess.Write);
 
 
             // フェッチャまたは書き込みストリームの準備に失敗していたら
