@@ -31,6 +31,7 @@ namespace IceMilkTea.SubSystem
     {
         // メンバ変数定義
         private Dictionary<string, CatalogInfo> catalogInfoTable;
+        private ImtAssetDatabase assetDatabase;
 
 
 
@@ -51,6 +52,7 @@ namespace IceMilkTea.SubSystem
             // 初期化をする
             AssetStorage = assetStorage ?? throw new ArgumentNullException(nameof(assetStorage));
             catalogInfoTable = new Dictionary<string, CatalogInfo>();
+            assetDatabase = new ImtAssetDatabase(assetStorage);
         }
 
 
