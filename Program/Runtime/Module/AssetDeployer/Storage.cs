@@ -14,70 +14,166 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using IceMilkTea.Core;
+using System.Threading.Tasks;
 
 namespace IceMilkTea.SubSystem
 {
-    #region インターフェイス
+    #region インターフェイスと基本型
     /// <summary>
-    /// アセットとカタログの貯蔵を行うインターフェイスです
+    /// アセットストレージのアクセス方法を列挙します
+    /// </summary>
+    [Flags]
+    public enum AssetStorageAccess : byte
+    {
+        /// <summary>
+        /// 読み取りとしてアクセスします
+        /// </summary>
+        Read = FileAccess.Read,
+
+        /// <summary>
+        /// 書き込みとしてアクセスします
+        /// </summary>
+        Write = FileAccess.Write,
+    }
+
+
+
+    /// <summary>
+    /// ストレージの削除進捗レポートの内容を持つ構造体です
+    /// </summary>
+    public readonly struct StorageDeleteReport
+    {
+        /// <summary>
+        /// 削除する予定のトータル
+        /// </summary>
+        public int TotalDeleteCount { get; }
+
+
+        /// <summary>
+        /// 削除したデータ数
+        /// </summary>
+        public int DeletedCount { get; }
+
+
+        /// <summary>
+        /// カタログを削除している場合のカタログ名。カタログ以外の削除をしている場合は null になります。
+        /// </summary>
+        public string CatalogName { get; }
+
+
+        /// <summary>
+        /// アセットを削除している場合のアセットローカルURI。アセット以外の削除をしている場合は null になります。
+        /// </summary>
+        public Uri LocalUri { get; }
+
+
+
+        /// <summary>
+        /// StorageDeleteReport 構造体のインスタンスを初期化します
+        /// </summary>
+        /// <param name="total">削除する予定のトータル</param>
+        /// <param name="deleted">削除したデータ数</param>
+        /// <param name="catalogName">削除しているカタログ名</param>
+        /// <param name="localUri">削除しているアセットローカルURI</param>
+        public StorageDeleteReport(int total, int deleted, string catalogName, Uri localUri)
+        {
+            // そのまま受け取る
+            TotalDeleteCount = total;
+            DeletedCount = deleted;
+            CatalogName = catalogName;
+            LocalUri = localUri;
+        }
+    }
+
+
+
+    /// <summary>
+    /// アセットとカタログ、データベースの貯蔵を行うインターフェイスです
     /// </summary>
     public interface IAssetStorage
     {
         /// <summary>
-        /// 一時カタログを読み込みストリームとして開きます
+        /// 指定されたURIにアセットが存在するか否かを確認します
         /// </summary>
-        /// <param name="name">開く一時カタログ名</param>
-        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        Stream OpenTempCatalogRead(string name);
-
-
-        /// <summary>
-        /// 一時カタログを書き込みストリームとして開きます
-        /// </summary>
-        /// <param name="name">開く一時カタログ名</param>
-        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        /// <returns></returns>
-        Stream OpenTempCatalogWrite(string name);
-
-
-        /// <summary>
-        /// 指定したアセットURIのアセットが存在するかどうか確認します
-        /// </summary>
-        /// <param name="assetUri">確認するアセットURI</param>
+        /// <param name="localUri">確認するアセットのローカルURI</param>
         /// <returns>アセットが存在する場合は true を、存在しない場合は false を返します</returns>
-        bool Exists(Uri assetUri);
+        bool ExistsAsset(Uri localUri);
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットを読み込みストリームとして開きます
+        /// アセットデータベースが存在するか否かを確認します
         /// </summary>
-        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
-        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        Stream OpenRead(Uri assetUri);
+        /// <returns>アセットデータベースが存在する場合は true を、存在しない場合は false を返します</returns>
+        bool ExistsAssetDatabase();
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットを書き込みストリームとして開きます
+        /// 指定した名前のカタログが存在するか否かを確認します
         /// </summary>
-        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
-        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        Stream OpenWrite(Uri assetUri);
+        /// <param name="name">確認するカタログ名</param>
+        /// <returns>カタログが存在する場合は true を、存在しない場合は false を返します</returns>
+        bool ExistsCatalog(string name);
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットを削除します
+        /// アセットのストリームを開きます
         /// </summary>
-        /// <param name="assetUri">削除するアセットURI</param>
-        void Delete(Uri assetUri);
+        /// <param name="localUri">開くアセットのローカルURI</param>
+        /// <param name="access">アセットへのアクセス方法</param>
+        /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenAsset(Uri localUri, AssetStorageAccess access);
 
 
         /// <summary>
-        /// このストレージインスタンスが管理している全てのアセットを削除します
+        /// アセットデータベースのストリームを開きます
+        /// </summary>
+        /// <param name="access">アセットデータベースへのアクセス方法</param>
+        /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenAssetDatabase(AssetStorageAccess access);
+
+
+        /// <summary>
+        /// カタログのストリームを開きます
+        /// </summary>
+        /// <param name="name">開くカタログの名前</param>
+        /// <param name="access">カタログへのアクセス方法</param>
+        /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
+        Stream OpenCatalog(string name, AssetStorageAccess access);
+
+
+        /// <summary>
+        /// ストレージが管理しているアセットを削除します
+        /// </summary>
+        /// <param name="localUri">削除するアセットのローカルURI</param>
+        void DeleteAsset(Uri localUri);
+
+
+        /// <summary>
+        /// ストレージが管理しているアセットデータベースを削除します
+        /// </summary>
+        void DeleteAssetDatabase();
+
+
+        /// <summary>
+        /// ストレージが管理しているカタログを削除します
+        /// </summary>
+        /// <param name="name">削除するカタログの名前</param>
+        void DeleteCatalog(string name);
+
+
+        /// <summary>
+        /// ストレージが管理しているすべてのデータを削除します
         /// </summary>
         void DeleteAll();
+
+
+        /// <summary>
+        /// ストレージが管理しているすべてのデータを非同期で削除します
+        /// </summary>
+        /// <param name="progress">削除の進捗通知を受ける進捗オブジェクト</param>
+        /// <returns>削除を実行しているタスクを返します</returns>
+        Task DeleteAllAsync(IProgress<StorageDeleteReport> progress);
     }
     #endregion
 
@@ -89,15 +185,17 @@ namespace IceMilkTea.SubSystem
     /// </summary>
     public class FileSystemAssetStorage : IAssetStorage
     {
+        // 定数定義
+        public const string AssetDatabaseFileName = "package.db";
+        public const string AssetDirectoryName = "assets";
+        public const string CatalogDirectoryName = "catalog";
+
         // メンバ変数定義
         private DirectoryInfo baseDirectoryInfo;
+        private DirectoryInfo assetDirectoryInfo;
+        private DirectoryInfo catalogDirectoryInfo;
+        private FileInfo assetDatabaseFileInfo;
 
-
-
-        /// <summary>
-        /// このストレージの名前を取得します
-        /// </summary>
-        public string Name { get; protected set; }
 
 
         /// <summary>
@@ -106,196 +204,237 @@ namespace IceMilkTea.SubSystem
         public bool ExistsBaseDirectory { get { baseDirectoryInfo.Refresh(); return baseDirectoryInfo.Exists; } }
 
 
+        /// <summary>
+        /// アセット格納用ディレクトリが存在するか否か
+        /// </summary>
+        public bool ExistsAssetDirectory { get { assetDirectoryInfo.Refresh(); return assetDirectoryInfo.Exists; } }
 
-        public Stream OpenTempCatalogRead(string name) { return Stream.Null; }
-        public Stream OpenTempCatalogWrite(string name) { return Stream.Null; }
+
+        /// <summary>
+        /// カタログ格納用ディレクトリが存在するか否か
+        /// </summary>
+        public bool ExistsCatalogDirectory { get { catalogDirectoryInfo.Refresh(); return catalogDirectoryInfo.Exists; } }
+
 
 
         /// <summary>
         /// FileSystemAssetStorage クラスのインスタンスを初期化します
         /// </summary>
-        /// <param name="baseDirectoryInfo">このストレージが管理するベースディレクトリ情報</param>
+        /// <param name="baseDirectoryInfo">このストレージが管理するベースディレクトリ</param>
         /// <exception cref="ArgumentNullException">baseDirectoryInfo が null です</exception>
         public FileSystemAssetStorage(DirectoryInfo baseDirectoryInfo)
         {
-            // ベースディレクトリ情報を受け取って自分のクラス名をそのままストレージ名にする
+            // そのまま受け取って各種ディレクトリ情報とアセットデータベースファイル情報の初期化
             this.baseDirectoryInfo = baseDirectoryInfo ?? throw new ArgumentNullException(nameof(baseDirectoryInfo));
-            Name = GetType().Name;
+            assetDirectoryInfo = new DirectoryInfo(GetAssetDirectoryPath(baseDirectoryInfo));
+            catalogDirectoryInfo = new DirectoryInfo(GetCatalogDirectoryPath(baseDirectoryInfo));
+            assetDatabaseFileInfo = new FileInfo(GetAssetDatabasePath(baseDirectoryInfo));
         }
 
 
+        #region ユーティリティ関数
         /// <summary>
-        /// 指定されたアセットURIからこのストレージが管理するファイルパスへ変換します。もしURIがフルパスを表現している場合はそのまま返すことに気をつけてください。
+        /// アセットデータベースパスを取得します
         /// </summary>
-        /// <param name="assetUri">ストレージが管理するファイルパスとして表現するアセットURI</param>
-        /// <returns>生成されたファイルパスの文字列を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public string ToFilePath(Uri assetUri)
+        /// <param name="baseDirectoryInfo">このストレージが管理するベースディレクトリ</param>
+        /// <returns>アセットデータベースへのパスを返します</returns>
+        protected virtual string GetAssetDatabasePath(DirectoryInfo baseDirectoryInfo)
         {
-            // ローカルパスを取得して（念の為先頭にセパレータがある場合は削除するようにする）実際のファイルパスを生成する
-            var localPath = (assetUri ?? throw new ArgumentNullException(nameof(assetUri))).LocalPath.TrimStart('/');
-            return Path.Combine(baseDirectoryInfo.FullName, localPath);
+            // ベースディレクトリのフルパスにアセットデータベースファイル名を結合して返す
+            return Path.Combine(baseDirectoryInfo.FullName, AssetDatabaseFileName);
         }
 
 
         /// <summary>
-        /// 指定されたファイル名からアセットURIへ変換します
+        /// アセット格納ディレクトリパスを取得します
         /// </summary>
-        /// <param name="fileName">アセットURIとして表現するファイル名（またはパス）</param>
-        /// <returns>生成されたアセットURIのインスタンスを返しますが fileName が null または 空文字列 を表現する場合は null を返します。</returns>
-        public Uri ToAssetUri(string fileName)
+        /// <param name="baseDirectoryInfo">このストレージが管理するベースディレクトリ</param>
+        /// <returns>アセット格納ディレクトリパスを返します</returns>
+        protected virtual string GetAssetDirectoryPath(DirectoryInfo baseDirectoryInfo)
         {
-            // 有効なファイル名ではないのなら
-            if (string.IsNullOrWhiteSpace(fileName))
-            {
-                // URIを表現出来ないので null を返す
-                return null;
-            }
-
-
-            // ファイルスキームとして文字列を作ってURIとして返す
-            return new Uri($"file:///{fileName}");
+            // ベースディレクトリのフルパスにアセットディレクトリ名を結合して返す
+            return Path.Combine(baseDirectoryInfo.FullName, AssetDirectoryName);
         }
 
 
         /// <summary>
-        /// このストレージインスタンスが管理している全てのアセットURIを取得します
+        /// カタログ格納ディレクトリパスを取得します
         /// </summary>
-        /// <returns>取得されたURIの全てを列挙できる IEnumerable のインスタンスとして返します。1つもアセットがない場合は長さ0の IEnumerable を返します。</returns>
-        public virtual IEnumerable<Uri> GetAssetUris()
+        /// <param name="baseDirectoryInfo">このストレージが管理するベースディレクトリ</param>
+        /// <returns>カタログ格納ディレクトリパスを返します</returns>
+        protected virtual string GetCatalogDirectoryPath(DirectoryInfo baseDirectoryInfo)
         {
-            // ベースディレクトリが無いのなら
-            if (!ExistsBaseDirectory)
-            {
-                // そもそも管理しているアセットが無いので直ちに長さ0で返す
-                return Array.Empty<Uri>();
-            }
-
-
-            // ベースディレクトリに含まれる全階層全てのファイルを列挙する
-            var fileInfos = baseDirectoryInfo.GetFileSystemInfos("*", SearchOption.AllDirectories);
-            var uriList = new List<Uri>(fileInfos.Length);
-            foreach (var fileInfo in fileInfos)
-            {
-                // もしディレクトリ属性が付いていたら
-                if (fileInfo.Attributes.HasFlag(FileAttributes.Directory))
-                {
-                    // ファイルのみ列挙したいので次へ
-                    continue;
-                }
-
-
-                // フルネーム付きでURIインスタンスを生成してリストに追加
-                uriList.Add(ToAssetUri(fileInfo.FullName));
-            }
-
-
-            // 列挙されたURIのリストをそのまま帰す
-            return uriList;
+            // ベースディレクトリのフルパスにカタログディレクトリ名を結合して返す
+            return Path.Combine(baseDirectoryInfo.FullName, CatalogDirectoryName);
         }
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットが存在するかどうか確認します
+        /// URIからアセットファイルパスへ変換します
         /// </summary>
-        /// <param name="assetUri">確認するアセットURI</param>
+        /// <param name="uri">変換するURI</param>
+        /// <returns>変換されたアセットファイルパスを返します</returns>
+        protected virtual string ToAssetFilePath(Uri uri)
+        {
+            // アセット格納ディレクトリパスにURIローカルパスを結合して返す
+            return Path.Combine(assetDirectoryInfo.FullName, uri.LocalPath.TrimStart('/'));
+        }
+
+
+        /// <summary>
+        /// カタログ名からカタログファイルパスへ変換します
+        /// </summary>
+        /// <param name="name">変換するカタログ名</param>
+        /// <returns>変換されたカタログファイルパスを返します</returns>
+        protected virtual string ToCatalogFilePath(string name)
+        {
+            // カタログ格納ディレクトリパスにカタログファイル名を結合して返す
+            return Path.Combine(catalogDirectoryInfo.FullName, $"{name}.catalog");
+        }
+        #endregion
+
+
+        #region 存在確認関数
+        /// <summary>
+        /// 指定されたURIにアセットが存在するか否かを確認します
+        /// </summary>
+        /// <param name="localUri">確認するアセットのローカルURI</param>
         /// <returns>アセットが存在する場合は true を、存在しない場合は false を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public virtual bool Exists(Uri assetUri)
+        public bool ExistsAsset(Uri localUri)
         {
-            // ベースディレクトリがない または ファイルスキームではないのなら
-            if (!ExistsBaseDirectory || !(assetUri ?? throw new ArgumentException(nameof(assetUri))).IsFileScheme())
+            // URIが扱えないURIなら
+            if (localUri == null || !localUri.IsFile)
             {
-                // そもそも存在し得ない
+                // 存在しないとする
                 return false;
             }
 
 
-            // 指定されたファイルパスが存在するかどうかの結果をそのまま返す
-            return File.Exists(ToFilePath(assetUri));
+            // ファイルが存在するか否かの結果をそのまま返す
+            return File.Exists(ToAssetFilePath(localUri));
         }
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットを読み込みストリームとして開きます
+        /// アセットデータベースが存在するか否かを確認します
         /// </summary>
-        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
-        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public virtual Stream OpenRead(Uri assetUri)
+        /// <returns>アセットデータベースが存在する場合は true を、存在しない場合は false を返します</returns>
+        public bool ExistsAssetDatabase()
         {
-            // ファイルが存在しないのなら
-            if (!Exists(assetUri))
-            {
-                // ストリームとして開けないので null を返す
-                return null;
-            }
-
-
-            // ファイルパスとして取得して読み取りストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
-            var filePath = ToFilePath(assetUri);
-            return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 16 << 10, true);
+            // ファイルが存在するか否かの結果をそのまま返す
+            assetDatabaseFileInfo.Refresh();
+            return assetDatabaseFileInfo.Exists;
         }
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットを書き込みストリームとして開きます
+        /// 指定した名前のカタログが存在するか否かを確認します
         /// </summary>
-        /// <param name="assetUri">ストリームとして開きたいアセットURI</param>
-        /// <returns>ストリームとして開けた場合はストリームのインスタンスを、開けなかった場合は null を返します</returns>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public virtual Stream OpenWrite(Uri assetUri)
+        /// <param name="name">確認するカタログ名</param>
+        /// <returns>カタログが存在する場合は true を、存在しない場合は false を返します</returns>
+        public bool ExistsCatalog(string name)
         {
-            // ベースディレクトリが存在しないなら
-            if (!ExistsBaseDirectory)
+            // カタログ名が扱えない名前なら
+            if (string.IsNullOrWhiteSpace(name))
             {
-                // 新しく作る
-                baseDirectoryInfo.Create();
+                // 存在しないとする
+                return false;
             }
 
 
-            // ファイルパスとして取得して書き込みストリームとして返す(16KBファイルキャッシュなのはiOS向けに合わせているだけです)
-            var filePath = ToFilePath(assetUri);
-            return new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 16 << 10, true);
+            // ファイルが存在するか否かの結果をそのまま返す
+            return File.Exists(ToCatalogFilePath(name))
+;
+        }
+        #endregion
+
+
+        #region オープン関数
+        /// <summary>
+        /// アセットのストリームを開きます
+        /// </summary>
+        /// <param name="localUri">開くアセットのローカルURI</param>
+        /// <param name="access">アセットへのアクセス方法</param>
+        /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
+        public Stream OpenAsset(Uri localUri, AssetStorageAccess access)
+        {
+            throw new NotImplementedException();
         }
 
 
         /// <summary>
-        /// 指定したアセットURIのアセットを削除します
+        /// アセットデータベースのストリームを開きます
         /// </summary>
-        /// <param name="assetUri">削除するアセットURI</param>
-        /// <exception cref="ArgumentNullException">assetUri が null です</exception>
-        public virtual void Delete(Uri assetUri)
+        /// <param name="access">アセットデータベースへのアクセス方法</param>
+        /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
+        public Stream OpenAssetDatabase(AssetStorageAccess access)
         {
-            // ファイルが存在しないのなら
-            if (!Exists(assetUri))
-            {
-                // 何もせず終了
-                return;
-            }
-
-
-            // ファイルパスとして取得して削除をする
-            File.Delete(ToFilePath(assetUri));
+            throw new NotImplementedException();
         }
 
 
         /// <summary>
-        /// このストレージインスタンスが管理している全てのアセットを削除します
+        /// カタログのストリームを開きます
         /// </summary>
-        public virtual void DeleteAll()
+        /// <param name="name">開くカタログの名前</param>
+        /// <param name="access">カタログへのアクセス方法</param>
+        /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
+        public Stream OpenCatalog(string name, AssetStorageAccess access)
         {
-            // ベースディレクトリが存在しないのなら
-            if (!ExistsBaseDirectory)
-            {
-                // 何もせず終了
-                return;
-            }
-
-
-            // ディレクトリごと削除する
-            baseDirectoryInfo.Delete(true);
+            throw new NotImplementedException();
         }
+        #endregion
+
+
+        #region 削除関数
+        /// <summary>
+        /// ストレージが管理しているアセットを削除します
+        /// </summary>
+        /// <param name="localUri">削除するアセットのローカルURI</param>
+        public void DeleteAsset(Uri localUri)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// ストレージが管理しているアセットデータベースを削除します
+        /// </summary>
+        public void DeleteAssetDatabase()
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// ストレージが管理しているカタログを削除します
+        /// </summary>
+        /// <param name="name">削除するカタログの名前</param>
+        public void DeleteCatalog(string name)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// ストレージが管理しているすべてのデータを削除します
+        /// </summary>
+        public void DeleteAll()
+        {
+            throw new NotImplementedException();
+        }
+
+
+        /// <summary>
+        /// ストレージが管理しているすべてのデータを非同期で削除します
+        /// </summary>
+        /// <param name="progress">削除の進捗通知を受ける進捗オブジェクト</param>
+        /// <returns>削除を実行しているタスクを返します</returns>
+        public Task DeleteAllAsync(IProgress<StorageDeleteReport> progress)
+        {
+            throw new NotImplementedException();
+        }
+        #endregion
     }
     #endregion
 }
