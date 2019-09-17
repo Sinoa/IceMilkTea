@@ -15,7 +15,6 @@
 
 using System;
 using System.IO;
-using System.Threading.Tasks;
 
 namespace IceMilkTea.SubSystem
 {
@@ -35,55 +34,6 @@ namespace IceMilkTea.SubSystem
         /// 書き込みとしてアクセスします
         /// </summary>
         Write = FileAccess.Write,
-    }
-
-
-
-    /// <summary>
-    /// ストレージの削除進捗レポートの内容を持つ構造体です
-    /// </summary>
-    public readonly struct StorageDeleteReport
-    {
-        /// <summary>
-        /// 削除する予定のトータル
-        /// </summary>
-        public int TotalDeleteCount { get; }
-
-
-        /// <summary>
-        /// 削除したデータ数
-        /// </summary>
-        public int DeletedCount { get; }
-
-
-        /// <summary>
-        /// カタログを削除している場合のカタログ名。カタログ以外の削除をしている場合は null になります。
-        /// </summary>
-        public string CatalogName { get; }
-
-
-        /// <summary>
-        /// アセットを削除している場合のアセットローカルURI。アセット以外の削除をしている場合は null になります。
-        /// </summary>
-        public Uri LocalUri { get; }
-
-
-
-        /// <summary>
-        /// StorageDeleteReport 構造体のインスタンスを初期化します
-        /// </summary>
-        /// <param name="total">削除する予定のトータル</param>
-        /// <param name="deleted">削除したデータ数</param>
-        /// <param name="catalogName">削除しているカタログ名</param>
-        /// <param name="localUri">削除しているアセットローカルURI</param>
-        public StorageDeleteReport(int total, int deleted, string catalogName, Uri localUri)
-        {
-            // そのまま受け取る
-            TotalDeleteCount = total;
-            DeletedCount = deleted;
-            CatalogName = catalogName;
-            LocalUri = localUri;
-        }
     }
 
 
@@ -166,14 +116,6 @@ namespace IceMilkTea.SubSystem
         /// ストレージが管理しているすべてのデータを削除します
         /// </summary>
         void DeleteAll();
-
-
-        /// <summary>
-        /// ストレージが管理しているすべてのデータを非同期で削除します
-        /// </summary>
-        /// <param name="progress">削除の進捗通知を受ける進捗オブジェクト</param>
-        /// <returns>削除を実行しているタスクを返します</returns>
-        Task DeleteAllAsync(IProgress<StorageDeleteReport> progress);
     }
     #endregion
 
@@ -189,12 +131,13 @@ namespace IceMilkTea.SubSystem
         public const string AssetDatabaseFileName = "package.db";
         public const string AssetDirectoryName = "assets";
         public const string CatalogDirectoryName = "catalog";
+        public const int DefaultFileBufferSize = (16 << 10); // for iOS I/O size.
 
         // メンバ変数定義
-        private DirectoryInfo baseDirectoryInfo;
-        private DirectoryInfo assetDirectoryInfo;
-        private DirectoryInfo catalogDirectoryInfo;
-        private FileInfo assetDatabaseFileInfo;
+        private readonly DirectoryInfo baseDirectoryInfo;
+        private readonly DirectoryInfo assetDirectoryInfo;
+        private readonly DirectoryInfo catalogDirectoryInfo;
+        private readonly FileInfo assetDatabaseFileInfo;
 
 
 
@@ -291,6 +234,30 @@ namespace IceMilkTea.SubSystem
             // カタログ格納ディレクトリパスにカタログファイル名を結合して返す
             return Path.Combine(catalogDirectoryInfo.FullName, $"{name}.catalog");
         }
+
+
+        /// <summary>
+        /// アセットのローカルURIが利用できるURIか否かを調べます
+        /// </summary>
+        /// <param name="localUri">調べるURI</param>
+        /// <returns>利用できるURIの場合は true を、利用できない場合は false を返します</returns>
+        protected virtual bool ValidateLocalUri(Uri localUri)
+        {
+            // 有効か否かを条件式の結果をそのまま返す
+            return localUri != null && localUri.IsFile;
+        }
+
+
+        /// <summary>
+        /// カタログ名が利用できる名前か否かを調べます
+        /// </summary>
+        /// <param name="name">調べるカタログ名</param>
+        /// <returns>利用できる名前の場合は true を、利用できない場合は false を返します</returns>
+        protected virtual bool ValidateCatalogName(string name)
+        {
+            // 有効な文字列かどうかの結果をそのまま返す
+            return !string.IsNullOrWhiteSpace(name);
+        }
         #endregion
 
 
@@ -303,7 +270,7 @@ namespace IceMilkTea.SubSystem
         public bool ExistsAsset(Uri localUri)
         {
             // URIが扱えないURIなら
-            if (localUri == null || !localUri.IsFile)
+            if (!ValidateLocalUri(localUri))
             {
                 // 存在しないとする
                 return false;
@@ -335,7 +302,7 @@ namespace IceMilkTea.SubSystem
         public bool ExistsCatalog(string name)
         {
             // カタログ名が扱えない名前なら
-            if (string.IsNullOrWhiteSpace(name))
+            if (!ValidateCatalogName(name))
             {
                 // 存在しないとする
                 return false;
@@ -358,7 +325,41 @@ namespace IceMilkTea.SubSystem
         /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
         public Stream OpenAsset(Uri localUri, AssetStorageAccess access)
         {
-            throw new NotImplementedException();
+            // もし取り扱えないURIなら
+            if (!ValidateLocalUri(localUri))
+            {
+                // 開くことすらかなわない
+                return null;
+            }
+
+
+            // パスを取得する
+            var path = ToAssetFilePath(localUri);
+
+
+            // もし読み取りなら
+            if (access == AssetStorageAccess.Read)
+            {
+                // ファイルが存在しないときは
+                if (!ExistsAsset(localUri))
+                {
+                    // 開くことは出来ない
+                    return null;
+                }
+
+
+                // 読み取りストリームとして開いて返す
+                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+            }
+            else if (access == AssetStorageAccess.Write)
+            {
+                // 書き込みストリームとして開いて返す
+                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+            }
+
+
+            // ここには到達することはないはずだが、万が一来てしまった場合は null を返す
+            return null;
         }
 
 
@@ -369,7 +370,33 @@ namespace IceMilkTea.SubSystem
         /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
         public Stream OpenAssetDatabase(AssetStorageAccess access)
         {
-            throw new NotImplementedException();
+            // パスを取得する
+            var path = assetDatabaseFileInfo.FullName;
+
+
+            // もし読み取りなら
+            if (access == AssetStorageAccess.Read)
+            {
+                // 存在しないときは
+                if (!ExistsAssetDatabase())
+                {
+                    // 開くことは出来ない
+                    return null;
+                }
+
+
+                // 読み取りストリームとして開いて返す
+                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+            }
+            else if (access == AssetStorageAccess.Write)
+            {
+                // 書き込みストリームとして開いて返す
+                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+            }
+
+
+            // ここには到達することはないはずだが、万が一来てしまった場合は null を返す
+            return null;
         }
 
 
@@ -381,7 +408,41 @@ namespace IceMilkTea.SubSystem
         /// <returns>ストリームとして開けた場合は Stream のインスタンスを、開けなかった場合は null を返します</returns>
         public Stream OpenCatalog(string name, AssetStorageAccess access)
         {
-            throw new NotImplementedException();
+            // もし取り扱えないカタログ名なら
+            if (!ValidateCatalogName(name))
+            {
+                // 開くことはかなわない
+                return null;
+            }
+
+
+            // パスを取得する
+            var path = ToCatalogFilePath(name);
+
+
+            // もし読み取りなら
+            if (access == AssetStorageAccess.Read)
+            {
+                // 存在しないときは
+                if (!ExistsCatalog(name))
+                {
+                    // 開くことは出来ない
+                    return null;
+                }
+
+
+                // 読み取りストリームとして開いて返す
+                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+            }
+            else if (access == AssetStorageAccess.Write)
+            {
+                // 書き込みストリームとして開いて返す
+                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+            }
+
+
+            // ここには到達することはないはずだが、万が一来てしまった場合は null を返す
+            return null;
         }
         #endregion
 
@@ -393,7 +454,12 @@ namespace IceMilkTea.SubSystem
         /// <param name="localUri">削除するアセットのローカルURI</param>
         public void DeleteAsset(Uri localUri)
         {
-            throw new NotImplementedException();
+            // 存在するなら
+            if (ExistsAsset(localUri))
+            {
+                // 削除する
+                File.Delete(ToAssetFilePath(localUri));
+            }
         }
 
 
@@ -402,7 +468,12 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public void DeleteAssetDatabase()
         {
-            throw new NotImplementedException();
+            // 存在するなら
+            if (ExistsAssetDatabase())
+            {
+                // 削除する
+                File.Delete(assetDatabaseFileInfo.FullName);
+            }
         }
 
 
@@ -412,7 +483,12 @@ namespace IceMilkTea.SubSystem
         /// <param name="name">削除するカタログの名前</param>
         public void DeleteCatalog(string name)
         {
-            throw new NotImplementedException();
+            // 存在するなら
+            if (ExistsCatalog(name))
+            {
+                // 削除する
+                File.Delete(ToCatalogFilePath(name));
+            }
         }
 
 
@@ -421,18 +497,12 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public void DeleteAll()
         {
-            throw new NotImplementedException();
-        }
-
-
-        /// <summary>
-        /// ストレージが管理しているすべてのデータを非同期で削除します
-        /// </summary>
-        /// <param name="progress">削除の進捗通知を受ける進捗オブジェクト</param>
-        /// <returns>削除を実行しているタスクを返します</returns>
-        public Task DeleteAllAsync(IProgress<StorageDeleteReport> progress)
-        {
-            throw new NotImplementedException();
+            // ベースディレクトリが存在するなら
+            if (ExistsBaseDirectory)
+            {
+                // ベースディレクトリごと削除する
+                baseDirectoryInfo.Delete(true);
+            }
         }
         #endregion
     }
