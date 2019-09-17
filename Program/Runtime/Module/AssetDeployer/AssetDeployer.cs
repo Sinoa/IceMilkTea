@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
@@ -222,6 +223,19 @@ namespace IceMilkTea.SubSystem
 
             // 非サポートのスキームならnullを返す
             return null;
+        }
+
+
+        /// <summary>
+        /// 指定された名前のハッシュアルゴリズムを生成します。
+        /// 通常は HashAlgorithm.Create(string) を使用します。
+        /// </summary>
+        /// <param name="hashName">生成するハッシュアルゴリズムの名前</param>
+        /// <returns>ハッシュアルゴリズムが生成された場合はインスタンスを、生成出来なかった場合は null を返します</returns>
+        protected virtual HashAlgorithm CreateHash(string hashName)
+        {
+            // 素直に標準的な関数を用いる
+            return HashAlgorithm.Create(hashName);
         }
         #endregion
 

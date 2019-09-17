@@ -93,6 +93,12 @@ namespace IceMilkTea.SubSystem
         /// このアイテムのハッシュデータ
         /// </summary>
         byte[] HashData { get; }
+
+
+        /// <summary>
+        /// ハッシュ計算に使用したハッシュ名
+        /// </summary>
+        string HashName { get; }
     }
 
 
