@@ -23,13 +23,20 @@ using IceMilkTea.Core;
 namespace IceMilkTea.SubSystem
 {
     /// <summary>
-    /// ゲームアセットのデプロイを制御する抽象クラスです
+    /// ゲームアセットのデプロイを制御するクラスです
     /// </summary>
-    public class AssetDeployer
+    /// <typeparam name="TStorage">この制御クラスが使用するストレージクラスの型</typeparam>
+    public class AssetDeployer<TStorage> where TStorage : class, IAssetStorage
     {
         // メンバ変数定義
         private Dictionary<string, CatalogInfo> catalogInfoTable;
-        private IAssetStorage assetStorage;
+
+
+
+        /// <summary>
+        /// この制御クラスが使用しているストレージ
+        /// </summary>
+        public TStorage AssetStorage { get; private set; }
 
 
 
@@ -38,33 +45,50 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="assetStorage">アセットを貯蔵するストレージ</param>
         /// <exception cref="ArgumentNullException">assetStorage が null です</exception>
-        public AssetDeployer(IAssetStorage assetStorage)
+        public AssetDeployer(TStorage assetStorage)
         {
             // 初期化をする
-            this.assetStorage = assetStorage ?? throw new ArgumentNullException(nameof(assetStorage));
+            AssetStorage = assetStorage ?? throw new ArgumentNullException(nameof(assetStorage));
+            catalogInfoTable = new Dictionary<string, CatalogInfo>();
         }
 
 
         #region カタログ制御関数
         /// <summary>
-        /// アセットデプロイを参照するカタログを設定します
+        /// カタログを取り扱う際のカタログ情報を設定します
         /// </summary>
-        /// <param name="name">設定するカタログの名前</param>
-        /// <param name="reader">カタログリーダー</param>
-        /// <param name="remoteUri">外部からカタログをフェッチするときに参照するリモートURI</param>
+        /// <param name="info">設定するカタログ情報</param>
         /// <exception cref="ArgumentException">無効なカタログ名です</exception>
-        /// <exception cref="ArgumentNullException">reader が null です</exception>
-        /// <exception cref="ArgumentNullException">remoteUri が null です</exception>
-        public void SetCatalog(string name, ICatalogReader reader, Uri remoteUri)
+        /// <exception cref="ArgumentException">カタログ情報に取り扱えない情報が設定されています。</exception>
+        public void SetCatalogInfo(CatalogInfo info)
         {
             // 例外判定を入れる
-            ThrowExceptionIfInvalidCatalogName(name);
+            ThrowExceptionIfInvalidCatalogName(info.Name);
 
 
-            // カタログ情報テーブルにそのまま設定する
-            reader = reader ?? throw new ArgumentNullException(nameof(reader));
-            remoteUri = remoteUri ?? throw new ArgumentNullException(nameof(remoteUri));
-            catalogInfoTable[name] = new CatalogInfo(name, reader, remoteUri);
+            // カタログが取り扱えないフィールドを持ってしまっている場合は
+            if (info.Reader == null || info.RemoteUri == null)
+            {
+                // 設定は出来ない例外を吐く
+                throw new ArgumentException("カタログ情報に取り扱えない情報が設定されています。", nameof(info));
+            }
+
+
+            // カタログ情報をそのまま受け取る
+            catalogInfoTable[info.Name] = info;
+        }
+
+
+        /// <summary>
+        /// 指定された名前のカタログ情報の取得に試みます
+        /// </summary>
+        /// <param name="name">取得するカタログ情報の名前</param>
+        /// <param name="info">取得されたカタログ情報を受取る参照</param>
+        /// <returns>取得に成功した場合は true を、失敗した場合は false を返します</returns>
+        public bool TryGetCatalogInfo(string name, out CatalogInfo info)
+        {
+            // テーブルのTryGet関数をそのまま使う
+            return catalogInfoTable.TryGetValue(name, out info);
         }
 
 
@@ -73,33 +97,29 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="name">確認するカタログ名</param>
         /// <returns>含まれている場合は true を、含まれていない場合は false を返します</returns>
-        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
         public bool ContainCatalog(string name)
         {
-            // 例外判定を入れてからテーブルの存在確認関数の結果を返す
-            ThrowExceptionIfInvalidCatalogName(name);
+            // テーブルの存在確認関数の結果を返す
             return catalogInfoTable.ContainsKey(name);
         }
 
 
         /// <summary>
-        /// 指定されたカタログ名のカタログを一時カタログとしてリモートから非同期でフェッチします。
+        /// 指定されたカタログ名のカタログをリモートから非同期でフェッチします。
         /// </summary>
         /// <param name="name">フェッチするカタログ名</param>
         /// <param name="progress">カタログのフェッチ状態の進捗通知を受け取る進捗オブジェクト</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
-        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task<bool> FetchTempCatalogAsync(string name, IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
+        public async Task<bool> FetchCatalogAsync(string name, IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
         {
-            // 例外判定を入れて monitor が null ならインスタンスを作っておく
+            // キャンセル判定を入れて進捗オブジェクトのインスタンス保証をする
             cancellationToken.ThrowIfCancellationRequested();
-            ThrowExceptionIfInvalidCatalogName(name);
             progress = progress ?? NullProgress<FetchCatalogReport>.Null;
 
 
-            // 指定されたカタログが存在しないなら
+            // 指定されたカタログ情報が存在しないなら
             if (!ContainCatalog(name))
             {
                 // フェッチ自体出来ないことを返す
@@ -108,9 +128,9 @@ namespace IceMilkTea.SubSystem
 
 
             // カタログ情報を取得してフェッチャと書き込みストリームを用意
-            var catalogInfo = catalogInfoTable[name];
+            TryGetCatalogInfo(name, out var catalogInfo);
             var fetcher = CreateFetcher(catalogInfo.RemoteUri);
-            var writeStream = assetStorage.OpenCatalog(name, AssetStorageAccess.Write);
+            var writeStream = AssetStorage.OpenCatalog(name, AssetStorageAccess.Write);
 
 
             // フェッチャまたは書き込みストリームの準備に失敗していたら
@@ -136,6 +156,33 @@ namespace IceMilkTea.SubSystem
 
                 // フェッチを非同期で実行する
                 await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
+            }
+
+
+            // 成功を返す
+            return true;
+        }
+
+
+        /// <summary>
+        /// すべてのカタログをリモートから非同期でフェッチします
+        /// </summary>
+        /// <param name="progress">カタログのフェッチ状態の進捗通知を受け取る進捗オブジェクト</param>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
+        /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
+        /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
+        public async Task<bool> FetchCatalogAllAsync(IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
+        {
+            // カタログ情報テーブルのレコード数分回る
+            foreach (var name in catalogInfoTable.Keys)
+            {
+                // 単体のフェッチ関数を叩いてもし失敗を返されたら
+                var result = await FetchCatalogAsync(name, progress, cancellationToken);
+                if (result == false)
+                {
+                    // この時点で失敗を返す
+                    return false;
+                }
             }
 
 
@@ -193,53 +240,54 @@ namespace IceMilkTea.SubSystem
             }
         }
         #endregion
-
-
-
-        #region 内部型定義
-        /// <summary>
-        /// カタログを扱う情報を保持した構造体です
-        /// </summary>
-        private struct CatalogInfo
-        {
-            /// <summary>
-            /// カタログ名
-            /// </summary>
-            public string Name { get; private set; }
-
-
-            /// <summary>
-            /// カタログをフェッチする際に参照するURI
-            /// </summary>
-            public Uri RemoteUri { get; private set; }
-
-
-            /// <summary>
-            /// カタログを読み込むリーダー
-            /// </summary>
-            public ICatalogReader Reader { get; private set; }
-
-
-
-            /// <summary>
-            /// CatalogInfo 構造体のインスタンスを初期化します
-            /// </summary>
-            /// <param name="name">カタログ名</param>
-            /// <param name="reader">カタログリーダー</param>
-            /// <param name="remoteUri"></param>
-            public CatalogInfo(string name, ICatalogReader reader, Uri remoteUri)
-            {
-                // 初期化をする
-                Name = name;
-                Reader = reader;
-                RemoteUri = remoteUri;
-            }
-        }
-        #endregion
     }
 
 
 
+    #region 情報構造体
+    /// <summary>
+    /// カタログを扱う情報を保持した構造体です
+    /// </summary>
+    public readonly struct CatalogInfo
+    {
+        /// <summary>
+        /// カタログ名
+        /// </summary>
+        public string Name { get; }
+
+
+        /// <summary>
+        /// カタログをフェッチする際に参照するURI
+        /// </summary>
+        public Uri RemoteUri { get; }
+
+
+        /// <summary>
+        /// カタログを読み込むリーダー
+        /// </summary>
+        public ICatalogReader Reader { get; }
+
+
+
+        /// <summary>
+        /// CatalogInfo 構造体のインスタンスを初期化します
+        /// </summary>
+        /// <param name="name">カタログ名</param>
+        /// <param name="reader">カタログリーダー</param>
+        /// <param name="remoteUri">カタログをフェッチする参照リモートURI</param>
+        public CatalogInfo(string name, ICatalogReader reader, Uri remoteUri)
+        {
+            // 初期化をする
+            Name = name;
+            Reader = reader;
+            RemoteUri = remoteUri;
+        }
+    }
+    #endregion
+
+
+
+    #region レポート関連型
     /// <summary>
     /// カタログのフェッチ状態のレポートクラスです
     /// </summary>
@@ -302,4 +350,5 @@ namespace IceMilkTea.SubSystem
             BitRate = Math.Max(bitRate, 0);
         }
     }
+    #endregion
 }
