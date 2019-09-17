@@ -167,7 +167,7 @@ namespace IceMilkTea.Core
         public Task FetchAsync(Stream outStream)
         {
             // 進捗通知も受け取らずキャンセルしない
-            return FetchAsync(outStream, null, CancellationToken.None);
+            return FetchAsync(outStream, new Progress<FetcherReport>(), CancellationToken.None);
         }
 
 
@@ -175,9 +175,10 @@ namespace IceMilkTea.Core
         /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は Progress です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
         /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
@@ -193,10 +194,11 @@ namespace IceMilkTea.Core
         /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は Progress です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="TaskCanceledException">非同期の操作がキャンセルされました</exception>
         /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
@@ -212,8 +214,12 @@ namespace IceMilkTea.Core
             }
 
 
-            // 進捗通知のインスタンス保証をする
-            progress = progress ?? NullProgress<FetcherReport>.Null;
+            // progress が null なら
+            if (progress == null)
+            {
+                // どうやって進捗通知をすればよいだろうか
+                throw new ArgumentNullException(nameof(progress));
+            }
 
 
             // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
@@ -301,7 +307,7 @@ namespace IceMilkTea.Core
         public Task FetchAsync(Stream outStream)
         {
             // 通知も受け取らないしキャンセルもしない
-            return FetchAsync(outStream, null, CancellationToken.None);
+            return FetchAsync(outStream, new Progress<FetcherReport>(), CancellationToken.None);
         }
 
 
@@ -309,9 +315,10 @@ namespace IceMilkTea.Core
         /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は Progress です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
         /// <exception cref="FileNotFoundException">コピー元となるファイル '{assetFilePath}' が見つかりません</exception>
         public Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress)
@@ -325,10 +332,11 @@ namespace IceMilkTea.Core
         /// フェッチを非同期で行い対象のストリームに出力します
         /// </summary>
         /// <param name="outStream">出力先のストリーム</param>
-        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は null です。</param>
+        /// <param name="progress">フェッチャの進捗通知を受ける進捗オブジェクト。既定は Progress です。</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン。既定は None です。</param>
         /// <returns>フェッチ処理を実行しているタスクを返します</returns>
         /// <exception cref="OperationCanceledException">非同期の操作がキャンセルされました</exception>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
         /// <exception cref="FileNotFoundException">コピー元となるファイル '{assetFilePath}' が見つかりません</exception>
         public async Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
@@ -342,8 +350,12 @@ namespace IceMilkTea.Core
             }
 
 
-            // 進捗通知のインスタンス保証をする
-            progress = progress ?? NullProgress<FetcherReport>.Null;
+            // progress が null なら
+            if (progress == null)
+            {
+                // どうやって進捗通知をすればよいだろうか
+                throw new ArgumentNullException(nameof(progress));
+            }
 
 
             // コピー元のファイルのフルパスを取得する

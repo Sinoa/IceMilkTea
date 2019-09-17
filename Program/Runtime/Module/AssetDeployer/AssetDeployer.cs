@@ -111,12 +111,13 @@ namespace IceMilkTea.SubSystem
         /// <param name="progress">カタログのフェッチ状態の進捗通知を受け取る進捗オブジェクト</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         public async Task<bool> FetchCatalogAsync(string name, IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
         {
-            // キャンセル判定を入れて進捗オブジェクトのインスタンス保証をする
+            // キャンセル判定と例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
-            progress = progress ?? NullProgress<FetchCatalogReport>.Null;
+            ThrowExceptionIfProgressIsNull(progress);
 
 
             // 指定されたカタログ情報が存在しないなら
@@ -170,6 +171,7 @@ namespace IceMilkTea.SubSystem
         /// <param name="progress">カタログのフェッチ状態の進捗通知を受け取る進捗オブジェクト</param>
         /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         public async Task<bool> FetchCatalogAllAsync(IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
         {
@@ -237,6 +239,23 @@ namespace IceMilkTea.SubSystem
             {
                 // 無効な引数である例外を吐く
                 throw new ArgumentException("無効なカタログ名です", nameof(name));
+            }
+        }
+
+
+        /// <summary>
+        /// プログレスがnullの場合に例外を送出します
+        /// </summary>
+        /// <typeparam name="T">Progress が進捗通知をするオブジェクトの型</typeparam>
+        /// <param name="progress">確認する Progress</param>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
+        private void ThrowExceptionIfProgressIsNull<T>(IProgress<T> progress)
+        {
+            // もし null を渡されたのなら
+            if (progress == null)
+            {
+                // 例外を吐く
+                throw new ArgumentNullException(nameof(progress));
             }
         }
         #endregion
