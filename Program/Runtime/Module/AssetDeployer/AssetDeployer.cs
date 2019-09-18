@@ -31,7 +31,6 @@ namespace IceMilkTea.SubSystem
     {
         // メンバ変数定義
         private Dictionary<string, CatalogInfo> catalogInfoTable;
-        private ImtAssetDatabase assetDatabase;
 
 
 
@@ -39,6 +38,12 @@ namespace IceMilkTea.SubSystem
         /// この制御クラスが使用しているストレージ
         /// </summary>
         public TStorage AssetStorage { get; private set; }
+
+
+        /// <summary>
+        /// この制御クラスが使用するアセットデータベース
+        /// </summary>
+        public ImtAssetDatabase AssetDatabase { get; private set; }
 
 
 
@@ -52,7 +57,7 @@ namespace IceMilkTea.SubSystem
             // 初期化をする
             AssetStorage = assetStorage ?? throw new ArgumentNullException(nameof(assetStorage));
             catalogInfoTable = new Dictionary<string, CatalogInfo>();
-            assetDatabase = new ImtAssetDatabase(assetStorage);
+            AssetDatabase = new ImtAssetDatabase(assetStorage);
         }
 
 
@@ -176,7 +181,7 @@ namespace IceMilkTea.SubSystem
         /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task<bool> FetchCatalogAllAsync(IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
+        public async Task<bool> FetchCatalogAsync(IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
         {
             // カタログ情報テーブルのレコード数分回る
             foreach (var name in catalogInfoTable.Keys)
@@ -198,6 +203,75 @@ namespace IceMilkTea.SubSystem
 
 
         #region アセット操作関数
+        /// <summary>
+        /// すべての更新可能なアセットを非同期で確認します
+        /// </summary>
+        /// <param name="progress">差分チェック中の進捗通知オブジェクト</param>
+        /// <param name="differenceList">チェックした結果を受け取るアセット差分リスト</param>
+        /// <returns>確認中のタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
+        /// <exception cref="ArgumentNullException">differenceList が null です</exception>
+        public async Task CheckUpdatableAssetAsync(IProgress<string> progress, IList<AssetDifference> differenceList)
+        {
+            // 通知オブジェクトがnullなら
+            if (progress == null)
+            {
+                // どうやって通知すればよいのだろうか
+                throw new ArgumentNullException(nameof(progress));
+            }
+
+
+            // カタログ情報のカタログ分回る
+            foreach (var catalogName in catalogInfoTable.Keys)
+            {
+                // 名前入り差分チェック関数を叩く
+                progress.Report(catalogName);
+                await CheckUpdatableAssetAsync(catalogName, differenceList);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたカタログの更新可能なアセットを確認します
+        /// </summary>
+        /// <param name="catalogName">確認するカタログ名</param>
+        /// <param name="differenceList">チェックした結果を受け取るアセット差分リスト</param>
+        /// <returns>確認中のタスクを返します</returns>
+        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
+        /// <exception cref="ArgumentNullException">differenceList が null です</exception>
+        public async Task CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList)
+        {
+            // 例外判定を入れる
+            ThrowExceptionIfInvalidCatalogName(catalogName);
+            ThrowExceptionIfDifferenceListIsNull(differenceList);
+
+
+            // ストレージに指定されたカタログ名のデータが無いのなら
+            if (!AssetStorage.ExistsCatalog(catalogName))
+            {
+                // 何もせず終了
+                return;
+            }
+
+
+            // カタログ情報がないなら
+            if (!catalogInfoTable.ContainsKey(catalogName))
+            {
+                // お取り扱いが出来ない
+                return;
+            }
+
+
+            // カタログを読み込む
+            var catalogStream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Read);
+            var catalog = await catalogInfoTable[catalogName].Reader.ReadCatalogAsync(catalogStream);
+            catalogStream.Dispose();
+
+
+            // 差分判定を非同期で実行する
+            await Task.Run(() => AssetDatabase.GetCatalogDifference(catalogName, catalog, differenceList));
+
+        }
         #endregion
 
 
@@ -255,6 +329,22 @@ namespace IceMilkTea.SubSystem
             {
                 // 無効な引数である例外を吐く
                 throw new ArgumentException("無効なカタログ名です", nameof(name));
+            }
+        }
+
+
+        /// <summary>
+        /// アセット差分リストの参照が null の場合に例外を送出します
+        /// </summary>
+        /// <param name="differenceList">確認する参照</param>
+        /// <exception cref="ArgumentNullException">differenceList が null です</exception>
+        private void ThrowExceptionIfDifferenceListIsNull(IList<AssetDifference> differenceList)
+        {
+            // もし null なら
+            if (differenceList == null)
+            {
+                // 例外を吐く
+                throw new ArgumentNullException(nameof(differenceList));
             }
         }
 
