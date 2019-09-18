@@ -15,6 +15,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
@@ -26,8 +28,8 @@ namespace IceMilkTea.SubSystem
     public class ImtAssetDatabase
     {
         // メンバ変数定義
-        private Dictionary<string, ImtCatalog> catalogTable;
-        private IAssetStorage storage;
+        private readonly Dictionary<string, ImtCatalog> catalogTable;
+        private readonly IAssetStorage storage;
 
 
 
@@ -178,7 +180,56 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public void Load()
         {
-            throw new NotImplementedException();
+            // アセットデータベースのファイルが無いなら
+            if (!storage.ExistsAssetDatabase())
+            {
+                // 何もせず諦める
+                return;
+            }
+
+
+            // テーブルを空にしてコピー用アイテムリストを作っておく
+            catalogTable.Clear();
+            var bufferList = new List<ImtCatalogItem>();
+
+
+            // ストレージからデータベースストリームを受け取ってバイナリリーダーに渡す
+            using (var reader = new BinaryReader(storage.OpenAssetDatabase(AssetStorageAccess.Read), new UTF8Encoding(false)))
+            {
+                // カタログ数を読み込む
+                var catalogCount = reader.ReadInt32();
+
+
+                // カタログ数分回る
+                for (int i = 0; i < catalogCount; ++i)
+                {
+                    // カタログ名とアイテム数を読み込む
+                    var catalogName = reader.ReadString();
+                    var itemCount = reader.ReadInt32();
+
+
+                    // コピー用リストをクリアしてアイテム数分回る
+                    bufferList.Clear();
+                    for (int j = 0; j < itemCount; ++j)
+                    {
+                        // 順序よく読み込む
+                        var name = reader.ReadString();
+                        var contentLength = reader.ReadInt32();
+                        var remoteUri = reader.ReadString();
+                        var localUri = reader.ReadString();
+                        var hashName = reader.ReadString();
+                        var hashData = reader.ReadBytes(reader.ReadInt32());
+
+
+                        // コピー用リストにアイテムを追加
+                        bufferList.Add(new ImtCatalogItem(name, contentLength, new Uri(remoteUri), new Uri(localUri), hashData, hashName));
+                    }
+
+
+                    // 新しくカタログを作ってテーブルに追加
+                    catalogTable[catalogName] = new ImtCatalog(bufferList);
+                }
+            }
         }
 
 
@@ -187,7 +238,35 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public void Save()
         {
-            throw new NotImplementedException();
+            // ストレージからデータベースストリームを受け取ってバイナリライターに渡す
+            using (var writer = new BinaryWriter(storage.OpenAssetDatabase(AssetStorageAccess.Write), new UTF8Encoding(false)))
+            {
+                // カタログ数を書き込む
+                writer.Write(catalogTable.Count);
+
+
+                // カタログの数分回る
+                foreach (var record in catalogTable)
+                {
+                    // カタログ名とアイテム数を書き込む
+                    writer.Write(record.Key);
+                    writer.Write(record.Value.ItemCount);
+
+
+                    // カタログのアイテム数分回る
+                    foreach (var item in record.Value.GetItemAll())
+                    {
+                        // アイテムの内容を順序よく書き込む
+                        writer.Write(item.Name);
+                        writer.Write(item.ContentLength);
+                        writer.Write(item.RemoteUri.OriginalString);
+                        writer.Write(item.LocalUri.OriginalString);
+                        writer.Write(item.HashName);
+                        writer.Write(item.HashData.Length);
+                        writer.Write(item.HashData);
+                    }
+                }
+            }
         }
         #endregion
 
