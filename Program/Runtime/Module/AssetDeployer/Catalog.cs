@@ -71,6 +71,21 @@ namespace IceMilkTea.SubSystem
     public interface ICatalog
     {
         /// <summary>
+        /// カタログに含まれるアイテム数
+        /// </summary>
+        int ItemCount { get; }
+
+
+
+        /// <summary>
+        /// 指定された名前のカタログアイテムが含まれているか確認します
+        /// </summary>
+        /// <param name="name">確認するカタログアイテムの名前</param>
+        /// <returns>含まれている場合は true を、含まれていない場合は false を返します</returns>
+        bool ContainItem(string name);
+
+
+        /// <summary>
         /// 指定した名前のカタログアイテムを取得します
         /// </summary>
         /// <param name="name">取得するアイテム名</param>
@@ -239,17 +254,45 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
+        /// カタログに含まれるアイテム数
+        /// </summary>
+        public int ItemCount => itemTable.Count;
+
+
+
+        /// <summary>
         /// ImtCatalog クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="catalog">複製元のカタログ</param>
         /// <exception cref="ArgumentNullException">catalog が null です</exception>
-        public ImtCatalog(ICatalog catalog)
+        public ImtCatalog(ICatalog catalog) : this((catalog ?? throw new ArgumentNullException(nameof(catalog))).GetItemAll())
+        {
+        }
+
+
+        /// <summary>
+        /// ImtCatalog クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="catalogItems">カタログに追加するカタログアイテムの列挙可能オブジェクト</param>
+        /// <exception cref="ArgumentNullException">catalogItems が null です</exception>
+        public ImtCatalog(IEnumerable<ICatalogItem> catalogItems)
         {
             // すべてImtCatalogItemとしてテーブルを生成する
-            itemTable = (catalog ?? throw new ArgumentNullException(nameof(catalog)))
-                .GetItemAll()
+            itemTable = (catalogItems ?? throw new ArgumentNullException(nameof(catalogItems)))
                 .Select(x => new ImtCatalogItem(x))
                 .ToDictionary(x => x.Name);
+        }
+
+
+        /// <summary>
+        /// 指定された名前のカタログアイテムが含まれているか確認します
+        /// </summary>
+        /// <param name="name">確認するカタログアイテムの名前</param>
+        /// <returns>含まれている場合は true を、含まれていない場合は false を返します</returns>
+        public bool ContainItem(string name)
+        {
+            // ContainKeyの結果をそのまま返す
+            return itemTable.ContainsKey(name);
         }
 
 
