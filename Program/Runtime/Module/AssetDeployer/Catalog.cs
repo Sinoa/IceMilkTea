@@ -22,6 +22,49 @@ namespace IceMilkTea.SubSystem
 {
     #region インターフェイス
     /// <summary>
+    /// カタログに含まれるアイテムの情報を表現するインターフェイスです
+    /// </summary>
+    public interface ICatalogItem
+    {
+        /// <summary>
+        /// アイテム名
+        /// </summary>
+        string Name { get; }
+
+
+        /// <summary>
+        /// アイテムの内容の長さ（バイト数）
+        /// </summary>
+        long ContentLength { get; }
+
+
+        /// <summary>
+        /// フェッチする参照先アイテムURI
+        /// </summary>
+        Uri RemoteUri { get; }
+
+
+        /// <summary>
+        /// ストレージからアイテムをアクセスするためのアイテムURI
+        /// </summary>
+        Uri LocalUri { get; }
+
+
+        /// <summary>
+        /// このアイテムのハッシュデータ
+        /// </summary>
+        byte[] HashData { get; }
+
+
+        /// <summary>
+        /// ハッシュ計算に使用したハッシュ名
+        /// </summary>
+        string HashName { get; }
+    }
+
+
+
+    /// <summary>
     /// 一覧を表現するインターフェイスです
     /// </summary>
     public interface ICatalog
@@ -67,43 +110,6 @@ namespace IceMilkTea.SubSystem
 
 
     /// <summary>
-    /// カタログに含まれるアイテムの情報を表現するインターフェイスです
-    /// </summary>
-    public interface ICatalogItem
-    {
-        /// <summary>
-        /// アイテム名
-        /// </summary>
-        string Name { get; }
-
-
-        /// <summary>
-        /// フェッチする参照先アイテムURI
-        /// </summary>
-        Uri RemoteUri { get; }
-
-
-        /// <summary>
-        /// ストレージからアイテムをアクセスするためのアイテムURI
-        /// </summary>
-        Uri LocalUri { get; }
-
-
-        /// <summary>
-        /// このアイテムのハッシュデータ
-        /// </summary>
-        byte[] HashData { get; }
-
-
-        /// <summary>
-        /// ハッシュ計算に使用したハッシュ名
-        /// </summary>
-        string HashName { get; }
-    }
-
-
-
-    /// <summary>
     /// ストリームからカタログを読み込むインターフェイスです
     /// </summary>
     public interface ICatalogReader
@@ -130,6 +136,93 @@ namespace IceMilkTea.SubSystem
         /// <param name="stream">カタログのデータを読み込むストリーム</param>
         /// <returns>正常に読み込まれた場合はカタログのインスタンスを返しますが、読み込まれなかった場合は null を返します</returns>
         new Task<TCatalog> ReadCatalogAsync(Stream stream);
+    }
+    #endregion
+
+
+
+    #region シンプルなカタログアイテムクラス
+    /// <summary>
+    /// なんの装飾もない単純なカタログアイテムクラスです
+    /// </summary>
+    public class SimpleCatalogItem : ICatalogItem
+    {
+        /// <summary>
+        /// アイテム名
+        /// </summary>
+        public string Name { get; private set; }
+
+
+        /// <summary>
+        /// アイテムの内容の長さ（バイト数）
+        /// </summary>
+        public long ContentLength { get; private set; }
+
+
+        /// <summary>
+        /// フェッチする参照先リモートURI
+        /// </summary>
+        public Uri RemoteUri { get; private set; }
+
+
+        /// <summary>
+        /// ストレージの参照先ローカルURI
+        /// </summary>
+        public Uri LocalUri { get; private set; }
+
+
+        /// <summary>
+        /// このアイテムのハッシュデータ
+        /// </summary>
+        public byte[] HashData { get; private set; }
+
+
+        /// <summary>
+        /// ハッシュ計算に使用したハッシュ名
+        /// </summary>
+        public string HashName { get; private set; }
+
+
+
+        /// <summary>
+        /// SimpleCatalogItem クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="item">インスタンスの初期化元になる、カタログアイテムのインターフェイス</param>
+        public SimpleCatalogItem(ICatalogItem item) : this(item.Name, item.ContentLength, item.RemoteUri, item.LocalUri, item.HashData, item.HashName)
+        {
+        }
+
+
+        /// <summary>
+        /// SimpleCatalogItem クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="name">アイテム名</param>
+        /// <param name="contentLength">コンテンツの長さ（バイト数）。もし負の値が指定された場合は 0 として扱われます。</param>
+        /// <param name="remoteUri">フェッチする参照先リモートURI</param>
+        /// <param name="localUri">ストレージの参照先ローカルURI</param>
+        /// <param name="hashData">ハッシュデータ。もし null の場合は内部で長さ0の配列として初期化されます。</param>
+        /// <param name="hashName">ハッシュデータを生成する際に利用したハッシュアルゴリズムの名前。もし null の場合は空文字列として初期化されます。</param>
+        /// <exception cref="ArgumentException">name が null または 空文字列 です。</exception>
+        /// <exception cref="ArgumentNullException">remoteUri が null です。</exception>
+        /// <exception cref="ArgumentNullException">localUri が null です。</exception>
+        public SimpleCatalogItem(string name, long contentLength, Uri remoteUri, Uri localUri, byte[] hashData, string hashName)
+        {
+            // もしアイテム名が扱えない文字列なら
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                // 例外を吐く
+                throw new ArgumentException($"{nameof(name)} が null または 空文字列 です。", nameof(name));
+            }
+
+
+            // 初期化をする
+            Name = name;
+            ContentLength = Math.Max(contentLength, 0);
+            RemoteUri = remoteUri ?? throw new ArgumentNullException(nameof(remoteUri));
+            LocalUri = localUri ?? throw new ArgumentNullException(nameof(localUri));
+            HashData = hashData == null ? Array.Empty<byte>() : (byte[])hashData.Clone();
+            HashName = string.IsNullOrWhiteSpace(hashName) ? string.Empty : hashName;
+        }
     }
     #endregion
 }
