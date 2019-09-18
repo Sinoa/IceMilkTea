@@ -150,21 +150,20 @@ namespace IceMilkTea.Core
         {
             // 新しい計算済みハッシュコードの受け取り配列を生成する
             ThrowExceptionIfObjectDisposed();
-            result = new byte[hash.HashSize >> 3];
 
 
             // すでに計算済みなら
             if (finish)
             {
                 // ハッシュデータのコピーだけを行う
-                Array.Copy(hash.Hash, result, hash.Hash.Length);
+                result = (byte[])hash.Hash.Clone();
                 return;
             }
 
 
             // ハッシュ計算を最後の処理をしてコピーを行う
             hash.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-            Array.Copy(hash.Hash, result, hash.Hash.Length);
+            result = (byte[])hash.Hash.Clone();
             finish = true;
         }
         #endregion
