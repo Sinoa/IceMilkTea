@@ -82,7 +82,7 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="name">確認するカタログアイテムの名前</param>
         /// <returns>含まれている場合は true を、含まれていない場合は false を返します</returns>
-        bool ContainItem(string name);
+        bool ContainsItem(string name);
 
 
         /// <summary>
@@ -157,9 +157,9 @@ namespace IceMilkTea.SubSystem
 
 
 
-    #region シンプルな実装クラス
+    #region IceMilkTea標準実装クラス
     /// <summary>
-    /// 単純なカタログアイテムクラスです
+    /// IceMilkTeaが実装する標準的なカタログアイテムクラスです
     /// </summary>
     public class ImtCatalogItem : ICatalogItem
     {
@@ -244,7 +244,7 @@ namespace IceMilkTea.SubSystem
 
 
     /// <summary>
-    /// 単純なカタログクラスです
+    /// IceMilkTeaが実装する標準的なカタログクラスです
     /// </summary>
     public class ImtCatalog : ICatalog<ImtCatalogItem>
     {
@@ -289,7 +289,7 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="name">確認するカタログアイテムの名前</param>
         /// <returns>含まれている場合は true を、含まれていない場合は false を返します</returns>
-        public bool ContainItem(string name)
+        public bool ContainsItem(string name)
         {
             // ContainKeyの結果をそのまま返す
             return itemTable.ContainsKey(name);

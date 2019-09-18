@@ -15,27 +15,19 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
 {
+    #region データベース本体クラス
     /// <summary>
     /// アセットの管理情報をデータベースとして取り扱うクラスです
     /// </summary>
     public class ImtAssetDatabase
     {
-        // 定数定義
-        private const int InitialCapacity = 5 << 10;
-
         // メンバ変数定義
-        private IAssetStorage assetStorage;
-        private List<AssetInfoRecord> recordList;
-        private AssetInfoRecord[] records;
-        private ILookup<string, AssetInfoRecord> catalogLookup;
-        private ILookup<string, AssetInfoRecord> assetNameLookup;
+        private Dictionary<string, ImtCatalog> catalogTable;
+        private IAssetStorage storage;
 
 
 
@@ -46,131 +38,147 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentNullException">storage が null です</exception>
         public ImtAssetDatabase(IAssetStorage storage)
         {
-            // ストレージの参照を覚えてロードをする
-            assetStorage = storage;
-            Load();
+            // 初期化をする
+            this.storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            catalogTable = new Dictionary<string, ImtCatalog>();
         }
 
 
-        public void Update(string catalogName, ICatalog catalog)
+        #region カタログ操作関数
+        /// <summary>
+        /// 指定されたカタログ名がアセットデータベースに含まれているか確認をします
+        /// </summary>
+        /// <param name="catalogName">確認をするカタログ名</param>
+        /// <returns>カタログがある場合は true を、ない場合は false を返します</returns>
+        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
+        public bool ContainsCatalog(string catalogName)
         {
+            // ContainKeyの結果をそのまま返す
+            ThrowExceptionIfInvalidCatalogName(catalogName);
+            return catalogTable.ContainsKey(catalogName);
         }
 
 
-        public IEnumerable<AssetDiffInfo> GetDiff(string catalogName, ICatalog catalog)
+        /// <summary>
+        /// 指定されたカタログ名のカタログを取得します
+        /// </summary>
+        /// <param name="catalogName">取得するカタログ名</param>
+        /// <returns>指定されたカタログがあればインスタンスを返しますが、ない場合は null を返します</returns>
+        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
+        public ImtCatalog GetCatalog(string catalogName)
         {
-            // 返すための差分リストの生成
-            var diffList = new List<AssetDiffInfo>();
+            // TryGetの結果をそのまま返す
+            ThrowExceptionIfInvalidCatalogName(catalogName);
+            catalogTable.TryGetValue(catalogName, out var catalog);
+            return catalog;
+        }
 
 
-            // アセットデータベース側のカタログがないなら
-            if (!catalogLookup.Contains(catalogName))
+        /// <summary>
+        /// 指定されたカタログ名で、カタログの更新を行います。
+        /// </summary>
+        /// <param name="catalogName">更新するカタログ名</param>
+        /// <param name="catalog">更新するカタログ</param>
+        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
+        /// <exception cref="ArgumentNullException">catalog が null です</exception>
+        public void UpdateCatalog(string catalogName, ICatalog catalog)
+        {
+            // テーブルにそのままカタログを登録する
+            ThrowExceptionIfInvalidCatalogName(catalogName);
+            catalogTable[catalogName] = new ImtCatalog(catalog ?? throw new ArgumentNullException(nameof(catalog)));
+        }
+
+
+        /// <summary>
+        /// 指定されたカタログ名とカタログからアセットデータベースの差分を取得します。
+        /// </summary>
+        /// <param name="catalogName">差分の取得をするカタログ名</param>
+        /// <param name="catalog">差分の抽出対象となるカタログ</param>
+        /// <param name="differenceList">抽出結果を受け取るリスト</param>
+        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
+        /// <exception cref="ArgumentNullException">catalog が null です</exception>
+        /// <exception cref="ArgumentNullException">differenceList が null です</exception>
+        public void GetCatalogDifference(string catalogName, ICatalog catalog, IList<AssetDifference> differenceList)
+        {
+            // 例外処理をする
+            ThrowExceptionIfInvalidCatalogName(catalogName);
+            catalog = new ImtCatalog(catalog ?? throw new ArgumentNullException(nameof(catalog)));
+            if (differenceList == null)
             {
-                // 受け取ったカタログはすべて新規という形で返す
-                foreach (var item in catalog.GetItemAll())
-                {
-                    // 差分情報を生成してリストに追加
-                    diffList.Add(new AssetDiffInfo(AssetDiffStatus.New, new AssetInfoRecord(catalogName, item)));
-                }
-
-
-                // リストを返す
-                return diffList;
+                // 何に追加すればよいのか
+                throw new ArgumentNullException(nameof(differenceList));
             }
 
 
-            // カタログ側のアイテムを列挙
+            // もしカタログ自体持っていないなら
+            if (!ContainsCatalog(catalogName))
+            {
+                // 受け取ったカタログすべては新規追加とする
+                foreach (var item in catalog.GetItemAll())
+                {
+                    // 新規追加としてリストに追加
+                    differenceList.Add(new AssetDifference(AssetDifferenceStatus.New, catalogName, item));
+                }
+
+
+                // 終了
+                return;
+            }
+
+
+            // データベース側のカタログの取得とアイテムすべてをリスト化
+            var databaseCatalog = GetCatalog(catalogName);
+            var removeTargetList = new List<ImtCatalogItem>(databaseCatalog.GetItemAll());
+
+
+            // 比較対象となるカタログのアイテム分回る
             foreach (var item in catalog.GetItemAll())
             {
-                // データベース側にそもそも同じアセット名が存在しないなら
-                if (!assetNameLookup.Contains(item.Name))
+                // もし同じ名前のアイテムが見つからないなら
+                var dbItem = databaseCatalog.GetItem(item.Name);
+                if (dbItem == null)
                 {
-                    // 新規で増えたアセットとして差分リストに追加して次へ
-                    diffList.Add(new AssetDiffInfo(AssetDiffStatus.New, new AssetInfoRecord(catalogName, item)));
+                    // 新規追加アイテムとして追加して次へ
+                    differenceList.Add(new AssetDifference(AssetDifferenceStatus.New, catalogName, item));
                     continue;
                 }
 
 
-                // 同じアセット名内で回る
-                bool hitFlag = false;
-                foreach (var record in assetNameLookup[item.Name])
+                // この段階で削除対象リストから情報を削除する
+                removeTargetList.Remove(dbItem);
+
+
+                // データベース側と比較対象アイテムのハッシュが一致した場合は
+                if (dbItem.HashData.IsSameAll(item.HashData))
                 {
-                    // 同じカタログ名なら
-                    if (record.CatalogName == catalogName)
-                    {
-                        // カタログ名が一致したフラグをON
-                        hitFlag = true;
-
-
-                        // 同じハッシュコードの場合は
-                        if (record.HashData.IsSameAll(item.HashData))
-                        {
-                            // 変化なしとする
-                            diffList.Add(new AssetDiffInfo(AssetDiffStatus.Stable, new AssetInfoRecord(catalogName, item)));
-                            break;
-                        }
-
-
-                        // 更新が必要
-                        diffList.Add(new AssetDiffInfo(AssetDiffStatus.Update, new AssetInfoRecord(catalogName, item)));
-                        break;
-                    }
+                    // 変更なしとして追加して次へ
+                    differenceList.Add(new AssetDifference(AssetDifferenceStatus.Stable, catalogName, item));
+                    continue;
                 }
 
 
-                // 結局カタログ名が一致していないのなら
-                if (!hitFlag)
-                {
-                    // 新規で増えたアセットとなる
-                    diffList.Add(new AssetDiffInfo(AssetDiffStatus.New, new AssetInfoRecord(catalogName, item)));
-                }
+                // 上書きが更新が必要として追加
+                differenceList.Add(new AssetDifference(AssetDifferenceStatus.Update, catalogName, item));
             }
 
 
-            return diffList;
+            // 削除対象リストに残ったアイテムはすべて削除対象となる
+            foreach (var item in removeTargetList)
+            {
+                // 削除対象として追加
+                differenceList.Add(new AssetDifference(AssetDifferenceStatus.Delete, catalogName, item));
+            }
         }
+        #endregion
 
 
+        #region データIO関数
         /// <summary>
         /// ストレージからアセットデータベースをロードします
         /// </summary>
         public void Load()
         {
-            // ストレージにアセットデータベースが存在するか確認する
-            if (!assetStorage.ExistsAssetDatabase())
-            {
-                // 存在しないなら空の状態で初期化する
-                records = Array.Empty<AssetInfoRecord>();
-                MakeLookup();
-            }
-
-
-            // ストレージからアセットデータベースを開いてバイナリリーダーで読み込む
-            using (var databaseStream = assetStorage.OpenAssetDatabase(AssetStorageAccess.Read))
-            using (var reader = new BinaryReader(databaseStream, new UTF8Encoding(false)))
-            {
-                // レコード数を読み込んでデータ配列を作る
-                var recordNum = reader.ReadInt32();
-                records = new AssetInfoRecord[recordNum];
-
-
-                // レコード数の数分ループ
-                for (int i = 0; i < recordNum; ++i)
-                {
-                    // レコードインスタンスを生成してデータを読み込む
-                    var record = new AssetInfoRecord();
-                    record.CatalogName = reader.ReadString();
-                    record.AssetName = reader.ReadString();
-                    record.RemoteUri = new Uri(reader.ReadString());
-                    record.LocalUri = new Uri(reader.ReadString());
-                    record.HashData = reader.ReadBytes(reader.ReadInt32());
-                    record.HashName = reader.ReadString();
-
-
-                    // データ配列に設定する
-                    records[i] = record;
-                }
-            }
+            throw new NotImplementedException();
         }
 
 
@@ -179,124 +187,37 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public void Save()
         {
-            // レコード数がそもそも0件なら
-            if (records.Length == 0)
+            throw new NotImplementedException();
+        }
+        #endregion
+
+
+        #region 例外関数
+        /// <summary>
+        /// カタログ名が無効な名前だった場合に例外を送出します
+        /// </summary>
+        /// <param name="name">確認するカタログ名</param>
+        /// <exception cref="ArgumentException">無効なカタログ名です</exception>
+        private void ThrowExceptionIfInvalidCatalogName(string name)
+        {
+            // 無効な名前を渡されたら
+            if (string.IsNullOrWhiteSpace(name))
             {
-                // 何もしない
-                return;
-            }
-
-
-            // ストレージからアセットデータベースを開いてバイナリライターで書き込む
-            using (var databaseStream = assetStorage.OpenAssetDatabase(AssetStorageAccess.Write))
-            using (var writer = new BinaryWriter(databaseStream, new UTF8Encoding(false)))
-            {
-                // レコード数を書き込む
-                writer.Write(records.Length);
-
-
-                // レコードの数分回る
-                foreach (var record in records)
-                {
-                    // ひたすら書き込む
-                    writer.Write(record.CatalogName);
-                    writer.Write(record.AssetName);
-                    writer.Write(record.RemoteUri.OriginalString);
-                    writer.Write(record.LocalUri.OriginalString);
-                    writer.Write(record.HashData.Length);
-                    writer.Write(record.HashData);
-                    writer.Write(record.HashName);
-                }
+                // 無効な引数である例外を吐く
+                throw new ArgumentException("無効なカタログ名です", nameof(name));
             }
         }
-
-
-        /// <summary>
-        /// ルックアップコレクションを作成します
-        /// </summary>
-        private void MakeLookup()
-        {
-            // ToLookupで作る
-            catalogLookup = records.ToLookup(record => record.CatalogName);
-            assetNameLookup = records.ToLookup(record => record.AssetName);
-        }
+        #endregion
     }
+    #endregion
 
 
 
-    /// <summary>
-    /// データベース内に書き込まれているアセット情報レコードクラスです
-    /// </summary>
-    public class AssetInfoRecord
-    {
-        /// <summary>
-        /// このアセット情報を持っていたカタログの名前
-        /// </summary>
-        public string CatalogName { get; set; }
-
-
-        /// <summary>
-        /// アセット名
-        /// </summary>
-        public string AssetName { get; set; }
-
-
-        /// <summary>
-        /// アセットをフェッチする参照リモートURI
-        /// </summary>
-        public Uri RemoteUri { get; set; }
-
-
-        /// <summary>
-        /// アセットをストレージにアクセスする際に使用するローカルURI
-        /// </summary>
-        public Uri LocalUri { get; set; }
-
-
-        /// <summary>
-        /// アセットのハッシュデータ
-        /// </summary>
-        public byte[] HashData { get; set; }
-
-
-        /// <summary>
-        /// ハッシュデータを計算する際に利用したハッシュ名
-        /// </summary>
-        public string HashName { get; set; }
-
-
-
-        /// <summary>
-        /// AssetInfoRecord クラスのインスタンスを初期化します
-        /// </summary>
-        public AssetInfoRecord()
-        {
-        }
-
-
-        /// <summary>
-        /// AssetInfoRecord クラスのインスタンスを初期化します
-        /// </summary>
-        /// <param name="catalogName">カタログ名</param>
-        /// <param name="catalogItem">インスタンスの生成元になるカタログアイテム</param>
-        public AssetInfoRecord(string catalogName, ICatalogItem catalogItem)
-        {
-            // 適切に初期化する
-            CatalogName = catalogName ?? string.Empty;
-            AssetName = catalogItem.Name ?? string.Empty;
-            RemoteUri = catalogItem.RemoteUri;
-            LocalUri = catalogItem.LocalUri;
-            HashName = catalogItem.HashName ?? string.Empty;
-            HashData = catalogItem.HashData ?? Array.Empty<byte>();
-        }
-    }
-
-
-
+    #region アセット差分情報の定義
     /// <summary>
     /// アセットの差分状態を列挙します
     /// </summary>
-    public enum AssetDiffStatus
+    public enum AssetDifferenceStatus
     {
         /// <summary>
         /// 変更がありません
@@ -324,39 +245,55 @@ namespace IceMilkTea.SubSystem
     /// <summary>
     /// アセットの差分状態情報を保持したクラスです
     /// </summary>
-    public class AssetDiffInfo
+    public class AssetDifference
     {
         /// <summary>
         /// 差分状態
         /// </summary>
-        public AssetDiffStatus DiffStatus { get; set; }
+        public AssetDifferenceStatus Status { get; private set; }
 
 
         /// <summary>
-        /// 差分情報の対象となったアセットレコード情報
+        /// 差分情報の対象となったアセット情報
         /// </summary>
-        public AssetInfoRecord InfoRecord { get; set; }
-
+        public ImtCatalogItem Asset { get; private set; }
 
 
         /// <summary>
-        /// AssetDiffInfo クラスのインスタンスを初期化します
+        /// 差分確認をしたカタログの名前
         /// </summary>
-        public AssetDiffInfo()
-        {
-        }
+        public string CatalogName { get; private set; }
+
 
 
         /// <summary>
-        /// AssetDiffInfo クラスのインスタンスを初期化します
+        /// AssetDifference クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="status">差分ステータス</param>
-        /// <param name="record">多分対象となったアセット情報レコード</param>
-        public AssetDiffInfo(AssetDiffStatus status, AssetInfoRecord record)
+        /// <param name="catalogName">差分の元になったカタログ名</param>
+        /// <param name="asset">対象となったアセット情報</param>
+        public AssetDifference(AssetDifferenceStatus status, string catalogName, ICatalogItem asset)
         {
             // そのまま受け取る
-            DiffStatus = status;
-            InfoRecord = record;
+            Status = status;
+            CatalogName = catalogName;
+            Asset = new ImtCatalogItem(asset);
+        }
+
+
+        /// <summary>
+        /// AssetDifference クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="status">差分ステータス</param>
+        /// <param name="catalogName">差分の元になったカタログ名</param>
+        /// <param name="asset">対象となったアセット情報</param>
+        public AssetDifference(AssetDifferenceStatus status, string catalogName, ImtCatalogItem asset)
+        {
+            // そのまま受け取る
+            Status = status;
+            CatalogName = catalogName;
+            Asset = asset;
         }
     }
+    #endregion
 }
