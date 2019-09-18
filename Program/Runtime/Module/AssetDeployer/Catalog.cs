@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace IceMilkTea.SubSystem
@@ -141,60 +142,60 @@ namespace IceMilkTea.SubSystem
 
 
 
-    #region シンプルなカタログアイテムクラス
+    #region シンプルな実装クラス
     /// <summary>
-    /// なんの装飾もない単純なカタログアイテムクラスです
+    /// 単純なカタログアイテムクラスです
     /// </summary>
-    public class SimpleCatalogItem : ICatalogItem
+    public class ImtCatalogItem : ICatalogItem
     {
         /// <summary>
         /// アイテム名
         /// </summary>
-        public string Name { get; private set; }
+        public string Name { get; protected set; }
 
 
         /// <summary>
         /// アイテムの内容の長さ（バイト数）
         /// </summary>
-        public long ContentLength { get; private set; }
+        public long ContentLength { get; protected set; }
 
 
         /// <summary>
         /// フェッチする参照先リモートURI
         /// </summary>
-        public Uri RemoteUri { get; private set; }
+        public Uri RemoteUri { get; protected set; }
 
 
         /// <summary>
         /// ストレージの参照先ローカルURI
         /// </summary>
-        public Uri LocalUri { get; private set; }
+        public Uri LocalUri { get; protected set; }
 
 
         /// <summary>
         /// このアイテムのハッシュデータ
         /// </summary>
-        public byte[] HashData { get; private set; }
+        public byte[] HashData { get; protected set; }
 
 
         /// <summary>
         /// ハッシュ計算に使用したハッシュ名
         /// </summary>
-        public string HashName { get; private set; }
+        public string HashName { get; protected set; }
 
 
 
         /// <summary>
-        /// SimpleCatalogItem クラスのインスタンスを初期化します
+        /// ImtCatalogItem クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="item">インスタンスの初期化元になる、カタログアイテムのインターフェイス</param>
-        public SimpleCatalogItem(ICatalogItem item) : this(item.Name, item.ContentLength, item.RemoteUri, item.LocalUri, item.HashData, item.HashName)
+        public ImtCatalogItem(ICatalogItem item) : this(item.Name, item.ContentLength, item.RemoteUri, item.LocalUri, item.HashData, item.HashName)
         {
         }
 
 
         /// <summary>
-        /// SimpleCatalogItem クラスのインスタンスを初期化します
+        /// ImtCatalogItem クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="name">アイテム名</param>
         /// <param name="contentLength">コンテンツの長さ（バイト数）。もし負の値が指定された場合は 0 として扱われます。</param>
@@ -205,7 +206,7 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentException">name が null または 空文字列 です。</exception>
         /// <exception cref="ArgumentNullException">remoteUri が null です。</exception>
         /// <exception cref="ArgumentNullException">localUri が null です。</exception>
-        public SimpleCatalogItem(string name, long contentLength, Uri remoteUri, Uri localUri, byte[] hashData, string hashName)
+        public ImtCatalogItem(string name, long contentLength, Uri remoteUri, Uri localUri, byte[] hashData, string hashName)
         {
             // もしアイテム名が扱えない文字列なら
             if (string.IsNullOrWhiteSpace(name))
@@ -222,6 +223,80 @@ namespace IceMilkTea.SubSystem
             LocalUri = localUri ?? throw new ArgumentNullException(nameof(localUri));
             HashData = hashData == null ? Array.Empty<byte>() : (byte[])hashData.Clone();
             HashName = string.IsNullOrWhiteSpace(hashName) ? string.Empty : hashName;
+        }
+    }
+
+
+
+    /// <summary>
+    /// 単純なカタログクラスです
+    /// </summary>
+    public class ImtCatalog : ICatalog<ImtCatalogItem>
+    {
+        // メンバ変数定義
+        private Dictionary<string, ImtCatalogItem> itemTable;
+
+
+
+        /// <summary>
+        /// ImtCatalog クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="catalog">複製元のカタログ</param>
+        /// <exception cref="ArgumentNullException">catalog が null です</exception>
+        public ImtCatalog(ICatalog catalog)
+        {
+            // すべてImtCatalogItemとしてテーブルを生成する
+            itemTable = (catalog ?? throw new ArgumentNullException(nameof(catalog)))
+                .GetItemAll()
+                .Select(x => new ImtCatalogItem(x))
+                .ToDictionary(x => x.Name);
+        }
+
+
+        /// <summary>
+        /// 指定された名前のカタログアイテムを取得します
+        /// </summary>
+        /// <param name="name">取得するカタログアイテムの名前</param>
+        /// <returns>指定された名前のカタログアイテムを見つけた場合はその参照を、見つけられなかった場合は null を返します</returns>
+        public ImtCatalogItem GetItem(string name)
+        {
+            // TryGet関数の結果をそのまま使用する
+            itemTable.TryGetValue(name, out var value);
+            return value;
+        }
+
+
+        /// <summary>
+        /// カタログに含まれている全てのカタログアイテムを取得して列挙可能なオブジェクトを取得します
+        /// </summary>
+        /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
+        public IEnumerable<ImtCatalogItem> GetItemAll()
+        {
+            // テーブルの値を返す
+            return itemTable.Values;
+        }
+
+
+        /// <summary>
+        /// 指定された名前のカタログアイテムを取得します
+        /// </summary>
+        /// <param name="name">取得するカタログアイテムの名前</param>
+        /// <returns>指定された名前のカタログアイテムを見つけた場合はその参照を、見つけられなかった場合は null を返します</returns>
+        ICatalogItem ICatalog.GetItem(string name)
+        {
+            // 実装関数をそのまま使用する
+            return GetItem(name);
+        }
+
+
+        /// <summary>
+        /// カタログに含まれている全てのカタログアイテムを取得して列挙可能なオブジェクトを取得します
+        /// </summary>
+        /// <returns>全てのカタログアイテムを列挙可能なオブジェクトを返します</returns>
+        IEnumerable<ICatalogItem> ICatalog.GetItemAll()
+        {
+            // 実装関数をそのまま使用する
+            return GetItemAll();
         }
     }
     #endregion
