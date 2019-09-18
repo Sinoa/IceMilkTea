@@ -121,7 +121,7 @@ namespace IceMilkTea.SubSystem
         /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task<bool> FetchCatalogAsync(string name, IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
+        public async Task<bool> FetchCatalogAsync(string name, IProgress<FetchReport> progress, CancellationToken cancellationToken)
         {
             // キャンセル判定と例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
@@ -154,11 +154,11 @@ namespace IceMilkTea.SubSystem
             using (var outStream = new MonitorableStream(writeStream))
             {
                 // フェッチ用進捗通知オブジェクトとレポートオブジェクトを生成
-                var report = new FetchCatalogReport();
+                var report = new FetchReport();
                 var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
                 {
                     // 転送レートを含む監視情報を更新する
-                    report.Update(name, x.ContentLength, x.FetchedLength, outStream.WriteBitRate);
+                    report.Update(name, null, x.ContentLength, x.FetchedLength, outStream.WriteBitRate);
                     progress.Report(report);
                 });
 
@@ -181,7 +181,7 @@ namespace IceMilkTea.SubSystem
         /// <returns>フェッチを正しく完了した場合は true を、フェッチに失敗した場合は false を返すタスクを返します</returns>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task<bool> FetchCatalogAsync(IProgress<FetchCatalogReport> progress, CancellationToken cancellationToken)
+        public async Task<bool> FetchCatalogAsync(IProgress<FetchReport> progress, CancellationToken cancellationToken)
         {
             // カタログ情報テーブルのレコード数分回る
             foreach (var name in catalogInfoTable.Keys)
@@ -208,10 +208,13 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="progress">差分チェック中の進捗通知オブジェクト</param>
         /// <param name="differenceList">チェックした結果を受け取るアセット差分リスト</param>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>確認中のタスクを返します</returns>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="ArgumentNullException">differenceList が null です</exception>
-        public async Task CheckUpdatableAssetAsync(IProgress<string> progress, IList<AssetDifference> differenceList)
+        /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
+        public async Task CheckUpdatableAssetAsync(IProgress<string> progress, IList<AssetDifference> differenceList, CancellationToken cancellationToken)
         {
             // 通知オブジェクトがnullなら
             if (progress == null)
@@ -226,7 +229,7 @@ namespace IceMilkTea.SubSystem
             {
                 // 名前入り差分チェック関数を叩く
                 progress.Report(catalogName);
-                await CheckUpdatableAssetAsync(catalogName, differenceList);
+                await CheckUpdatableAssetAsync(catalogName, differenceList, cancellationToken);
             }
         }
 
@@ -236,12 +239,16 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="catalogName">確認するカタログ名</param>
         /// <param name="differenceList">チェックした結果を受け取るアセット差分リスト</param>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
         /// <returns>確認中のタスクを返します</returns>
         /// <exception cref="ArgumentException">無効なカタログ名です</exception>
         /// <exception cref="ArgumentNullException">differenceList が null です</exception>
-        public async Task CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList)
+        /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
+        public async Task CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
+            cancellationToken.ThrowIfCancellationRequested();
             ThrowExceptionIfInvalidCatalogName(catalogName);
             ThrowExceptionIfDifferenceListIsNull(differenceList);
 
@@ -269,8 +276,53 @@ namespace IceMilkTea.SubSystem
 
 
             // 差分判定を非同期で実行する
-            await Task.Run(() => AssetDatabase.GetCatalogDifference(catalogName, catalog, differenceList));
+            await Task.Run(() => AssetDatabase.GetCatalogDifference(catalogName, catalog, differenceList), cancellationToken);
+        }
 
+
+        /// <summary>
+        /// すべてのカタログのアセット更新を非同期で実行します
+        /// </summary>
+        /// <param name="progress">アセットの更新進捗通知を受ける進捗オブジェクト</param>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
+        /// <returns>アセットの更新を実行しているタスクを返します</returns>
+        /// <exception cref="ArgumentNullException">progress が null です</exception>
+        /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
+        public async Task UpdateAssetAsync(IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        {
+            // 通知オブジェクトがnullなら
+            if (progress == null)
+            {
+                // どうやって通知すればよいのだろうか
+                throw new ArgumentNullException(nameof(progress));
+            }
+
+
+            // カタログ情報のカタログ分回る
+            foreach (var catalogName in catalogInfoTable.Keys)
+            {
+                // 名前入りアセット更新を叩く
+                await UpdateAssetAsync(catalogName, progress, cancellationToken);
+            }
+        }
+
+
+        /// <summary>
+        /// 指定されたカタログのアセット更新を非同期で実行します
+        /// </summary>
+        /// <param name="catalogName">更新を実行するカタログ名</param>
+        /// <param name="progress">アセットの更新進捗通知を受ける進捗オブジェクト</param>
+        /// <param name="cancellationToken">キャンセル要求を監視するためのトークン</param>
+        /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
+        /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
+        /// <returns>アセットの更新を実行しているタスクを返します</returns>
+        public async Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        {
+            // 例外判定を入れる
+            cancellationToken.ThrowIfCancellationRequested();
+            ThrowExceptionIfInvalidCatalogName(catalogName);
+            ThrowExceptionIfProgressIsNull(progress);
         }
         #endregion
 
@@ -414,14 +466,20 @@ namespace IceMilkTea.SubSystem
 
     #region レポート関連型
     /// <summary>
-    /// カタログのフェッチ状態のレポートクラスです
+    /// フェッチ状態のレポートクラスです
     /// </summary>
-    public class FetchCatalogReport
+    public class FetchReport
     {
         /// <summary>
         /// フェッチしているカタログ名
         /// </summary>
         public string CatalogName { get; private set; }
+
+
+        /// <summary>
+        /// フェッチしているアセット名
+        /// </summary>
+        public string AssetName { get; private set; }
 
 
         /// <summary>
@@ -452,10 +510,10 @@ namespace IceMilkTea.SubSystem
         /// <summary>
         /// FetchCatalogMonitor クラスのインスタンスを初期化します
         /// </summary>
-        public FetchCatalogReport()
+        public FetchReport()
         {
             // 更新処理を呼んでおく
-            Update(null, 0, 0, 0);
+            Update(null, null, 0, 0, 0);
         }
 
 
@@ -463,13 +521,15 @@ namespace IceMilkTea.SubSystem
         /// 受け取ったパラメータを有効な範囲になるように更新します
         /// </summary>
         /// <param name="catalogName">フェッチ中のカタログ名 null の場合は、空文字列になります。</param>
+        /// <param name="assetName">フェッチ中のアセット名 null の場合は、空文字列になります。</param>
         /// <param name="contentLength">フェッチされるコンテンツの長さ、もし fetchedLength より小さい場合は fetchedLength と同値になります。</param>
         /// <param name="fetchedLength">フェッチされた長さ、負の値になった場合は 0 になります</param>
         /// <param name="bitRate">フェッチの転送ビットレート、負の値になった場合は 0 になります</param>
-        public void Update(string catalogName, long contentLength, long fetchedLength, long bitRate)
+        public void Update(string catalogName, string assetName, long contentLength, long fetchedLength, long bitRate)
         {
             // 全パラメータを有効な状態で設定する
             CatalogName = catalogName ?? string.Empty;
+            AssetName = assetName;
             FetchedLength = Math.Max(fetchedLength, 0);
             ContentLength = Math.Max(contentLength, FetchedLength);
             BitRate = Math.Max(bitRate, 0);
