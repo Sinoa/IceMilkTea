@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
 {
@@ -102,7 +103,7 @@ namespace IceMilkTea.SubSystem
 
 
                         // 同じハッシュコードの場合は
-                        if (IsSameAll(record.HashData, item.HashData))
+                        if (record.HashData.IsSameAll(item.HashData))
                         {
                             // 変化なしとする
                             diffList.Add(new AssetDiffInfo(AssetDiffStatus.Stable, new AssetInfoRecord(catalogName, item)));
@@ -127,48 +128,6 @@ namespace IceMilkTea.SubSystem
 
 
             return diffList;
-        }
-
-
-        /// <summary>
-        /// 2つのバイト配列が一致するかどうかを調べます。
-        /// この関数は left, right どちらも null であった場合でも false を返します。
-        /// </summary>
-        /// <param name="left">確認するバイト配列</param>
-        /// <param name="right">確認するバイト配列</param>
-        /// <returns>内容が一致している場合は true を、異なる場合は false を返します</returns>
-        private bool IsSameAll(byte[] left, byte[] right)
-        {
-            // どちらかが null の場合は 異なるとする
-            if (left == null || right == null)
-            {
-                // どうあがいても異なる
-                return false;
-            }
-
-
-            // 長さが異なる場合は
-            if (left.Length != right.Length)
-            {
-                // 一致するわけがない
-                return false;
-            }
-
-
-            // 長さだけ回る
-            for (int i = 0; i < left.Length; ++i)
-            {
-                // もし異なる値の場合は
-                if (left[i] != right[i])
-                {
-                    // この段階で異なることを返す
-                    return false;
-                }
-            }
-
-
-            // 最後まで回りきってしまった場合は一致していることになる
-            return true;
         }
 
 
