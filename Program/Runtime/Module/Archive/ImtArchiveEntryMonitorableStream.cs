@@ -16,7 +16,7 @@
 using System;
 using System.IO;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// ImtArchiveEntryStream に対してストリームのIOをモニタリングすることが出来るストリームクラスです

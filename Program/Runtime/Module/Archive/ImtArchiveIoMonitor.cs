@@ -15,7 +15,7 @@
 
 using System.IO;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// アーカイブのIOを細かく監視することが出来る抽象クラスです。

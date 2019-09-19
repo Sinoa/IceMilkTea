@@ -16,7 +16,7 @@
 using System;
 using System.IO;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// アーカイブのエントリインストール結果を表現します

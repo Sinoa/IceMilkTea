@@ -277,7 +277,7 @@ using System.Text;
 using System.Threading;
 using IceMilkTea.Core;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// IceMilkTeaArchive のアーカイブを総合的に制御を行うクラスです。

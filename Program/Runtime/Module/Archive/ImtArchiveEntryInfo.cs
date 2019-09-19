@@ -15,7 +15,7 @@
 
 using System.Runtime.InteropServices;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// アーカイブヘッダの ImtArchiveEntryInfo.Validate() 関数の結果を表す列挙型です。

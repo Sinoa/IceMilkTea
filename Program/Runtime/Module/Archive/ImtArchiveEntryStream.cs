@@ -16,7 +16,7 @@
 using System;
 using System.IO;
 
-namespace IceMilkTea.Module
+namespace IceMilkTea.SubSystem
 {
     /// <summary>
     /// アーカイブ内に含まれるエントリの実体を読み込む為のストリームクラスです
