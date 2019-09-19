@@ -301,8 +301,8 @@ namespace IceMilkTea.Core
             /// </summary>
             public void DoPost()
             {
-                // 同期コンテキストに継続関数をポスト素r
-                context.Post(ImtSynchronizationContextHelper.CachedSendOrPostCallback, continuation);
+                // 同期コンテキストに継続関数をポストする
+                context.Post(continuation);
             }
         }
 
@@ -2188,23 +2188,43 @@ namespace IceMilkTea.Core
 
 
 
-    #region 同期コンテキストヘルパ
-    /// <summary>
-    /// 同期コンテキストのよく利用する操作を提供するクラスです。
-    /// </summary>
-    public class ImtSynchronizationContextHelper
-    {
-        /// <summary>
-        /// Action を引数に取る、キャッシュ化された SendOrPostCallback です。
-        /// 単純な Action を同期コンテキストに Post する場合は、利用することをおすすめします。
-        /// </summary>
-        public static SendOrPostCallback CachedSendOrPostCallback { get; } = new SendOrPostCallback(_ => ((Action)_)());
-    }
-    #endregion
-
-
-
     #region Extensions
+    /// <summary>
+    /// SynchronizationContext クラスの拡張関数実装用クラスです
+    /// </summary>
+    public static class SynchronizationContextExtentions
+    {
+        // 読み取り専用クラス変数宣言
+        private static readonly SendOrPostCallback CachedSendOrPostCallback = new SendOrPostCallback(_ => ((Action)_)());
+
+
+
+        /// <summary>
+        /// 同期コンテキストに高速な Action コールバックをポストします
+        /// </summary>
+        /// <param name="context">ポスト先の動機コンテキスト</param>
+        /// <param name="action">ポストするコールバック</param>
+        public static void Post(this SynchronizationContext context, Action action)
+        {
+            // キャッシュ済みコールバックを用いてActionの参照を渡す
+            context.Post(CachedSendOrPostCallback, action);
+        }
+
+
+        /// <summary>
+        /// 同期コンテキストに高速な Action コールバックを送信します
+        /// </summary>
+        /// <param name="context">送信先の動機コンテキスト</param>
+        /// <param name="action">送信するコールバック</param>
+        public static void Send(this SynchronizationContext context, Action action)
+        {
+            // キャッシュ済みコールバックを用いてActionの参照を渡す
+            context.Send(CachedSendOrPostCallback, action);
+        }
+    }
+
+
+
     /// <summary>
     /// AwaitableやAwaiterなどの拡張関数実装用クラスです
     /// </summary>

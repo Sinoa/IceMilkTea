@@ -1,6 +1,6 @@
 ﻿// zlib/libpng License
 //
-// Copyright (c) 2018 Sinoa
+// Copyright (c) 2018 - 2019 Sinoa
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -33,7 +33,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="uri">クエリが存在するUri</param>
         /// <returns>取得されたクエリのDictionaryを返します。クエリが空であっても件数が0件のDictionaryインスタンスを返します</returns>
-        public static Dictionary<string, string> GetQueryDictionary(this Uri uri)
+        public static IDictionary<string, string> GetQueryDictionary(this Uri uri)
         {
             // Dictionaryインスタンスを生成して、引数として受け取る ToQueryDictionary 関数を叩いて返す
             var result = new Dictionary<string, string>();
@@ -47,10 +47,10 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="uri">クエリが存在するUri</param>
         /// <param name="result">クエリの取得した結果を受けるDictionary</param>
-        public static void GetQueryDictionary(this Uri uri, Dictionary<string, string> result)
+        public static void GetQueryDictionary(this Uri uri, IDictionary<string, string> result)
         {
-            // クエリ文字列の先頭の'?'を削除
-            var queryString = uri.Query.TrimStart('?');
+            // クエリ文字列の先頭の'?'を削除してURI文字列をアンエスケープする
+            var queryString = Uri.UnescapeDataString(uri.Query.TrimStart('?'));
 
 
             // 各クエリの分割をしてループ（やってることは .Split().Select(x => x.Split()).ToDictionary() と同じ）
