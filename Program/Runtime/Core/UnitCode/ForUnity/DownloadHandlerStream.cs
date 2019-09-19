@@ -92,6 +92,7 @@ namespace IceMilkTea.Core
         /// コンテンツの長さを受信した時の処理を行います
         /// </summary>
         /// <param name="contentLength">受信したコンテンツの長さ</param>
+        [Obsolete]
         protected override void ReceiveContentLength(int contentLength)
         {
             // コンテンツの長さを覚える
