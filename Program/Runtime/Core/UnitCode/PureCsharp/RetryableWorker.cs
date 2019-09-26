@@ -16,6 +16,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 
 namespace IceMilkTea.Core
 {
@@ -40,7 +41,7 @@ namespace IceMilkTea.Core
 
 
 
-        #region DoWork関数群
+        #region DoWork関数
         /// <summary>
         /// 指定された関数を実行します
         /// </summary>
@@ -214,10 +215,67 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public Task<TResult> DoWork<TResult>(Task<TResult> work, IProgress<int> progress, CancellationToken cancellationToken)
+        public async Task<TResult> DoWork<TResult>(Task<TResult> work, IProgress<int> progress, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // 関数の実行開始を知らせる
+            BeginWork();
+
+
+            // 基本は無限ループ
+            while (true)
+            {
+                try
+                {
+                    return await work;
+                }
+                catch (Exception error)
+                {
+                    DoHandleError(error);
+                    if (await WaitRetry(cancellationToken))
+                    {
+                        continue;
+                    }
+                }
+            }
         }
+        #endregion
+
+
+        #region リトライ制御関数
+        /// <summary>
+        /// DoWork() 関数によって処理される関数が実行される前に呼び出されます
+        /// </summary>
+        protected virtual void BeginWork()
+        {
+        }
+
+
+        /// <summary>
+        /// DoWork() 関数によって処理される関数が実行された後に呼び出されます
+        /// </summary>
+        protected virtual void EndWork()
+        {
+        }
+
+
+        /// <summary>
+        /// DoWork() 関数によって処理された関数が例外を発生させた時に呼び出されます
+        /// </summary>
+        /// <param name="error">発生した例外</param>
+        /// <returns>発生した例外を処理した場合は true を、処理できない例外だった場合は false を返します</returns>
+        protected virtual bool DoHandleError(Exception error)
+        {
+            // 既定は例外を処理したとして返す
+            return true;
+        }
+
+
+        /// <summary>
+        /// 関数が失敗してリトライが必要な時にリトライするまでの待機をします
+        /// </summary>
+        /// <param name="cancellationToken">リトライのキャンセル要求を監視するためのトークン</param>
+        /// <returns>リトライを待機するタスクを返します。リトライをしない場合は false を、リトライする場合は true を返します</returns>
+        protected abstract Task<bool> WaitRetry(CancellationToken cancellationToken);
         #endregion
     }
 }
