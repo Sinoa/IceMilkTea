@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+
 namespace IceMilkTea.Core
 {
     /// <summary>
@@ -28,23 +30,23 @@ namespace IceMilkTea.Core
         public const double ElasticCycles = 5.0;
 
         // クラス変数宣言
-        public static readonly System.Func<double, double> Linear = t => t;
-        public static readonly System.Func<double, double> Quadratic = t => t * t;
-        public static readonly System.Func<double, double> Cubic = t => t * t * t;
-        public static readonly System.Func<double, double> Quartic = t => t * t * t * t;
-        public static readonly System.Func<double, double> Quintic = t => t * t * t * t * t;
-        public static readonly System.Func<double, double> Power = t => System.Math.Pow(t, Magnitude);
-        public static readonly System.Func<double, double> Circle = t => 1.0 - System.Math.Sqrt(1.0 - t * t);
-        public static readonly System.Func<double, double> Sine = t => 1.0 - System.Math.Sin(System.Math.PI * 0.5 * (1.0 - t));
-        public static readonly System.Func<double, double> Back = t => t * t * t - t * BackAmplitude * System.Math.Sin(System.Math.PI * t);
-        public static readonly System.Func<double, double> Exponential = t => (System.Math.Exp(Exponent * t) - 1.0) / (System.Math.Exp(Exponent) - 1.0);
-        public static readonly System.Func<double, double> Elastic = t => Exponential(t) * System.Math.Sin((System.Math.PI * 2.0 * ElasticCycles + System.Math.PI * 0.5) * t);
-        public static readonly System.Func<double, double> Bounce = t => t; // Bounce = t => throw new System.NotImplementedException();
-        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseIn = (from, to, t, ease) => from + (to - from) * ease(t);
-        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOut = (from, to, t, ease) => from + (to - from) * (1.0 - ease(1.0 - t));
-        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseInOut = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) * 0.5 : (1.0 - ease((1.0 - t) * 2.0)) * 0.5 + 0.5);
-        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOutIn = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? (1.0 - ease((1.0 - t - 0.5) * 2.0)) * 0.5 : ease((t - 0.5) * 2.0) * 0.5 + 0.5);
-        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseInPingPong = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) : ease((1.0 - t) * 2.0));
-        public static readonly System.Func<double, double, double, System.Func<double, double>, double> EaseOutPingPong = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? 1.0 - ease((0.5 - t) * 2.0) : 1.0 - ease(1.0 - (2.0 - t * 2.0)));
+        public static readonly Func<double, double> Linear = t => t;
+        public static readonly Func<double, double> Quadratic = t => t * t;
+        public static readonly Func<double, double> Cubic = t => t * t * t;
+        public static readonly Func<double, double> Quartic = t => t * t * t * t;
+        public static readonly Func<double, double> Quintic = t => t * t * t * t * t;
+        public static readonly Func<double, double> Power = t => Math.Pow(t, Magnitude);
+        public static readonly Func<double, double> Circle = t => 1.0 - Math.Sqrt(1.0 - t * t);
+        public static readonly Func<double, double> Sine = t => 1.0 - Math.Sin(Math.PI * 0.5 * (1.0 - t));
+        public static readonly Func<double, double> Back = t => t * t * t - t * BackAmplitude * Math.Sin(Math.PI * t);
+        public static readonly Func<double, double> Exponential = t => (Math.Exp(Exponent * t) - 1.0) / (Math.Exp(Exponent) - 1.0);
+        public static readonly Func<double, double> Elastic = t => Exponential(t) * Math.Sin((Math.PI * 2.0 * ElasticCycles + Math.PI * 0.5) * t);
+        public static readonly Func<double, double> Bounce = t => t; // Bounce = t => throw new NotImplementedException();
+        public static readonly Func<double, double, double, Func<double, double>, double> EaseIn = (from, to, t, ease) => from + (to - from) * ease(t);
+        public static readonly Func<double, double, double, Func<double, double>, double> EaseOut = (from, to, t, ease) => from + (to - from) * (1.0 - ease(1.0 - t));
+        public static readonly Func<double, double, double, Func<double, double>, double> EaseInOut = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) * 0.5 : (1.0 - ease((1.0 - t) * 2.0)) * 0.5 + 0.5);
+        public static readonly Func<double, double, double, Func<double, double>, double> EaseOutIn = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? (1.0 - ease((1.0 - t - 0.5) * 2.0)) * 0.5 : ease((t - 0.5) * 2.0) * 0.5 + 0.5);
+        public static readonly Func<double, double, double, Func<double, double>, double> EaseInPingPong = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? ease(t * 2.0) : ease((1.0 - t) * 2.0));
+        public static readonly Func<double, double, double, Func<double, double>, double> EaseOutPingPong = (from, to, t, ease) => from + (to - from) * (t < 0.5 ? 1.0 - ease((0.5 - t) * 2.0) : 1.0 - ease(1.0 - (2.0 - t * 2.0)));
     }
 }
