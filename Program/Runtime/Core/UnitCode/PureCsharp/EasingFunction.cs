@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using static System.Math;
 
 namespace IceMilkTea.Core
 {
@@ -35,12 +36,12 @@ namespace IceMilkTea.Core
         public static readonly Func<double, double> Cubic = t => t * t * t;
         public static readonly Func<double, double> Quartic = t => t * t * t * t;
         public static readonly Func<double, double> Quintic = t => t * t * t * t * t;
-        public static readonly Func<double, double> Power = t => Math.Pow(t, Magnitude);
-        public static readonly Func<double, double> Circle = t => 1.0 - Math.Sqrt(1.0 - t * t);
-        public static readonly Func<double, double> Sine = t => 1.0 - Math.Sin(Math.PI * 0.5 * (1.0 - t));
-        public static readonly Func<double, double> Back = t => t * t * t - t * BackAmplitude * Math.Sin(Math.PI * t);
-        public static readonly Func<double, double> Exponential = t => (Math.Exp(Exponent * t) - 1.0) / (Math.Exp(Exponent) - 1.0);
-        public static readonly Func<double, double> Elastic = t => Exponential(t) * Math.Sin((Math.PI * 2.0 * ElasticCycles + Math.PI * 0.5) * t);
+        public static readonly Func<double, double> Power = t => Pow(t, Magnitude);
+        public static readonly Func<double, double> Circle = t => 1.0 - Sqrt(1.0 - t * t);
+        public static readonly Func<double, double> Sine = t => 1.0 - Sin(PI * 0.5 * (1.0 - t));
+        public static readonly Func<double, double> Back = t => t * t * t - t * BackAmplitude * Sin(PI * t);
+        public static readonly Func<double, double> Exponential = t => (Exp(Exponent * t) - 1.0) / (Exp(Exponent) - 1.0);
+        public static readonly Func<double, double> Elastic = t => Exponential(t) * Sin((PI * 2.0 * ElasticCycles + PI * 0.5) * t);
         public static readonly Func<double, double> Bounce = t => t; // Bounce = t => throw new NotImplementedException();
         public static readonly Func<double, double, double, Func<double, double>, double> EaseIn = (from, to, t, ease) => from + (to - from) * ease(t);
         public static readonly Func<double, double, double, Func<double, double>, double> EaseOut = (from, to, t, ease) => from + (to - from) * (1.0 - ease(1.0 - t));
