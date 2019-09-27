@@ -16,10 +16,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Runtime.ExceptionServices;
 
 namespace IceMilkTea.Core
 {
+    #region リトライ抽象クラス
     /// <summary>
     /// 再試行処理可能なワーカー抽象クラスです
     /// </summary>
@@ -168,9 +168,40 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public Task DoWork(Action work, IProgress<int> progress, CancellationToken cancellationToken)
+        public async Task DoWork(Action work, IProgress<int> progress, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // 関数の実行開始を知らせる
+            BeginWork();
+
+
+            // 基本は無限ループ
+            var retryCount = 0;
+            while (true)
+            {
+                try
+                {
+                    // 結果を拾って関数の実行が終わったことを通知して終了
+                    work();
+                    EndWork();
+                    return;
+                }
+                catch (Exception error)
+                {
+                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    {
+                        // 関数の終了を通知して再スロー
+                        EndWork();
+                        throw;
+                    }
+                }
+
+
+                // ここに来たのなら、キャンセル要求を確認して、何もなければ
+                // リトライするという意志があるのでリトライプログレス通知をする
+                cancellationToken.ThrowIfCancellationRequested();
+                progress.Report(++retryCount);
+            }
         }
 
 
@@ -183,9 +214,40 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public Task DoWork(Task work, IProgress<int> progress, CancellationToken cancellationToken)
+        public async Task DoWork(Task work, IProgress<int> progress, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // 関数の実行開始を知らせる
+            BeginWork();
+
+
+            // 基本は無限ループ
+            var retryCount = 0;
+            while (true)
+            {
+                try
+                {
+                    // 結果を拾って関数の実行が終わったことを通知して終了
+                    await work;
+                    EndWork();
+                    return;
+                }
+                catch (Exception error)
+                {
+                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    {
+                        // 関数の終了を通知して再スロー
+                        EndWork();
+                        throw;
+                    }
+                }
+
+
+                // ここに来たのなら、キャンセル要求を確認して、何もなければ
+                // リトライするという意志があるのでリトライプログレス通知をする
+                cancellationToken.ThrowIfCancellationRequested();
+                progress.Report(++retryCount);
+            }
         }
 
 
@@ -199,9 +261,40 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public Task<TResult> DoWork<TResult>(Func<TResult> work, IProgress<int> progress, CancellationToken cancellationToken)
+        public async Task<TResult> DoWork<TResult>(Func<TResult> work, IProgress<int> progress, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // 関数の実行開始を知らせる
+            BeginWork();
+
+
+            // 基本は無限ループ
+            var retryCount = 0;
+            while (true)
+            {
+                try
+                {
+                    // 結果を拾って関数の実行が終わったことを通知して終了
+                    var result = work();
+                    EndWork();
+                    return result;
+                }
+                catch (Exception error)
+                {
+                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    {
+                        // 関数の終了を通知して再スロー
+                        EndWork();
+                        throw;
+                    }
+                }
+
+
+                // ここに来たのなら、キャンセル要求を確認して、何もなければ
+                // リトライするという意志があるのでリトライプログレス通知をする
+                cancellationToken.ThrowIfCancellationRequested();
+                progress.Report(++retryCount);
+            }
         }
 
 
@@ -222,20 +315,32 @@ namespace IceMilkTea.Core
 
 
             // 基本は無限ループ
+            var retryCount = 0;
             while (true)
             {
                 try
                 {
-                    return await work;
+                    // 結果を拾って関数の実行が終わったことを通知して終了
+                    var result = await work;
+                    EndWork();
+                    return result;
                 }
                 catch (Exception error)
                 {
-                    DoHandleError(error);
-                    if (await WaitRetry(cancellationToken))
+                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
                     {
-                        continue;
+                        // 関数の終了を通知して再スロー
+                        EndWork();
+                        throw;
                     }
                 }
+
+
+                // ここに来たのなら、キャンセル要求を確認して、何もなければ
+                // リトライするという意志があるのでリトライプログレス通知をする
+                cancellationToken.ThrowIfCancellationRequested();
+                progress.Report(++retryCount);
             }
         }
         #endregion
@@ -278,4 +383,81 @@ namespace IceMilkTea.Core
         protected abstract Task<bool> WaitRetry(CancellationToken cancellationToken);
         #endregion
     }
+    #endregion
+
+
+
+    #region 単純なカウントダウン式リトライワーカー
+    /// <summary>
+    /// 単純なカウントダウン式による再試行処理可能なワーカークラスです
+    /// </summary>
+    public class CountdownRetryableWorker : RetryableWorker
+    {
+        // メンバ変数定義
+        private int maxRetryCount;
+        private int currentCount;
+
+
+
+        /// <summary>
+        /// 最大再試行カウント
+        /// </summary>
+        public int MaxRetryCount
+        {
+            get
+            {
+                // 取得はそのまま返す
+                return maxRetryCount;
+            }
+            set
+            {
+                // 0未満は許さない
+                maxRetryCount = Math.Max(value, 0);
+            }
+        }
+
+
+
+        /// <summary>
+        /// DoWork() 関数によって処理される関数が実行される前に呼び出されます
+        /// </summary>
+        protected override void BeginWork()
+        {
+            // カウント数を初期化する
+            currentCount = maxRetryCount;
+        }
+
+
+        /// <summary>
+        /// 関数が失敗してリトライが必要な時にリトライするまでの待機をします
+        /// </summary>
+        /// <param name="cancellationToken">リトライのキャンセル要求を監視するためのトークン</param>
+        /// <returns>リトライを待機するタスクを返します。リトライをしない場合は false を、リトライする場合は true を返します</returns>
+        protected override Task<bool> WaitRetry(CancellationToken cancellationToken)
+        {
+            // もしリトライカウントがデクリメント結果で0未満になった場合は
+            if (--currentCount < 0)
+            {
+                // リトライは諦める結果を返す
+                return Task.FromResult(false);
+            }
+
+
+            // リトライする意志を返す
+            return Task.FromResult(true);
+        }
+    }
+    #endregion
+
+
+
+    #region 時間ベースのカウントダウン式リトライワーカー
+    public class TimeBasedCountdownRetryableWorker : RetryableWorker
+    {
+        protected override Task<bool> WaitRetry(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
 }
