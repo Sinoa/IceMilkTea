@@ -187,12 +187,21 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception error)
                 {
-                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
-                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    try
                     {
-                        // 関数の終了を通知して再スロー
+                        // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                        if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                        {
+                            // 関数の終了を通知して再スロー
+                            EndWork();
+                            throw;
+                        }
+                    }
+                    catch
+                    {
+                        // エラーハンドリング側での例外は無視して関数の終了を通知して終了
                         EndWork();
-                        throw;
+                        return;
                     }
                 }
 
@@ -233,12 +242,21 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception error)
                 {
-                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
-                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    try
                     {
-                        // 関数の終了を通知して再スロー
+                        // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                        if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                        {
+                            // 関数の終了を通知して再スロー
+                            EndWork();
+                            throw;
+                        }
+                    }
+                    catch
+                    {
+                        // エラーハンドリング側での例外は無視して関数の終了を通知して終了
                         EndWork();
-                        throw;
+                        return;
                     }
                 }
 
@@ -280,12 +298,21 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception error)
                 {
-                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
-                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    try
                     {
-                        // 関数の終了を通知して再スロー
+                        // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                        if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                        {
+                            // 関数の終了を通知して再スロー
+                            EndWork();
+                            throw;
+                        }
+                    }
+                    catch
+                    {
+                        // エラーハンドリング側での例外は無視して関数の終了を通知して終了
                         EndWork();
-                        throw;
+                        return default;
                     }
                 }
 
@@ -327,12 +354,21 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception error)
                 {
-                    // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
-                    if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                    try
                     {
-                        // 関数の終了を通知して再スロー
+                        // エラーハンドリングをして正しくエラー解決出来なかった または リトライを諦められた場合は
+                        if (!DoHandleError(error) || !await WaitRetry(cancellationToken))
+                        {
+                            // 関数の終了を通知して再スロー
+                            EndWork();
+                            throw;
+                        }
+                    }
+                    catch
+                    {
+                        // エラーハンドリング側での例外は無視して関数の終了を通知して終了
                         EndWork();
-                        throw;
+                        return default;
                     }
                 }
 
@@ -452,11 +488,90 @@ namespace IceMilkTea.Core
 
 
     #region 時間ベースのカウントダウン式リトライワーカー
+    /// <summary>
+    /// 時間インターバルを持っているカウントダウン式再試行処理可能なワーカークラスです
+    /// </summary>
     public class TimeBasedCountdownRetryableWorker : RetryableWorker
     {
-        protected override Task<bool> WaitRetry(CancellationToken cancellationToken)
+        // メンバ変数定義
+        private int maxRetryCount;
+        private int currentCount;
+        private int intervalTime;
+
+
+
+        /// <summary>
+        /// 最大再試行カウント
+        /// </summary>
+        public int MaxRetryCount
         {
-            throw new NotImplementedException();
+            get
+            {
+                // 取得はそのまま返す
+                return maxRetryCount;
+            }
+            set
+            {
+                // 0未満は許さない
+                maxRetryCount = Math.Max(value, 0);
+            }
+        }
+
+
+        /// <summary>
+        /// 再試行するまでの時間間隔（ミリ秒） 0 以下は待機をしません。
+        /// </summary>
+        public int IntervalTime
+        {
+            get
+            {
+                // 値をそのまま返す
+                return intervalTime;
+            }
+            set
+            {
+                // 0未満は0にする
+                intervalTime = Math.Max(value, 0);
+            }
+        }
+
+
+
+        /// <summary>
+        /// DoWork() 関数によって処理される関数が実行される前に呼び出されます
+        /// </summary>
+        protected override void BeginWork()
+        {
+            // カウント数を初期化する
+            currentCount = maxRetryCount;
+        }
+
+
+        /// <summary>
+        /// 関数が失敗してリトライが必要な時にリトライするまでの待機をします
+        /// </summary>
+        /// <param name="cancellationToken">リトライのキャンセル要求を監視するためのトークン</param>
+        /// <returns>リトライを待機するタスクを返します。リトライをしない場合は false を、リトライする場合は true を返します</returns>
+        protected override async Task<bool> WaitRetry(CancellationToken cancellationToken)
+        {
+            // もしリトライカウントがデクリメント結果で0未満になった場合は
+            if (--currentCount < 0)
+            {
+                // リトライは諦める結果を返す
+                return false;
+            }
+
+
+            // 待機間隔時間が0ミリ秒を超過しているのなら
+            if (intervalTime > 0)
+            {
+                // 待機する
+                await Task.Delay(intervalTime, cancellationToken);
+            }
+
+
+            // リトライする意志を返す
+            return true;
         }
     }
     #endregion
