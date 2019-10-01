@@ -39,7 +39,7 @@ namespace IceMilkTea.SubSystem
 
 
         /// <summary>
-        /// 指定されたURIのストリームを開きます
+        /// 永続化用ストレージに指定されたURIのストリームを開きます
         /// </summary>
         /// <param name="uri">開く対象となるURI</param>
         /// <param name="mode">ストリームを開くモード</param>
@@ -48,7 +48,20 @@ namespace IceMilkTea.SubSystem
         /// <param name="bufferSize">ストリームが持つバッファサイズ</param>
         /// <param name="useAsync">ストリームの非同期操作を使用するか否か</param>
         /// <returns>正しくストリームを開けた場合はストリームを返しますが、開けなかった場合は null を返します</returns>
-        public abstract Stream Open(Uri uri, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync);
+        public abstract Stream OpenPersistent(Uri uri, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync);
+
+
+        /// <summary>
+        /// 一時的またはキャッシュストレージに指定されたURIのストリームを開きます
+        /// </summary>
+        /// <param name="uri">開く対象となるURI</param>
+        /// <param name="mode">ストリームを開くモード</param>
+        /// <param name="access">ストリームへのアクセス方法</param>
+        /// <param name="share">ストリームの共有設定</param>
+        /// <param name="bufferSize">ストリームが持つバッファサイズ</param>
+        /// <param name="useAsync">ストリームの非同期操作を使用するか否か</param>
+        /// <returns>正しくストリームを開けた場合はストリームを返しますが、開けなかった場合は null を返します</returns>
+        public abstract Stream OpenTempOrCache(Uri uri, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync);
 
 
         /// <summary>

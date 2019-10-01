@@ -208,7 +208,7 @@ namespace IceMilkTea.SubSystem
             // 例外判定をしてコントロラーを取得後Openをそのまま叩く
             ThrowExceptionIfInvalidUri(uri);
             ThrowExceptionIfInvalidBufferSize(bufferSize);
-            return GetControllerCore(uri.Host).Open(uri, mode, access, share, bufferSize, useAsync);
+            return GetControllerCore(uri.Host).OpenPersistent(uri, mode, access, share, bufferSize, useAsync);
         }
 
 
