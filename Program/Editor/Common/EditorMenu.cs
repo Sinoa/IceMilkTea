@@ -26,6 +26,7 @@ namespace IceMilkTeaEditor.Common
     {
         // 定数定義
         private const string RootMenuName = "IceMilkTea";
+        private const string RightClickRootMenuName = "Assets/IceMilkTea";
         private const string WindowMenuName = RootMenuName + "/Window";
         private const string HierarchyMenuName = RootMenuName + "/Hierarchy";
 
@@ -72,6 +73,38 @@ namespace IceMilkTeaEditor.Common
         {
             // 空のゲームオブジェクトを削除する
             ImtGameObjectUtility.DestoryEmptyGameObjectOnEditorScene(null);
+        }
+
+
+        /// <summary>
+        /// 選択されたアセットを再シリアライズします
+        /// </summary>
+        [MenuItem(RightClickRootMenuName + "/Reserialize/Selected")]
+        public static void DoReserializeAsset()
+        {
+            // 本当に再シリアライズしてよいか確認
+            if (EditorUtility.DisplayDialog("確認", "本当に再シリアライズして良いですか？", "OK", "Cancel"))
+            {
+                // 選択中のアセットを再シリアライズして完了を通知
+                AssetReserializer.Reserialize(Selection.activeObject);
+                EditorUtility.DisplayDialog("報告", "再シリアライズが完了しました", "OK");
+            }
+        }
+
+
+        /// <summary>
+        /// Unityプロジェクトの再シリアライズをします
+        /// </summary>
+        [MenuItem(RightClickRootMenuName + "/Reserialize/All")]
+        public static void DoReserializeAssetAll()
+        {
+            // 本当に再シリアライズしてよいか確認
+            if (EditorUtility.DisplayDialog("確認", "本当にプロジェクトの再シリアライズして良いですか？", "OK", "Cancel"))
+            {
+                // プロジェクトのアセットを再シリアライズして完了を通知
+                AssetReserializer.ReserializeAll();
+                EditorUtility.DisplayDialog("報告", "再シリアライズが完了しました", "OK");
+            }
         }
     }
 }
