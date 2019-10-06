@@ -132,6 +132,7 @@ namespace IceMilkTeaEditor.Common
                     parameter.Count = ++count;
                     parameter.Title = string.Empty;
                     parameter.Text = string.Empty;
+                    parameter.Item = enumerator.Current;
                     callback(parameter);
 
 
