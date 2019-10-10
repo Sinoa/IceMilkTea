@@ -1,10 +1,22 @@
 {
-	"name": "jp.sinoa.icemilktea",
-	"displayName": "IceMilkTea",
-	"version": "0.0.1",
-	"unity": "2018.2",
-	"description": "This package provides Game develop support.",
-	"keywords": ["support", "framework", "ice", "milk", "tea"],
-	"category": "GameFramework",
-	"dependencies": {}
+  "name": "jp.sinoa.icemilktea",
+  "version": "0.0.2",
+  "displayName": "IceMilkTea",
+  "description": "This package provides Game develop support.",
+  "unity": "2019.3",
+  "category": "GameFramework",
+  "keywords": [
+    "support",
+    "framework",
+    "ice",
+    "milk",
+    "tea",
+    "icemilktea"
+  ],
+  "author": {
+    "name": "Sinoa",
+    "email": "sinoa.dev@gmail.com",
+    "url": "https://github.com/Sinoa/IceMilkTea"
+  },
+  "type": "library"
 }
