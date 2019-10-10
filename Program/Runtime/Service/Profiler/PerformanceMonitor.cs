@@ -16,7 +16,7 @@
 using System;
 using System.Collections.Generic;
 using IceMilkTea.Core;
-using UnityEngine.Experimental.PlayerLoop;
+
 
 namespace IceMilkTea.Profiler
 {
@@ -96,9 +96,9 @@ namespace IceMilkTea.Profiler
 
             // Unityの実行ループにパフォーマンスモニタが動くべき場所に更新関数を差し込む
             var rootLoopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
-            rootLoopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime, StartProfile>(InsertTiming.AfterInsert, StartProfiler);
-            rootLoopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw, EndProfile>(InsertTiming.BeforeInsert, EndProfiler);
-            rootLoopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw, DrawProfile>(InsertTiming.BeforeInsert, DrawProfiler);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Initialization.PlayerUpdateTime, StartProfile>(InsertTiming.AfterInsert, StartProfiler);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.PresentAfterDraw, EndProfile>(InsertTiming.BeforeInsert, EndProfiler);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.PresentAfterDraw, DrawProfile>(InsertTiming.BeforeInsert, DrawProfiler);
             rootLoopSystem.BuildAndSetUnityPlayerLoop();
 
 

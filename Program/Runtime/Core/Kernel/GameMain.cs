@@ -15,7 +15,7 @@
 
 using System;
 using UnityEngine;
-using UnityEngine.Experimental.PlayerLoop;
+
 
 namespace IceMilkTea.Core
 {
@@ -202,8 +202,8 @@ namespace IceMilkTea.Core
 
             // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
             var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
-            loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
-            loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
             loopSystem.BuildAndSetUnityPlayerLoop();
         }
 

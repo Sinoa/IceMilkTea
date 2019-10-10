@@ -16,7 +16,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Experimental.PlayerLoop;
+
 
 namespace IceMilkTea.Core
 {
@@ -493,20 +493,20 @@ namespace IceMilkTea.Core
             // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
             var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
             loopSystem.InsertLoopSystem<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
-            loopSystem.InsertLoopSystem<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
-            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
-            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
-            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
-            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
-            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
-            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
-            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
-            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
+            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
             loopSystem.InsertLoopSystem<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
             loopSystem.BuildAndSetUnityPlayerLoop();
 

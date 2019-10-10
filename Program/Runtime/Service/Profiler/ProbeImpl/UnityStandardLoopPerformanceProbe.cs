@@ -16,7 +16,7 @@
 using System.Diagnostics;
 using IceMilkTea.Core;
 using UnityEngine;
-using UnityEngine.Experimental.PlayerLoop;
+
 
 namespace IceMilkTea.Profiler
 {
@@ -100,12 +100,12 @@ namespace IceMilkTea.Profiler
 
             // 各種アップデートの更新関数を登録する
             var rootLoopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
-            rootLoopSystem.InsertLoopSystem<FixedUpdate.ClearLines, FixedUpdateProbeStart>(InsertTiming.BeforeInsert, () => fixedUpdateStartCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate, FixedUpdateProbeEnd>(InsertTiming.AfterInsert, () => fixedUpdateEndCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate, UpdateProbeStart>(InsertTiming.BeforeInsert, () => updateStartCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate, UpdateProbeEnd>(InsertTiming.AfterInsert, () => updateEndCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.InsertLoopSystem<PreLateUpdate.AIUpdatePostScript, LateUpdateProbeStart>(InsertTiming.BeforeInsert, () => lateUpdateStartCount = stopwatch.ElapsedTicks);
-            rootLoopSystem.InsertLoopSystem<PreLateUpdate.ConstraintManagerUpdate, LateUpdateProbeEnd>(InsertTiming.AfterInsert, () => lateUpdateEndCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ClearLines, FixedUpdateProbeStart>(InsertTiming.BeforeInsert, () => fixedUpdateStartCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunDelayedFixedFrameRate, FixedUpdateProbeEnd>(InsertTiming.AfterInsert, () => fixedUpdateEndCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate, UpdateProbeStart>(InsertTiming.BeforeInsert, () => updateStartCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate, UpdateProbeEnd>(InsertTiming.AfterInsert, () => updateEndCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PreLateUpdate.AIUpdatePostScript, LateUpdateProbeStart>(InsertTiming.BeforeInsert, () => lateUpdateStartCount = stopwatch.ElapsedTicks);
+            rootLoopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PreLateUpdate.ConstraintManagerUpdate, LateUpdateProbeEnd>(InsertTiming.AfterInsert, () => lateUpdateEndCount = stopwatch.ElapsedTicks);
             rootLoopSystem.BuildAndSetUnityPlayerLoop();
 
 
