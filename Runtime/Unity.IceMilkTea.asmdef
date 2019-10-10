@@ -6,7 +6,6 @@
         "Android",
         "Editor",
         "iOS",
-        "LinuxStandalone32",
         "LinuxStandalone64",
         "macOSStandalone",
         "WebGL",
