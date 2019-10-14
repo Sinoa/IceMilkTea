@@ -21,6 +21,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
+using UnityEngine.LowLevel;
+using UnityEngine.PlayerLoop;
 using UnityObject = UnityEngine.Object;
 
 #region AssemblyInfo
@@ -227,8 +229,8 @@ namespace IceMilkTea.Core
 
             // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
             var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
+            loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
+            loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
             loopSystem.BuildAndSetUnityPlayerLoop();
         }
 
@@ -365,7 +367,7 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private Type type;
         private List<ImtPlayerLoopSystem> subLoopSystemList;
-        private UnityEngine.LowLevel.PlayerLoopSystem.UpdateFunction updateDelegate;
+        private PlayerLoopSystem.UpdateFunction updateDelegate;
         private IntPtr updateFunction;
         private IntPtr loopConditionFunction;
 
@@ -387,7 +389,7 @@ namespace IceMilkTea.Core
         /// また、指定されたPlayerLoopSystem構造体オブジェクトにサブループシステムが存在する場合は再帰的にインスタンスの初期化が行われます。
         /// </summary>
         /// <param name="originalPlayerLoopSystem">コピー元になるPlayerLoopSystem構造体オブジェクトへの参照</param>
-        public ImtPlayerLoopSystem(ref UnityEngine.LowLevel.PlayerLoopSystem originalPlayerLoopSystem)
+        public ImtPlayerLoopSystem(ref PlayerLoopSystem originalPlayerLoopSystem)
         {
             // 参照元から値を引っ張って初期化する
             type = originalPlayerLoopSystem.type;
@@ -426,7 +428,7 @@ namespace IceMilkTea.Core
         /// <param name="type">生成するPlayerLoopSystemの型</param>
         /// <param name="updateDelegate">生成するPlayerLoopSystemの更新関数。更新関数が不要な場合はnullの指定が可能です</param>
         /// <exception cref="ArgumentNullException">typeがnullです</exception>
-        public ImtPlayerLoopSystem(Type type, UnityEngine.LowLevel.PlayerLoopSystem.UpdateFunction updateDelegate)
+        public ImtPlayerLoopSystem(Type type, PlayerLoopSystem.UpdateFunction updateDelegate)
         {
             // 更新の型がnullなら
             if (type == null)
@@ -455,7 +457,7 @@ namespace IceMilkTea.Core
 
 
             // Unityの弄り倒したループ構成をもとに戻してあげる
-            UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop(UnityEngine.LowLevel.PlayerLoop.GetDefaultPlayerLoop());
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
         }
         #endregion
 
@@ -468,7 +470,7 @@ namespace IceMilkTea.Core
         public static ImtPlayerLoopSystem GetUnityDefaultPlayerLoop()
         {
             // キャストして返すだけ
-            return (ImtPlayerLoopSystem)UnityEngine.LowLevel.PlayerLoop.GetDefaultPlayerLoop();
+            return (ImtPlayerLoopSystem)PlayerLoop.GetDefaultPlayerLoop();
         }
 
 
@@ -479,7 +481,7 @@ namespace IceMilkTea.Core
         {
             // 最後に構築した経験のあるループシステムとして覚えて、自身をキャストして設定するだけ
             lastBuildLoopSystem = this;
-            UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop((UnityEngine.LowLevel.PlayerLoopSystem)this);
+            PlayerLoop.SetPlayerLoop((PlayerLoopSystem)this);
         }
         #endregion
 
@@ -504,7 +506,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">更新関数を表す型</typeparam>
         /// <param name="index">挿入するインデックスの位置</param>
         /// <param name="function">挿入する更新関数</param>
-        public void InsertLoopSystem<T>(int index, UnityEngine.LowLevel.PlayerLoopSystem.UpdateFunction function)
+        public void InsertLoopSystem<T>(int index, PlayerLoopSystem.UpdateFunction function)
         {
             // 新しいループシステムを作って本来の挿入関数を叩く
             var loopSystem = new ImtPlayerLoopSystem(typeof(T), function);
@@ -541,7 +543,7 @@ namespace IceMilkTea.Core
         /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
         /// <param name="function">挿入する更新関数</param>
         /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
-        public bool InsertLoopSystem<T, U>(InsertTiming timing, UnityEngine.LowLevel.PlayerLoopSystem.UpdateFunction function)
+        public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function)
         {
             // 再帰検索を有効にして挿入関数を叩く
             return InsertLoopSystem<T, U>(timing, function, true);
@@ -557,7 +559,7 @@ namespace IceMilkTea.Core
         /// <param name="function">挿入する更新関数</param>
         /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
         /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
-        public bool InsertLoopSystem<T, U>(InsertTiming timing, UnityEngine.LowLevel.PlayerLoopSystem.UpdateFunction function, bool recursiveSearch)
+        public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function, bool recursiveSearch)
         {
             // 新しいループシステムを作って本来の挿入関数を叩く
             var loopSystem = new ImtPlayerLoopSystem(typeof(U), function);
@@ -806,7 +808,7 @@ namespace IceMilkTea.Core
         /// 指定された更新関数を設定します
         /// </summary>
         /// <param name="updateFunction">設定する新しい更新関数。nullを設定することができます</param>
-        public void SetUpdateFunction(UnityEngine.LowLevel.PlayerLoopSystem.UpdateFunction updateFunction)
+        public void SetUpdateFunction(PlayerLoopSystem.UpdateFunction updateFunction)
         {
             // 更新関数を素直に設定する
             updateDelegate = updateFunction;
@@ -818,10 +820,10 @@ namespace IceMilkTea.Core
         /// また、サブループシステムを保持している場合はサブループシステムも構造体のインスタンスが新たに生成され、初期化されます。
         /// </summary>
         /// <returns>内部コンテキストのコピーを行ったPlayerLoopSystemを返します</returns>
-        public UnityEngine.LowLevel.PlayerLoopSystem ToPlayerLoopSystem()
+        public PlayerLoopSystem ToPlayerLoopSystem()
         {
             // 新しいPlayerLoopSystem構造体のインスタンスを生成して初期化を行った後返す
-            return new UnityEngine.LowLevel.PlayerLoopSystem()
+            return new PlayerLoopSystem()
             {
                 // 各パラメータのコピー（サブループシステムも再帰的に構造体へインスタンス化）
                 type = type,
@@ -839,7 +841,7 @@ namespace IceMilkTea.Core
         /// PlayerLoopSystemからImtPlayerLoopSystemへキャストします
         /// </summary>
         /// <param name="original">キャストする元になるPlayerLoopSystem</param>
-        public static explicit operator ImtPlayerLoopSystem(UnityEngine.LowLevel.PlayerLoopSystem original)
+        public static explicit operator ImtPlayerLoopSystem(PlayerLoopSystem original)
         {
             // 渡されたPlayerLoopSystemからImtPlayerLoopSystemのインスタンスを生成して返す
             return new ImtPlayerLoopSystem(ref original);
@@ -850,7 +852,7 @@ namespace IceMilkTea.Core
         /// ImtPlayerLoopSystemからPlayerLoopSystemへキャストします
         /// </summary>
         /// <param name="klass">キャストする元になるImtPlayerLoopSystem</param>
-        public static explicit operator UnityEngine.LowLevel.PlayerLoopSystem(ImtPlayerLoopSystem klass)
+        public static explicit operator PlayerLoopSystem(ImtPlayerLoopSystem klass)
         {
             // 渡されたImtPlayerLoopSystemからPlayerLoopSystemへ変換する関数を叩いて返す
             return klass.ToPlayerLoopSystem();
@@ -1317,20 +1319,20 @@ namespace IceMilkTea.Core
             // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
             var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
             loopSystem.InsertLoopSystem<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
-            loopSystem.InsertLoopSystem<UnityEngine.PlayerLoop.PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
+            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
+            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
+            loopSystem.InsertLoopSystem<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
+            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
+            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
+            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
+            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
+            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
+            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
+            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
+            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
+            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
+            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
+            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
             loopSystem.InsertLoopSystem<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
             loopSystem.BuildAndSetUnityPlayerLoop();
 
