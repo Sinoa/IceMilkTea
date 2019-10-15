@@ -317,12 +317,13 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
         /// <returns>アセットの更新を実行しているタスクを返します</returns>
-        public async Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
             ThrowExceptionIfInvalidCatalogName(catalogName);
             ThrowExceptionIfProgressIsNull(progress);
+            throw new NotImplementedException();
         }
         #endregion
 
