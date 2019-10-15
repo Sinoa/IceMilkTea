@@ -153,7 +153,7 @@ namespace IceMilkTea.Core
             {
                 // 何があろうとシャットダウンして、ImtPlayerLoopSystemから既定Unityループシステムを読み込んで上書きすることですべての登録を破壊できる
                 InternalShutdown();
-                ImtPlayerLoopSystem.GetUnityDefaultPlayerLoop().BuildAndSetUnityPlayerLoop();
+                ImtPlayerLoopSystem.GetDefaultPlayerLoop().BuildAndSetUnityPlayerLoop();
             }
 
 
@@ -232,7 +232,7 @@ namespace IceMilkTea.Core
 
 
             // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
-            var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
+            var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
             loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
             loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
             loopSystem.BuildAndSetUnityPlayerLoop();
@@ -666,9 +666,9 @@ namespace IceMilkTea.Core
 
 
     /// <summary>
-    /// ループシステムに挿入するユーザーカスタムの更新基本クラスです
+    /// ループシステムに挿入するユーザーカスタムの更新抽象クラスです
     /// </summary>
-    public abstract class GameUpdater
+    public abstract class PlayerLoopUpdater
     {
         /// <summary>
         /// ループシステムによって実行される更新関数です
@@ -679,7 +679,7 @@ namespace IceMilkTea.Core
 
 
     /// <summary>
-    /// PlayerLoopSystem構造体の内容をクラスとして表現され、更に調整するための機構を保持したクラスです
+    /// PlayerLoopSystem構造体の内容をクラスとして表現されPlayerLoopSystemの順序を操作するための機能を提供しています
     /// </summary>
     public class ImtPlayerLoopSystem
     {
@@ -687,11 +687,6 @@ namespace IceMilkTea.Core
         /// ループシステムの検索で、対象のループシステムを見つけられなかったときに返す値です
         /// </summary>
         public const int LoopSystemNotFoundValue = -1;
-
-
-
-        // クラス変数宣言
-        private static ImtPlayerLoopSystem lastBuildLoopSystem;
 
         // メンバ変数定義
         private Type type;
@@ -702,7 +697,7 @@ namespace IceMilkTea.Core
 
 
 
-        #region コンストラクタ
+        #region 初期化＆終了実装
         /// <summary>
         /// クラスの初期化を行います
         /// </summary>
@@ -710,6 +705,17 @@ namespace IceMilkTea.Core
         {
             // アプリケーション終了イベントを登録する
             Application.quitting += OnApplicationQuit;
+        }
+
+
+        /// <summary>
+        /// Unityがアプリケーションの終了をする時に呼び出されます
+        /// </summary>
+        private static void OnApplicationQuit()
+        {
+            //イベントの登録を解除してUnityの既定ループ機構に戻す
+            Application.quitting -= OnApplicationQuit;
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
         }
 
 
@@ -725,29 +731,15 @@ namespace IceMilkTea.Core
             updateDelegate = originalPlayerLoopSystem.updateDelegate;
             updateFunction = originalPlayerLoopSystem.updateFunction;
             loopConditionFunction = originalPlayerLoopSystem.loopConditionFunction;
+            subLoopSystemList = new List<ImtPlayerLoopSystem>();
 
 
             // もしサブシステムが有効な数で存在するなら
             if (originalPlayerLoopSystem.subSystemList != null && originalPlayerLoopSystem.subSystemList.Length > 0)
             {
                 // 再帰的にコピーを生成する
-                var enumerable = originalPlayerLoopSystem.subSystemList.Select(original => new ImtPlayerLoopSystem(ref original));
-                subLoopSystemList = new List<ImtPlayerLoopSystem>(enumerable);
+                subLoopSystemList.AddRange(originalPlayerLoopSystem.subSystemList.Select(original => new ImtPlayerLoopSystem(ref original)));
             }
-            else
-            {
-                // 存在しないならインスタンスの生成だけする
-                subLoopSystemList = new List<ImtPlayerLoopSystem>();
-            }
-        }
-
-
-        /// <summary>
-        /// 指定された型でインスタンスの初期化を行います
-        /// </summary>
-        /// <param name="type">生成するPlayerLoopSystemの型</param>
-        public ImtPlayerLoopSystem(Type type) : this(type, null)
-        {
         }
 
 
@@ -756,37 +748,28 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="type">生成するPlayerLoopSystemの型</param>
         /// <param name="updateDelegate">生成するPlayerLoopSystemの更新関数。更新関数が不要な場合はnullの指定が可能です</param>
-        /// <exception cref="ArgumentNullException">typeがnullです</exception>
+        /// <exception cref="ArgumentNullException">type が null です</exception>
+        /// <exception cref="ArgumentNullException">updateDelegate が null です</exception>
         public ImtPlayerLoopSystem(Type type, PlayerLoopSystem.UpdateFunction updateDelegate)
         {
-            // 更新の型がnullなら
-            if (type == null)
-            {
-                // 関数は死ぬ
-                throw new ArgumentNullException(nameof(type));
-            }
-
-
             // シンプルに初期化をする
-            this.type = type;
-            this.updateDelegate = updateDelegate;
+            this.type = type ?? throw new ArgumentNullException(nameof(type));
+            this.updateDelegate = updateDelegate ?? throw new ArgumentNullException(nameof(updateDelegate));
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
-        #endregion
 
 
-        #region Unityイベントハンドラ
         /// <summary>
-        /// Unityがアプリケーションの終了をする時に呼び出されます
+        /// 指定されたアップデータを動かすPlayerLoopSystemのインスタンスを初期化します
         /// </summary>
-        private static void OnApplicationQuit()
+        /// <param name="updater">PlayerLoopSystemによって動作させるアップデータ</param>
+        /// <exception cref="ArgumentNullException">updater が null です</exception>
+        public ImtPlayerLoopSystem(PlayerLoopUpdater updater)
         {
-            //イベントの登録を解除する
-            Application.quitting -= OnApplicationQuit;
-
-
-            // Unityの弄り倒したループ構成をもとに戻してあげる
-            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
+            // シンプルに初期化をする
+            type = (updater ?? throw new ArgumentNullException(nameof(updater))).GetType();
+            updateDelegate = updater.Update;
+            subLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
         #endregion
 
@@ -796,10 +779,21 @@ namespace IceMilkTea.Core
         /// Unityの標準プレイヤーループを ImtPlayerLoopSystem として取得します
         /// </summary>
         /// <returns>Unityの標準プレイヤーループをImtPlayerLoopSystemにキャストされた結果を返します</returns>
-        public static ImtPlayerLoopSystem GetUnityDefaultPlayerLoop()
+        public static ImtPlayerLoopSystem GetDefaultPlayerLoop()
         {
             // キャストして返すだけ
             return (ImtPlayerLoopSystem)PlayerLoop.GetDefaultPlayerLoop();
+        }
+
+
+        /// <summary>
+        /// Unityの現在設定されているプレイヤーループを ImtPlayerLoopSystem として取得します
+        /// </summary>
+        /// <returns></returns>
+        public static ImtPlayerLoopSystem GetCurrentPlayerLoop()
+        {
+            // キャストして返すだけ
+            return (ImtPlayerLoopSystem)PlayerLoop.GetCurrentPlayerLoop();
         }
 
 
@@ -808,62 +802,13 @@ namespace IceMilkTea.Core
         /// </summary>
         public void BuildAndSetUnityPlayerLoop()
         {
-            // 最後に構築した経験のあるループシステムとして覚えて、自身をキャストして設定するだけ
-            lastBuildLoopSystem = this;
+            // 自身をキャストして設定するだけ
             PlayerLoop.SetPlayerLoop((PlayerLoopSystem)this);
         }
         #endregion
 
 
         #region コントロール関数群
-        /// <summary>
-        /// BuildAndSetUnityDefaultPlayerLoop関数によって最後に構築されたループシステムを取得します。
-        /// まだ一度も構築した経験がない場合は、GetUnityDefaultPlayerLoop関数の値を採用します。
-        /// </summary>
-        /// <returns>最後に構築されたループシステムを返します</returns>
-        public static ImtPlayerLoopSystem GetLastBuildLoopSystem()
-        {
-            // 過去に構築経験があれば返して、まだなければGetUnityDefaultPlayerLoopの結果を返す
-            return lastBuildLoopSystem ?? GetUnityDefaultPlayerLoop();
-        }
-
-
-        /// <summary>
-        /// 指定されたインデックスの位置に更新関数を挿入します。
-        /// また、nullの更新関数を指定すると何もしないループシステムが生成されます。
-        /// </summary>
-        /// <typeparam name="T">更新関数を表す型</typeparam>
-        /// <param name="index">挿入するインデックスの位置</param>
-        /// <param name="function">挿入する更新関数</param>
-        public void InsertLoopSystem<T>(int index, PlayerLoopSystem.UpdateFunction function)
-        {
-            // 新しいループシステムを作って本来の挿入関数を叩く
-            var loopSystem = new ImtPlayerLoopSystem(typeof(T), function);
-            InsertLoopSystem(index, loopSystem);
-        }
-
-
-        /// <summary>
-        /// 指定されたインデックスの位置にループシステムを挿入します
-        /// </summary>
-        /// <param name="index">挿入するインデックスの位置</param>
-        /// <param name="loopSystem">挿入するループシステム</param>
-        /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
-        public void InsertLoopSystem(int index, ImtPlayerLoopSystem loopSystem)
-        {
-            // ループシステムがnullなら（境界チェックはあえてここでやらず、List<T>コンテナに任せる）
-            if (loopSystem == null)
-            {
-                // nullの挿入は許されない！
-                throw new ArgumentNullException(nameof(loopSystem));
-            }
-
-
-            // 指定されたインデックスにループシステムを挿入する
-            subLoopSystemList.Insert(index, loopSystem);
-        }
-
-
         /// <summary>
         /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
         /// </summary>
@@ -1646,7 +1591,7 @@ namespace IceMilkTea.Core
 
 
             // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
-            var loopSystem = ImtPlayerLoopSystem.GetLastBuildLoopSystem();
+            var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
             loopSystem.InsertLoopSystem<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
             loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
             loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
