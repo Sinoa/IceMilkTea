@@ -1,6 +1,6 @@
 ﻿// zlib/libpng License
 //
-// Copyright (c) 2018 Sinoa
+// Copyright (c) 2018 - 2019 Sinoa
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -429,6 +429,12 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 完了済み Awaitable を取得します
+        /// </summary>
+        public static IAwaitable CompletedAwaitable { get; } = new CompletedAwaitableImpl();
+
+
+        /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
         public virtual bool IsCompleted { get; protected set; }
@@ -650,6 +656,30 @@ namespace IceMilkTea.Core
             {
                 // 例外を吐く
                 throw new ObjectDisposedException(this.GetType().FullName);
+            }
+        }
+
+
+
+        /// <summary>
+        /// 常に完了を返し続ける Awaitable クラスです
+        /// </summary>
+        private sealed class CompletedAwaitableImpl : ImtAwaitable
+        {
+            /// <summary>
+            /// 常に true を返し続けます
+            /// </summary>
+            public override bool IsCompleted { get => true; protected set => _ = value; }
+
+
+
+            /// <summary>
+            /// このクラスは Dispose() による影響を一切受けないように上書きします
+            /// </summary>
+            /// <param name="disposing">何も実行しません</param>
+            protected override void Dispose(bool disposing)
+            {
+                // Disposedにならないように空で上書きする
             }
         }
     }
