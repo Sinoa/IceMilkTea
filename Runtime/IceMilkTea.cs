@@ -233,8 +233,8 @@ namespace IceMilkTea.Core
 
             // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
             var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
-            loopSystem.InsertLoopSystem<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
-            loopSystem.InsertLoopSystem<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
+            loopSystem.Insert<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
+            loopSystem.Insert<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
             loopSystem.BuildAndSetUnityPlayerLoop();
         }
 
@@ -817,10 +817,10 @@ namespace IceMilkTea.Core
         /// <param name="loopSystem">挿入するループシステム</param>
         /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
         /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
-        public bool InsertLoopSystem<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem)
+        public bool Insert<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem)
         {
             // 再帰検索を有効にして本来の挿入関数を叩く
-            return InsertLoopSystem<T>(timing, loopSystem, true);
+            return Insert<T>(timing, loopSystem, true);
         }
 
 
@@ -833,7 +833,7 @@ namespace IceMilkTea.Core
         /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
         /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
         /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
-        public bool InsertLoopSystem<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem, bool recursiveSearch)
+        public bool Insert<T>(InsertTiming timing, ImtPlayerLoopSystem loopSystem, bool recursiveSearch)
         {
             // ループシステムがnullなら
             if (loopSystem == null)
@@ -854,7 +854,7 @@ namespace IceMilkTea.Core
                     foreach (var subLoopSystem in subLoopSystemList)
                     {
                         // サブループシステムに対して挿入を依頼して成功したのなら
-                        if (subLoopSystem.InsertLoopSystem<T>(timing, loopSystem, recursiveSearch))
+                        if (subLoopSystem.Insert<T>(timing, loopSystem, recursiveSearch))
                         {
                             // 成功を返す
                             return true;
@@ -881,7 +881,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">削除する更新ループの型</typeparam>
         /// <param name="recursiveSearch">対象の型を再帰的に検索し削除するかどうか</param>
         /// <returns>対象のループシステムが削除された場合はtrueを、削除されなかった場合はfalseを返します</returns>
-        public bool RemoveLoopSystem<T>(bool recursiveSearch)
+        public bool Remove<T>(bool recursiveSearch)
         {
             // 削除するインデックス値を探すが見つけられなかったら
             var removeIndex = IndexOf<T>();
@@ -894,7 +894,7 @@ namespace IceMilkTea.Core
                     foreach (var subLoopSystem in subLoopSystemList)
                     {
                         // サブループシステムに対して削除依頼して成功したのなら
-                        if (subLoopSystem.RemoveLoopSystem<T>(recursiveSearch))
+                        if (subLoopSystem.Remove<T>(recursiveSearch))
                         {
                             // 成功を返す
                             return true;
@@ -920,7 +920,7 @@ namespace IceMilkTea.Core
         /// <typeparam name="T">検索するループシステムの型</typeparam>
         /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
         /// <returns>最初に見つけたループシステムを返しますが、見つけられなかった場合はnullを返します</returns>
-        public ImtPlayerLoopSystem FindLoopSystem<T>(bool recursiveSearch)
+        public ImtPlayerLoopSystem Find<T>(bool recursiveSearch)
         {
             // 自身のサブループシステムに該当の型があるか調べて、見つけたら
             var result = subLoopSystemList.Find(loopSystem => loopSystem.type == typeof(T));
@@ -940,7 +940,7 @@ namespace IceMilkTea.Core
 
 
             // 自分のサブループシステムにも検索を問いかける
-            return subLoopSystemList.Find(loopSystem => loopSystem.FindLoopSystem<T>(recursiveSearch) != null);
+            return subLoopSystemList.Find(loopSystem => loopSystem.Find<T>(recursiveSearch) != null);
         }
 
 
@@ -962,26 +962,6 @@ namespace IceMilkTea.Core
 
             // 見つけた位置を返す
             return result;
-        }
-
-
-        /// <summary>
-        /// クラス化されているPlayerLoopSystemを構造体のPlayerLoopSystemへ変換します。
-        /// また、サブループシステムを保持している場合はサブループシステムも構造体のインスタンスが新たに生成され、初期化されます。
-        /// </summary>
-        /// <returns>内部コンテキストのコピーを行ったPlayerLoopSystemを返します</returns>
-        public PlayerLoopSystem ToPlayerLoopSystem()
-        {
-            // 新しいPlayerLoopSystem構造体のインスタンスを生成して初期化を行った後返す
-            return new PlayerLoopSystem()
-            {
-                // 各パラメータのコピー（サブループシステムも再帰的に構造体へインスタンス化）
-                type = type,
-                updateDelegate = updateDelegate,
-                updateFunction = updateFunction,
-                loopConditionFunction = loopConditionFunction,
-                subSystemList = subLoopSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
-            };
         }
         #endregion
 
@@ -1006,6 +986,26 @@ namespace IceMilkTea.Core
         {
             // 渡されたImtPlayerLoopSystemからPlayerLoopSystemへ変換する関数を叩いて返す
             return klass.ToPlayerLoopSystem();
+        }
+
+
+        /// <summary>
+        /// クラス化されているPlayerLoopSystemを構造体のPlayerLoopSystemへ変換します。
+        /// また、サブループシステムを保持している場合はサブループシステムも構造体のインスタンスが新たに生成され、初期化されます。
+        /// </summary>
+        /// <returns>内部コンテキストのコピーを行ったPlayerLoopSystemを返します</returns>
+        private PlayerLoopSystem ToPlayerLoopSystem()
+        {
+            // 新しいPlayerLoopSystem構造体のインスタンスを生成して初期化を行った後返す
+            return new PlayerLoopSystem()
+            {
+                // 各パラメータのコピー（サブループシステムも再帰的に構造体へインスタンス化）
+                type = type,
+                updateDelegate = updateDelegate,
+                updateFunction = updateFunction,
+                loopConditionFunction = loopConditionFunction,
+                subSystemList = subLoopSystemList.Select(source => source.ToPlayerLoopSystem()).ToArray(),
+            };
         }
 
 
@@ -1462,22 +1462,22 @@ namespace IceMilkTea.Core
 
             // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
             var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
-            loopSystem.InsertLoopSystem<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
-            loopSystem.InsertLoopSystem<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
-            loopSystem.InsertLoopSystem<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
-            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
-            loopSystem.InsertLoopSystem<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
-            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
-            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
-            loopSystem.InsertLoopSystem<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
-            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
-            loopSystem.InsertLoopSystem<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
-            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
-            loopSystem.InsertLoopSystem<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
-            loopSystem.InsertLoopSystem<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
+            loopSystem.Insert<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
+            loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
+            loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
+            loopSystem.Insert<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
+            loopSystem.Insert<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
+            loopSystem.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
+            loopSystem.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
+            loopSystem.Insert<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
+            loopSystem.Insert<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
+            loopSystem.Insert<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
+            loopSystem.Insert<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
+            loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
+            loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
+            loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
+            loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
+            loopSystem.Insert<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
             loopSystem.BuildAndSetUnityPlayerLoop();
 
 
