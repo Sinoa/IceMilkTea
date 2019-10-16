@@ -813,38 +813,6 @@ namespace IceMilkTea.Core
         /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
         /// </summary>
         /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
-        /// <typeparam name="U">挿入する予定の更新関数を表す型</typeparam>
-        /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
-        /// <param name="function">挿入する更新関数</param>
-        /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
-        public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function)
-        {
-            // 再帰検索を有効にして挿入関数を叩く
-            return InsertLoopSystem<T, U>(timing, function, true);
-        }
-
-
-        /// <summary>
-        /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
-        /// </summary>
-        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
-        /// <typeparam name="U">挿入する予定の更新関数を表す型</typeparam>
-        /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
-        /// <param name="function">挿入する更新関数</param>
-        /// <param name="recursiveSearch">対象の型の検索を再帰的に行うかどうか</param>
-        /// <returns>対象のループシステムが挿入された場合はtrueを、挿入されなかった場合はfalseを返します</returns>
-        public bool InsertLoopSystem<T, U>(InsertTiming timing, PlayerLoopSystem.UpdateFunction function, bool recursiveSearch)
-        {
-            // 新しいループシステムを作って本来の挿入関数を叩く
-            var loopSystem = new ImtPlayerLoopSystem(typeof(U), function);
-            return InsertLoopSystem<T>(timing, loopSystem, recursiveSearch);
-        }
-
-
-        /// <summary>
-        /// 指定された型の更新ループに対して、ループシステムをタイミングの位置に挿入します
-        /// </summary>
-        /// <typeparam name="T">これから挿入するループシステムの挿入起点となる更新型</typeparam>
         /// <param name="timing">T で指定された更新ループを起点にどのタイミングで挿入するか</param>
         /// <param name="loopSystem">挿入するループシステム</param>
         /// <exception cref="ArgumentNullException">loopSystemがnullです</exception>
@@ -947,56 +915,6 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 指定された型の更新ループを指定された数だけ移動します。
-        /// また、移動量が境界を超えないように内部で調整されます。
-        /// </summary>
-        /// <typeparam name="T">移動する更新ループの型</typeparam>
-        /// <param name="count">移動する量、負の値なら前方へ、正の値なら後方へ移動します</param>
-        /// <param name="recursiveSearch">移動する型が見つからない場合、再帰的に検索をするかどうか</param>
-        /// <returns>移動に成功した場合はtrueを、移動に失敗した場合はfalseを返します</returns>
-        public bool MoveLoopSystem<T>(int count, bool recursiveSearch)
-        {
-            // 移動する更新ループの位置を特定するが、見つけられなかったら
-            var currentIndex = IndexOf<T>();
-            if (currentIndex == LoopSystemNotFoundValue)
-            {
-                // もし再帰的に調べるのなら
-                if (recursiveSearch)
-                {
-                    // 自身のサブループシステム分回る
-                    foreach (var childLoopSystem in subLoopSystemList)
-                    {
-                        // サブループシステムに対して削除を依頼して成功したのなら
-                        if (childLoopSystem.MoveLoopSystem<T>(count, recursiveSearch))
-                        {
-                            // 成功を返す
-                            return true;
-                        }
-                    }
-                }
-
-
-                // だめだったらだめ
-                return false;
-            }
-
-
-            // 新しいインデックス値を求める
-            // 更にインデックス値が後方へ移動する場合は削除分ズレるので-1する
-            var newIndex = currentIndex + count + (count > 0 ? -1 : 0);
-            if (newIndex < 0) newIndex = 0;
-            if (newIndex > subLoopSystemList.Count) newIndex = subLoopSystemList.Count;
-
-
-            // 古いインデックスから値を取り出して削除した後新しいインデックスに挿入
-            var subLoopSystem = subLoopSystemList[currentIndex];
-            subLoopSystemList.RemoveAt(currentIndex);
-            subLoopSystemList.Insert(newIndex, subLoopSystem);
-            return true;
-        }
-
-
-        /// <summary>
         /// 指定された更新型でループシステムを探し出します。
         /// </summary>
         /// <typeparam name="T">検索するループシステムの型</typeparam>
@@ -1044,48 +962,6 @@ namespace IceMilkTea.Core
 
             // 見つけた位置を返す
             return result;
-        }
-
-
-        /// <summary>
-        /// 内部で保持しているUnityネイティブ関数の参照をリセットします
-        /// </summary>
-        public void ResetUnityNativeFunctions()
-        {
-            // Unityのネイティブ関数系全てリセットする
-            updateFunction = default(IntPtr);
-            loopConditionFunction = default(IntPtr);
-        }
-
-
-        /// <summary>
-        /// 指定された型を設定します
-        /// </summary>
-        /// <param name="type">変更する新しい型</param>
-        /// <exception cref="ArgumentNullException">typeがnullです</exception>
-        public void SetType(Type type)
-        {
-            // もしnullが渡されていたら
-            if (type == null)
-            {
-                // 関数は死ぬ
-                throw new ArgumentNullException(nameof(type));
-            }
-
-
-            // 指示された型を設定する
-            this.type = type;
-        }
-
-
-        /// <summary>
-        /// 指定された更新関数を設定します
-        /// </summary>
-        /// <param name="updateFunction">設定する新しい更新関数。nullを設定することができます</param>
-        public void SetUpdateFunction(PlayerLoopSystem.UpdateFunction updateFunction)
-        {
-            // 更新関数を素直に設定する
-            updateDelegate = updateFunction;
         }
 
 
@@ -1139,15 +1015,9 @@ namespace IceMilkTea.Core
         /// <returns>このインスタンスのLoopSystem階層状況を文字列化したものを返します</returns>
         public override string ToString()
         {
-            // バッファ用意
+            // バッファを用意してループシステムツリーの内容をダンプして結果を返す
             var buffer = new StringBuilder();
-
-
-            // バッファにループシステムツリーの内容をダンプする
             DumpLoopSystemTree(buffer, string.Empty);
-
-
-            // バッファの内容を返す
             return buffer.ToString();
         }
 
