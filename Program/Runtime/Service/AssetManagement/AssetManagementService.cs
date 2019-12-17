@@ -503,24 +503,55 @@ namespace IceMilkTea.Service
 
 
         #region Manifest
+
+        public class ManifestUpdater
+        {
+            private readonly AssetManagementService Service;
+            private readonly ImtAssetBundleManifest NewManifest;
+            public readonly IReadOnlyList<UpdatableAssetBundleInfo> UpdatableAssetBundles;
+
+            public bool ExistUpdates => UpdatableAssetBundles.Count > 0;
+
+            public ManifestUpdater(AssetManagementService service, ImtAssetBundleManifest newManifest, IReadOnlyList<UpdatableAssetBundleInfo> updatables)
+            {
+                this.Service = service;
+                this.NewManifest = newManifest;
+                this.UpdatableAssetBundles = updatables;
+            }
+
+            public Task SaveNewManifestAsync()
+            {
+                //これはSimulateAssetBundle時の動作なので空更新とする
+                if(this.NewManifest.ContentGroups is null)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if(this.UpdatableAssetBundles.Count > 0)
+                {
+                    return this.Service.manifestManager.UpdateManifestAsync(NewManifest);
+                }
+                else
+                {
+                    return Task.CompletedTask;
+                }
+            }
+        }
+
         // TODO : 今はフル更新というひどい実装
-        public async Task<IReadOnlyList<UpdatableAssetBundleInfo>> UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
+        public async Task<ManifestUpdater> UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
             // シミュレートモードなら何もせず終了
-            if (loadMode == AssetBundleLoadMode.Simulate) return Array.Empty<UpdatableAssetBundleInfo>();
-
+            if (loadMode == AssetBundleLoadMode.Simulate)
+            {
+                return new ManifestUpdater(this, new ImtAssetBundleManifest(), Array.Empty<UpdatableAssetBundleInfo>());
+            }
 
             // マニフェストの更新を行う
             await manifestManager.LoadManifestAsync();
             var manifest = await manifestManager.FetchManifestAsync();
             var updatableList = await manifestManager.GetUpdatableAssetBundlesAsync(manifest, progress);
-            if (updatableList.Length > 0)
-            {
-                await manifestManager.UpdateManifestAsync(manifest);
-                return updatableList;
-            }
-
-            return Array.Empty<UpdatableAssetBundleInfo>();
+            return new ManifestUpdater(this, manifest, updatableList);
         }
 
 
