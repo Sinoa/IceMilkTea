@@ -281,6 +281,27 @@ namespace IceMilkTea.Service
             }
         }
 
+        /// <summary>
+        /// 新規/更新/削除の情報に基づいてアセットバンドルをダウンロードないし削除します
+        /// </summary>
+        /// <param name="updates">新規/更新/削除の情報</param>
+        /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
+        /// <returns>非同期でインストールしているタスクを返します</returns>
+        public async Task InstallUpdatedAsync(IReadOnlyList<UpdatableAssetBundleInfo> updates, IProgress<AssetBundleInstallProgress> progress)
+        {
+            for(int i = 0; i < updates.Count; i++)
+            {
+                var item = updates[i];
+                if(item.UpdateType == AssetBundleUpdateType.Remove)
+                {
+                    await RemoveAsync(item.AssetBundleInfo);
+                }
+                else //NewOrUpdated
+                {
+                    await InstallAssetBundleAsync(item.AssetBundleInfo, progress);
+                }
+            }
+        }
 
         /// <summary>
         /// 指定されたアセットバンドル情報のアセットバンドルを、非同期に削除します。
