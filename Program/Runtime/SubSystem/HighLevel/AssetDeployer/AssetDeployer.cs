@@ -139,16 +139,18 @@ namespace IceMilkTea.SubSystem
             // カタログ情報を取得してフェッチャと書き込みストリームを用意
             TryGetCatalogInfo(name, out var catalogInfo);
             var fetcher = CreateFetcher(catalogInfo.RemoteUri);
-            var writeStream = AssetStorage.OpenCatalog(name, AssetStorageAccess.Write);
+
+            // Catalogのディスク書き込みは、Catalog内Itemの更新完了後とする
+            //var writeStream = AssetStorage.OpenCatalog(name, AssetStorageAccess.Write);
+            var writeStream = new MemoryStream(1024 * 32); //32K
 
 
             // フェッチャまたは書き込みストリームの準備に失敗していたら
-            if (fetcher == null || writeStream == null)
+            if (fetcher == null /* || writeStream == null */)
             {
                 // 失敗を返す
                 return false;
             }
-
 
             // 書き込みストリームを監視可能ストリームに包む
             using (var outStream = new MonitorableStream(writeStream))
@@ -165,8 +167,8 @@ namespace IceMilkTea.SubSystem
 
                 // フェッチを非同期で実行する
                 await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
+                catalogInfo.Temporary = writeStream.ToArray();
             }
-
 
             // 成功を返す
             return true;
@@ -245,7 +247,7 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentNullException">differenceList が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList, CancellationToken cancellationToken)
+        public async Task<ICatalog> CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
@@ -253,30 +255,29 @@ namespace IceMilkTea.SubSystem
             ThrowExceptionIfDifferenceListIsNull(differenceList);
 
 
-            // ストレージに指定されたカタログ名のデータが無いのなら
-            if (!AssetStorage.ExistsCatalog(catalogName))
-            {
-                // 何もせず終了
-                return;
-            }
+            // CatalogInfo.Temporaryに書き込むようになったのでこれは発生しうる
+            //// ストレージに指定されたカタログ名のデータが無いのなら
+            //if (!AssetStorage.ExistsCatalog(catalogName))
+            //{
+            //    // 何もせず終了
+            //    return;
+            //}
 
 
             // カタログ情報がないなら
             if (!catalogInfoTable.ContainsKey(catalogName))
             {
                 // お取り扱いが出来ない
-                return;
+                throw new ArgumentException(catalogName);
             }
 
-
             // カタログを読み込む
-            var catalogStream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Read);
-            var catalog = await catalogInfoTable[catalogName].Reader.ReadCatalogAsync(catalogStream);
-            catalogStream.Dispose();
-
+            var catalogInfo = catalogInfoTable[catalogName];
+            var catalog = await catalogInfo.Reader.ReadCatalogAsync(new MemoryStream(catalogInfo.Temporary));
 
             // 差分判定を非同期で実行する
             await Task.Run(() => AssetDatabase.GetCatalogDifference(catalogName, catalog, differenceList), cancellationToken);
+            return catalog;
         }
 
 
@@ -317,13 +318,48 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
         /// <returns>アセットの更新を実行しているタスクを返します</returns>
-        public Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public async Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
             ThrowExceptionIfInvalidCatalogName(catalogName);
             ThrowExceptionIfProgressIsNull(progress);
-            throw new NotImplementedException();
+
+            var differences = new List<AssetDifference>();
+            var newCatalog = await CheckUpdatableAssetAsync(catalogName, differences, cancellationToken);
+
+            foreach(var diff in differences)
+            {
+                UnityEngine.Debug.Log($"{diff.Asset.Name} {diff.Status}");
+
+                if(diff.Status == AssetDifferenceStatus.Delete)
+                {
+                    this.AssetStorage.DeleteAsset(diff.Asset.LocalUri);
+                }
+                else if(diff.Status == AssetDifferenceStatus.Update || diff.Status == AssetDifferenceStatus.New)
+                {
+                    using(var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
+                    {
+                        var fetcher = CreateFetcher(diff.Asset.RemoteUri);
+                        await fetcher.FetchAsync(stream, progress, cancellationToken);
+                    }
+                }
+            }
+
+            CommitCatalog(catalogName);
+            this.AssetDatabase.UpdateCatalog(catalogName, newCatalog);
+        }
+
+        private void CommitCatalog(string catalogName)
+        {
+            // カタログ情報を取得してフェッチャと書き込みストリームを用意
+            TryGetCatalogInfo(catalogName, out var catalogInfo);
+
+            // Catalogのディスク書き込みは、Catalog内Itemの更新完了後とする
+            using (var writeStream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Write))
+            {
+                writeStream.Write(catalogInfo.Temporary, 0, catalogInfo.Temporary.Length);
+            }
         }
         #endregion
 
@@ -422,11 +458,11 @@ namespace IceMilkTea.SubSystem
 
 
 
-    #region 情報構造体
+    #region 情報
     /// <summary>
-    /// カタログを扱う情報を保持した構造体です
+    /// カタログを扱う情報を保持したクラスです
     /// </summary>
-    public readonly struct CatalogInfo
+    public class CatalogInfo
     {
         /// <summary>
         /// カタログ名
@@ -445,6 +481,10 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public ICatalogReader Reader { get; }
 
+        /// <summary>
+        /// カタログダウンロードして、ディスクに書き込むまでのテンポラリ領域
+        /// </summary>
+        public byte[] Temporary { get; set; }
 
 
         /// <summary>
@@ -459,6 +499,7 @@ namespace IceMilkTea.SubSystem
             Name = name;
             Reader = reader;
             RemoteUri = remoteUri;
+            Temporary = null;
         }
     }
     #endregion
