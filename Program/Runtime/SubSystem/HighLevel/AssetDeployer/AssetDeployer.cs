@@ -141,12 +141,11 @@ namespace IceMilkTea.SubSystem
             var fetcher = CreateFetcher(catalogInfo.RemoteUri);
 
             // Catalogのディスク書き込みは、Catalog内Itemの更新完了後とする
-            //var writeStream = AssetStorage.OpenCatalog(name, AssetStorageAccess.Write);
-            var writeStream = new MemoryStream(1024 * 32); //32K
+            var writeStream = AssetStorage.OpenCatalog(name, AssetStorageAccess.Write);
 
 
             // フェッチャまたは書き込みストリームの準備に失敗していたら
-            if (fetcher == null /* || writeStream == null */)
+            if (fetcher == null || writeStream == null)
             {
                 // 失敗を返す
                 return false;
@@ -164,10 +163,8 @@ namespace IceMilkTea.SubSystem
                     progress.Report(report);
                 });
 
-
                 // フェッチを非同期で実行する
                 await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
-                catalogInfo.Temporary = writeStream.ToArray();
             }
 
             // 成功を返す
@@ -254,14 +251,12 @@ namespace IceMilkTea.SubSystem
             ThrowExceptionIfInvalidCatalogName(catalogName);
             ThrowExceptionIfDifferenceListIsNull(differenceList);
 
-
-            // CatalogInfo.Temporaryに書き込むようになったのでこれは発生しうる
-            //// ストレージに指定されたカタログ名のデータが無いのなら
-            //if (!AssetStorage.ExistsCatalog(catalogName))
-            //{
-            //    // 何もせず終了
-            //    return;
-            //}
+            // ストレージに指定されたカタログ名のデータが無いのなら
+            if (!AssetStorage.ExistsCatalog(catalogName))
+            {
+                // 何もせず終了
+                return null;
+            }
 
 
             // カタログ情報がないなら
@@ -273,7 +268,11 @@ namespace IceMilkTea.SubSystem
 
             // カタログを読み込む
             var catalogInfo = catalogInfoTable[catalogName];
-            var catalog = await catalogInfo.Reader.ReadCatalogAsync(new MemoryStream(catalogInfo.Temporary));
+            var catalog = default(ICatalog);
+            using (var stream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Read))
+            {
+                catalog = await catalogInfo.Reader.ReadCatalogAsync(stream);
+            }
 
             // 差分判定を非同期で実行する
             await Task.Run(() => AssetDatabase.GetCatalogDifference(catalogName, catalog, differenceList), cancellationToken);
@@ -306,6 +305,8 @@ namespace IceMilkTea.SubSystem
                 // 名前入りアセット更新を叩く
                 await UpdateAssetAsync(catalogName, progress, cancellationToken);
             }
+
+            await Task.Run(() => this.AssetDatabase.Save());
         }
 
 
@@ -328,10 +329,12 @@ namespace IceMilkTea.SubSystem
             var differences = new List<AssetDifference>();
             var newCatalog = await CheckUpdatableAssetAsync(catalogName, differences, cancellationToken);
 
+            //基本的には起きないはずなんだが…
+            if (newCatalog is null)
+                return;
+
             foreach(var diff in differences)
             {
-                UnityEngine.Debug.Log($"{diff.Asset.Name} {diff.Status}");
-
                 if(diff.Status == AssetDifferenceStatus.Delete)
                 {
                     this.AssetStorage.DeleteAsset(diff.Asset.LocalUri);
@@ -346,20 +349,7 @@ namespace IceMilkTea.SubSystem
                 }
             }
 
-            CommitCatalog(catalogName);
             this.AssetDatabase.UpdateCatalog(catalogName, newCatalog);
-        }
-
-        private void CommitCatalog(string catalogName)
-        {
-            // カタログ情報を取得してフェッチャと書き込みストリームを用意
-            TryGetCatalogInfo(catalogName, out var catalogInfo);
-
-            // Catalogのディスク書き込みは、Catalog内Itemの更新完了後とする
-            using (var writeStream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Write))
-            {
-                writeStream.Write(catalogInfo.Temporary, 0, catalogInfo.Temporary.Length);
-            }
         }
         #endregion
 
@@ -454,6 +444,15 @@ namespace IceMilkTea.SubSystem
             }
         }
         #endregion
+
+
+        #region AssetDatabase
+
+        public Task LoadAssetDatabase()
+        {
+            return Task.Run(() => this.AssetDatabase.Load());
+        }
+        #endregion
     }
 
 
@@ -462,7 +461,7 @@ namespace IceMilkTea.SubSystem
     /// <summary>
     /// カタログを扱う情報を保持したクラスです
     /// </summary>
-    public class CatalogInfo
+    public readonly struct CatalogInfo
     {
         /// <summary>
         /// カタログ名
@@ -482,12 +481,6 @@ namespace IceMilkTea.SubSystem
         public ICatalogReader Reader { get; }
 
         /// <summary>
-        /// カタログダウンロードして、ディスクに書き込むまでのテンポラリ領域
-        /// </summary>
-        public byte[] Temporary { get; set; }
-
-
-        /// <summary>
         /// CatalogInfo 構造体のインスタンスを初期化します
         /// </summary>
         /// <param name="name">カタログ名</param>
@@ -499,7 +492,6 @@ namespace IceMilkTea.SubSystem
             Name = name;
             Reader = reader;
             RemoteUri = remoteUri;
-            Temporary = null;
         }
     }
     #endregion

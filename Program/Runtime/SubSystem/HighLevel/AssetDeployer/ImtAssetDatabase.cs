@@ -214,7 +214,7 @@ namespace IceMilkTea.SubSystem
                     {
                         // 順序よく読み込む
                         var name = reader.ReadString();
-                        var contentLength = reader.ReadInt32();
+                        var contentLength = reader.ReadInt64();
                         var remoteUri = reader.ReadString();
                         var localUri = reader.ReadString();
                         var hashName = reader.ReadString();
@@ -222,7 +222,7 @@ namespace IceMilkTea.SubSystem
 
 
                         // コピー用リストにアイテムを追加
-                        bufferList.Add(new ImtCatalogItem(name, contentLength, new Uri(remoteUri), new Uri(localUri), hashData, hashName));
+                        bufferList.Add(new ImtCatalogItem(name, contentLength, new Uri(remoteUri), new Uri(localUri, UriKind.Relative), hashData, hashName));
                     }
 
 
