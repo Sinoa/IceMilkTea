@@ -220,7 +220,8 @@ namespace IceMilkTea.SubSystem
         protected virtual string ToAssetFilePath(Uri uri)
         {
             // アセット格納ディレクトリパスにURIローカルパスを結合して返す
-            return Path.Combine(assetDirectoryInfo.FullName, uri.LocalPath.TrimStart('/'));
+            var relativePath = uri.IsAbsoluteUri ? uri.LocalPath : uri.ToString();
+            return Path.Combine(assetDirectoryInfo.FullName, relativePath.TrimStart('/'));
         }
 
 
@@ -243,8 +244,11 @@ namespace IceMilkTea.SubSystem
         /// <returns>利用できるURIの場合は true を、利用できない場合は false を返します</returns>
         protected virtual bool ValidateLocalUri(Uri localUri)
         {
-            // 有効か否かを条件式の結果をそのまま返す
-            return localUri != null && localUri.IsFile;
+            if (localUri is null) return false;
+            if (!localUri.IsAbsoluteUri) return true; //相対UriならOK
+
+            //絶対URIならfile://スキーム縛り
+            return localUri.IsFile;
         }
 
 
@@ -353,6 +357,9 @@ namespace IceMilkTea.SubSystem
             }
             else if (access == AssetStorageAccess.Write)
             {
+                //必要に応じてDirectoryを作成する
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+
                 // 書き込みストリームとして開いて返す
                 return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
@@ -436,10 +443,10 @@ namespace IceMilkTea.SubSystem
             }
             else if (access == AssetStorageAccess.Write)
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
                 // 書き込みストリームとして開いて返す
                 return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
-
 
             // ここには到達することはないはずだが、万が一来てしまった場合は null を返す
             return null;
