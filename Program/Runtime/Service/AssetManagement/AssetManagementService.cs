@@ -19,6 +19,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
+using IceMilkTea.SubSystem;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -69,6 +70,8 @@ namespace IceMilkTea.Service
         private int initializedThreadId;
 
 
+        private readonly IAssetStorage storage;
+        private readonly ImtAssetDatabase assetDatabase;
 
         /// <summary>
         /// AssetManagementService のインスタンスを初期化します。
@@ -82,7 +85,14 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">installer が null です</exception>
         /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
         /// <exception cref="ArgumentNullException">storageDirectoryInfo が null です</exception>
-        public AssetManagementService(AssetBundleStorageController storageController, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher, DirectoryInfo storageDirectoryInfo, AssetBundleLoadMode loadMode)
+        public AssetManagementService(
+            AssetBundleStorageController storageController,
+            AssetBundleInstaller installer,
+            AssetBundleManifestFetcher manifestFetcher,
+            DirectoryInfo storageDirectoryInfo,
+            AssetBundleLoadMode loadMode,
+            IAssetStorage storage,
+            ImtAssetDatabase assetDatabase)
         {
             // storageがnullなら
             if (storageController == null)
@@ -115,6 +125,16 @@ namespace IceMilkTea.Service
                 throw new ArgumentNullException(nameof(storageDirectoryInfo));
             }
 
+            //あとで必ずよみがえらせるから…
+            //if(storage == null)
+            //{
+            //    throw new ArgumentNullException(nameof(storage));
+            //}
+
+            //if (assetDatabase == null)
+            //{
+            //    throw new ArgumentNullException(nameof(assetDatabase));
+            //}
 
             //// ロードモードがローカルビルドロードなら
             //if (loadMode == AssetBundleLoadMode.LocalBuild)
@@ -139,9 +159,11 @@ namespace IceMilkTea.Service
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
             manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
-            storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer);
+            storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer, storage, assetDatabase);
             this.loadMode = loadMode;
 
+            this.storage = storage;
+            this.assetDatabase = assetDatabase;
 
             // 初期化済みスレッドIDを覚える
             initializedThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
@@ -366,13 +388,17 @@ namespace IceMilkTea.Service
                 throw new InvalidOperationException($"アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに '{AssetNameQueryName}' パラメータがあることを確認してください。");
             }
 
-
             // ローカルパスを取得してアセットバンドルを開く
-            var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
-            AssetBundleInfo assetBundleInfo;
-            manifestManager.GetAssetBundleInfo(localPath, out assetBundleInfo);
-            var assetBundle = await storageManager.OpenAsync(assetBundleInfo);
+            var catalog = this.assetDatabase.GetCatalog(storageName);
+            var itemName = assetUrl.Uri.LocalPath.TrimStart('/');
+            var item = catalog.GetItem(itemName);
+            
+            if(item == null)
+            {
+                throw new InvalidOperationException($"カタログ {storageName} に {itemName} が存在しません");
+            }
 
+            var assetBundle = await storageManager.OpenAsync(catalog, item);
 
             // 結果を納める変数宣言
             T result = default(T);
