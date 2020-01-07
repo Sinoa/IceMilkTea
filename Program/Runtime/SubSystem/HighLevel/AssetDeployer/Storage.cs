@@ -116,6 +116,8 @@ namespace IceMilkTea.SubSystem
         /// ストレージが管理しているすべてのデータを削除します
         /// </summary>
         void DeleteAll();
+
+        string ToAssetFilePath(Uri uri);
     }
     #endregion
 
@@ -217,7 +219,7 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         /// <param name="uri">変換するURI</param>
         /// <returns>変換されたアセットファイルパスを返します</returns>
-        protected virtual string ToAssetFilePath(Uri uri)
+        public virtual string ToAssetFilePath(Uri uri)
         {
             // アセット格納ディレクトリパスにURIローカルパスを結合して返す
             var relativePath = uri.IsAbsoluteUri ? uri.LocalPath : uri.ToString();
