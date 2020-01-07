@@ -61,6 +61,8 @@ namespace IceMilkTea.SubSystem
         /// ハッシュ計算に使用したハッシュ名
         /// </summary>
         string HashName { get; }
+
+        string[] DependentItemNames { get; }
     }
 
 
@@ -198,13 +200,15 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         public string HashName { get; protected set; }
 
+        public string[] DependentItemNames { get; protected set; }
+
 
 
         /// <summary>
         /// ImtCatalogItem クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="item">インスタンスの初期化元になる、カタログアイテムのインターフェイス</param>
-        public ImtCatalogItem(ICatalogItem item) : this(item.Name, item.ContentLength, item.RemoteUri, item.LocalUri, item.HashData, item.HashName)
+        public ImtCatalogItem(ICatalogItem item) : this(item.Name, item.ContentLength, item.RemoteUri, item.LocalUri, item.HashData, item.HashName, item.DependentItemNames)
         {
         }
 
@@ -221,7 +225,7 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentException">name が null または 空文字列 です。</exception>
         /// <exception cref="ArgumentNullException">remoteUri が null です。</exception>
         /// <exception cref="ArgumentNullException">localUri が null です。</exception>
-        public ImtCatalogItem(string name, long contentLength, Uri remoteUri, Uri localUri, byte[] hashData, string hashName)
+        public ImtCatalogItem(string name, long contentLength, Uri remoteUri, Uri localUri, byte[] hashData, string hashName, string[] dependentItemNames)
         {
             // もしアイテム名が扱えない文字列なら
             if (string.IsNullOrWhiteSpace(name))
@@ -230,7 +234,6 @@ namespace IceMilkTea.SubSystem
                 throw new ArgumentException($"{nameof(name)} が null または 空文字列 です。", nameof(name));
             }
 
-
             // 初期化をする
             Name = name;
             ContentLength = Math.Max(contentLength, 0);
@@ -238,6 +241,7 @@ namespace IceMilkTea.SubSystem
             LocalUri = localUri ?? throw new ArgumentNullException(nameof(localUri));
             HashData = hashData == null ? Array.Empty<byte>() : (byte[])hashData.Clone();
             HashName = string.IsNullOrWhiteSpace(hashName) ? string.Empty : hashName;
+            DependentItemNames = dependentItemNames == null ? Array.Empty<string>() : dependentItemNames;
         }
     }
 

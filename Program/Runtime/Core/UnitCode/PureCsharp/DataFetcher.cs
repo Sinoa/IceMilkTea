@@ -203,58 +203,61 @@ namespace IceMilkTea.Core
         /// <exception cref="TimeoutException">HTTPの応答より先にタイムアウトしました</exception>
         /// <exception cref="WebException">HTTPの要求処理中にエラーが発生しました</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
-        public async Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
         {
-            // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
-            cancellationToken.ThrowIfCancellationRequested();
-            if (outStream == null)
+            return Task.Run(async () =>
             {
-                // 出力先ストリームが無いとどうすればよいのか
-                throw new ArgumentNullException(nameof(outStream));
-            }
-
-
-            // progress が null なら
-            if (progress == null)
-            {
-                // どうやって進捗通知をすればよいだろうか
-                throw new ArgumentNullException(nameof(progress));
-            }
-
-
-            // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
-            var request = WebRequest.CreateHttp(remoteUri);
-            var responseTask = request.GetResponseAsync();
-            var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
-            var finishTask = await Task.WhenAny(responseTask, timeoutTask);
-            if (finishTask == timeoutTask)
-            {
-                // 要求の中断を行いタイムアウト例外を投げる
-                request.Abort();
-                throw new TimeoutException("HTTPの応答より先にタイムアウトしました");
-            }
-
-
-            // レスポンスとストリームを受け取る
-            using (var response = (HttpWebResponse)responseTask.Result)
-            using (var stream = response.GetResponseStream())
-            {
-                // 状態初期化と受信バッファを生成
-                ContentLength = response.ContentLength;
-                FetchedLength = 0;
-                var buffer = new byte[bufferSize];
-
-
-                // 全てのストリームを読みきるまでループ
-                int readSize = 0;
-                while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
+                cancellationToken.ThrowIfCancellationRequested();
+                if (outStream == null)
                 {
-                    // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズと進捗を求めて進捗通知をする
-                    await outStream.WriteAsync(buffer, 0, readSize, cancellationToken);
-                    FetchedLength += readSize;
-                    progress.Report(new FetcherReport(ContentLength, FetchedLength));
+                    // 出力先ストリームが無いとどうすればよいのか
+                    throw new ArgumentNullException(nameof(outStream));
                 }
-            }
+
+
+                // progress が null なら
+                if (progress == null)
+                {
+                    // どうやって進捗通知をすればよいだろうか
+                    throw new ArgumentNullException(nameof(progress));
+                }
+
+
+                // WebRequestのインスタンスを生成してからレスポンスタスクとタイムアウトタスクを生成して、先にタイムアウトタスクが完了してしまったのなら
+                var request = WebRequest.CreateHttp(remoteUri);
+                var responseTask = request.GetResponseAsync();
+                var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
+                var finishTask = await Task.WhenAny(responseTask, timeoutTask);
+                if (finishTask == timeoutTask)
+                {
+                    // 要求の中断を行いタイムアウト例外を投げる
+                    request.Abort();
+                    throw new TimeoutException("HTTPの応答より先にタイムアウトしました");
+                }
+
+
+                // レスポンスとストリームを受け取る
+                using (var response = (HttpWebResponse)responseTask.Result)
+                using (var stream = response.GetResponseStream())
+                {
+                    // 状態初期化と受信バッファを生成
+                    ContentLength = response.ContentLength;
+                    FetchedLength = 0;
+                    var buffer = new byte[bufferSize];
+
+
+                    // 全てのストリームを読みきるまでループ
+                    int readSize = 0;
+                    while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                    {
+                        // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズと進捗を求めて進捗通知をする
+                        await outStream.WriteAsync(buffer, 0, readSize, cancellationToken).ConfigureAwait(false);
+                        FetchedLength += readSize;
+                        progress.Report(new FetcherReport(ContentLength, FetchedLength));
+                    }
+                }
+            });
         }
     }
     #endregion

@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -159,7 +160,7 @@ namespace IceMilkTea.SubSystem
                 var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
                 {
                     // 転送レートを含む監視情報を更新する
-                    report.Update(name, null, x.ContentLength, x.FetchedLength, outStream.WriteBitRate);
+                    report.Update(name, null, x.ContentLength, x.FetchedLength, outStream.WriteBitRate, 0, 1);
                     progress.Report(report);
                 });
 
@@ -185,6 +186,12 @@ namespace IceMilkTea.SubSystem
             // カタログ情報テーブルのレコード数分回る
             foreach (var name in catalogInfoTable.Keys)
             {
+                //Cancelリクエストされてるか見る
+                if(cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
                 // 単体のフェッチ関数を叩いてもし失敗を返されたら
                 var result = await FetchCatalogAsync(name, progress, cancellationToken);
                 if (result == false)
@@ -289,7 +296,7 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task UpdateAssetAsync(IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public async Task UpdateAssetAsync(IProgress<FetchReport> progress, CancellationToken cancellationToken)
         {
             // 通知オブジェクトがnullなら
             if (progress == null)
@@ -319,7 +326,7 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
         /// <returns>アセットの更新を実行しているタスクを返します</returns>
-        public async Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public async Task UpdateAssetAsync(string catalogName, IProgress<FetchReport> progress, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
@@ -333,6 +340,10 @@ namespace IceMilkTea.SubSystem
             if (newCatalog is null)
                 return;
 
+            //まずは更新が必要な全数を出す
+            var totalCount = differences.Count(x => x.Status == AssetDifferenceStatus.Update || x.Status == AssetDifferenceStatus.New);
+
+            int downloadedCount = 0;
             foreach(var diff in differences)
             {
                 if(diff.Status == AssetDifferenceStatus.Delete)
@@ -342,10 +353,21 @@ namespace IceMilkTea.SubSystem
                 else if(diff.Status == AssetDifferenceStatus.Update || diff.Status == AssetDifferenceStatus.New)
                 {
                     using(var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
+                    using (var outStream = new MonitorableStream(stream))
                     {
+                        // フェッチ用進捗通知オブジェクトとレポートオブジェクトを生成
+                        var report = new FetchReport();
+                        var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
+                        {
+                            // 転送レートを含む監視情報を更新する
+                            report.Update(null, diff.Asset.Name, x.ContentLength, x.FetchedLength, outStream.WriteBitRate, downloadedCount, totalCount);
+                            progress.Report(report);
+                        });
+
                         var fetcher = CreateFetcher(diff.Asset.RemoteUri);
-                        await fetcher.FetchAsync(stream, progress, cancellationToken);
+                        await fetcher.FetchAsync(stream, fetchProgress, cancellationToken);
                     }
+                    downloadedCount++;
                 }
             }
 
@@ -537,9 +559,19 @@ namespace IceMilkTea.SubSystem
         /// <summary>
         /// 現在の進捗割合
         /// </summary>
-        public double Progress => FetchedLength == ContentLength ? 0.0 : FetchedLength / (double)ContentLength;
+        public double Progress => FetchedLength == ContentLength ? 1.0 : FetchedLength / (double)ContentLength;
 
 
+        /// <summary>
+        /// ダウンロードしたファイル数
+        /// </summary>
+        public int DownloadedCount { get; private set; }
+
+
+        /// <summary>
+        /// ダウンロードする全ファイル数
+        /// </summary>
+        public int TotalCount { get; private set; }
 
         /// <summary>
         /// FetchCatalogMonitor クラスのインスタンスを初期化します
@@ -547,7 +579,7 @@ namespace IceMilkTea.SubSystem
         public FetchReport()
         {
             // 更新処理を呼んでおく
-            Update(null, null, 0, 0, 0);
+            Update(null, null, 0, 0, 0, 0, 0);
         }
 
 
@@ -559,7 +591,7 @@ namespace IceMilkTea.SubSystem
         /// <param name="contentLength">フェッチされるコンテンツの長さ、もし fetchedLength より小さい場合は fetchedLength と同値になります。</param>
         /// <param name="fetchedLength">フェッチされた長さ、負の値になった場合は 0 になります</param>
         /// <param name="bitRate">フェッチの転送ビットレート、負の値になった場合は 0 になります</param>
-        public void Update(string catalogName, string assetName, long contentLength, long fetchedLength, long bitRate)
+        public void Update(string catalogName, string assetName, long contentLength, long fetchedLength, long bitRate, int downloadedCount, int totalCount)
         {
             // 全パラメータを有効な状態で設定する
             CatalogName = catalogName ?? string.Empty;
@@ -567,6 +599,8 @@ namespace IceMilkTea.SubSystem
             FetchedLength = Math.Max(fetchedLength, 0);
             ContentLength = Math.Max(contentLength, FetchedLength);
             BitRate = Math.Max(bitRate, 0);
+            DownloadedCount = downloadedCount;
+            TotalCount = totalCount;
         }
     }
     #endregion
