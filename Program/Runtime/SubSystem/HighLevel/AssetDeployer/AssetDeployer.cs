@@ -388,8 +388,13 @@ namespace IceMilkTea.SubSystem
             var scheme = remoteUri.Scheme;
             if (scheme == Uri.UriSchemeHttp || scheme == Uri.UriSchemeHttps)
             {
+#if UNITY_5_3_OR_NEWER
+				// UnityWebRequestフェッチャを生成して返す
+                return new UnityWebRequestFetcher(remoteUri);
+#else 
                 // HTTP向けフェッチャを生成して返す
                 return new HttpDataFetcher(remoteUri);
+#endif
             }
             else if (scheme == Uri.UriSchemeFile)
             {
