@@ -716,9 +716,8 @@ namespace IceMilkTea.Service
                     // さらにここから動作可能なシーンを割り出す
                     for (i = i - 1; i >= 0; --i)
                     {
-                        // もしシーンの状態が Ready か Running か Sleep なら
-                        var state = sceneContextList[i].State;
-                        if (sceneContextList[i].IsReady || sceneContextList[i].IsRunning || sceneContextList[i].IsSleep)
+                        // シーンの状態がまだ生きているなら
+                        if (!sceneContextList[i].IsDestroy)
                         {
                             // このシーンを返す
                             return sceneContextList[i].Scene;
