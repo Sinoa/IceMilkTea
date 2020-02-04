@@ -207,22 +207,28 @@ namespace IceMilkTea.SubSystem
                     var catalogName = reader.ReadString();
                     var itemCount = reader.ReadInt32();
 
-
                     // コピー用リストをクリアしてアイテム数分回る
                     bufferList.Clear();
                     for (int j = 0; j < itemCount; ++j)
                     {
                         // 順序よく読み込む
                         var name = reader.ReadString();
-                        var contentLength = reader.ReadInt32();
+                        var contentLength = reader.ReadInt64();
                         var remoteUri = reader.ReadString();
                         var localUri = reader.ReadString();
                         var hashName = reader.ReadString();
                         var hashData = reader.ReadBytes(reader.ReadInt32());
 
+                        var dependentItemsCount = reader.ReadInt32();
+                        var dependentItemNames =  dependentItemsCount == 0 ? Array.Empty<string>() : new string[dependentItemsCount];
+
+                        for(int k = 0; k < dependentItemNames.Length; k++)
+                        {
+                            dependentItemNames[k] = reader.ReadString();
+                        }
 
                         // コピー用リストにアイテムを追加
-                        bufferList.Add(new ImtCatalogItem(name, contentLength, new Uri(remoteUri), new Uri(localUri), hashData, hashName));
+                        bufferList.Add(new ImtCatalogItem(name, contentLength, new Uri(remoteUri), new Uri(localUri, UriKind.Relative), hashData, hashName, dependentItemNames));
                     }
 
 
@@ -264,6 +270,12 @@ namespace IceMilkTea.SubSystem
                         writer.Write(item.HashName);
                         writer.Write(item.HashData.Length);
                         writer.Write(item.HashData);
+
+                        writer.Write(item.DependentItemNames.Length);
+                        foreach(var dependentItemName in item.DependentItemNames)
+                        {
+                            writer.Write(dependentItemName);
+                        }
                     }
                 }
             }

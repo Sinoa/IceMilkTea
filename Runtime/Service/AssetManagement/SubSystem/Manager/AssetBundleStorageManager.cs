@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
+using IceMilkTea.SubSystem;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -135,6 +136,8 @@ namespace IceMilkTea.Service
         private AssetBundleInstaller installer;
         private Dictionary<string, Task<AssetBundleManagementContext>> assetBundleTable;
 
+        private readonly IAssetStorage storage;
+        private readonly ImtAssetDatabase assetDatabase;
 
 
         /// <summary>
@@ -145,7 +148,7 @@ namespace IceMilkTea.Service
         /// <param name="installer">アセットバンドルをインストールするインストーラ</param>
         /// <exception cref="ArgumentNullException">manifestManager が null です</exception>
         /// <exception cref="ArgumentNullException">storageController が null です</exception>
-        public AssetBundleStorageManager(AssetBundleManifestManager manifestManager, AssetBundleStorageController storageController, AssetBundleInstaller installer)
+        public AssetBundleStorageManager(AssetBundleManifestManager manifestManager, AssetBundleStorageController storageController, AssetBundleInstaller installer, IAssetStorage storage, ImtAssetDatabase assetDatabase)
         {
             // null を渡されたら
             if (manifestManager == null)
@@ -176,6 +179,9 @@ namespace IceMilkTea.Service
             this.storageController = storageController;
             this.installer = installer;
 
+            this.storage = storage;
+            this.assetDatabase = assetDatabase;
+
 
             // 管理テーブルを生成する
             assetBundleTable = new Dictionary<string, Task<AssetBundleManagementContext>>(DefaultAssetBundleTableCapacity);
@@ -193,6 +199,11 @@ namespace IceMilkTea.Service
             return storageController.Exists(info);
         }
 
+        public bool ExistsAssetBundle(ICatalogItem item)
+        {
+            return this.storage.ExistsAsset(item.LocalUri);
+        }
+
 
         /// <summary>
         /// 指定されたアセットバンドル情報のアセットバンドルを非同期でインストールします
@@ -200,6 +211,7 @@ namespace IceMilkTea.Service
         /// <param name="info">インストールを行うアセットバンドル情報</param>
         /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
         /// <returns>非同期でインストールしているタスクを返します</returns>
+        [Obsolete]
         public async Task InstallAssetBundleAsync(AssetBundleInfo info, IProgress<AssetBundleInstallProgress> progress)
         {
             // 進捗通知を行うプログレスの生成を行う
@@ -241,6 +253,7 @@ namespace IceMilkTea.Service
         /// <param name="groupName">インストールするコンテンツグループ名</param>
         /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
         /// <returns>非同期でインストールしているタスクを返します</returns>
+        [Obsolete]
         public async Task InstallContentGroupAsync(string groupName, IProgress<AssetBundleInstallProgress> progress)
         {
             // もしグループ名がnullなら
@@ -271,6 +284,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
         /// <returns>非同期でインストールしているタスクを返します</returns>
+        [Obsolete]
         public async Task InstallAllAsync(IProgress<AssetBundleInstallProgress> progress)
         {
             // コンテンツグループ名すべて取得してコンテンツグループすべて回る
@@ -281,12 +295,34 @@ namespace IceMilkTea.Service
             }
         }
 
+        /// <summary>
+        /// 新規/更新/削除の情報に基づいてアセットバンドルをダウンロードないし削除します
+        /// </summary>
+        /// <param name="updates">新規/更新/削除の情報</param>
+        /// <param name="progress">インストールの進捗通知を受ける Progress。通知が不要の場合は null の指定が可能です。</param>
+        /// <returns>非同期でインストールしているタスクを返します</returns>
+        public async Task InstallUpdatedAsync(IReadOnlyList<UpdatableAssetBundleInfo> updates, IProgress<AssetBundleInstallProgress> progress)
+        {
+            for(int i = 0; i < updates.Count; i++)
+            {
+                var item = updates[i];
+                if(item.UpdateType == AssetBundleUpdateType.Remove)
+                {
+                    await RemoveAsync(item.AssetBundleInfo);
+                }
+                else //NewOrUpdated
+                {
+                    await InstallAssetBundleAsync(item.AssetBundleInfo, progress);
+                }
+            }
+        }
 
         /// <summary>
         /// 指定されたアセットバンドル情報のアセットバンドルを、非同期に削除します。
         /// </summary>
         /// <param name="info">削除するアセットバンドルの情報</param>
         /// <returns>アセットバンドルの削除を非同期に操作しているタスクを返します</returns>
+        [Obsolete]
         public Task RemoveAsync(AssetBundleInfo info)
         {
             // コントローラに削除を要求して返す
@@ -299,6 +335,7 @@ namespace IceMilkTea.Service
         /// </summary>
         /// <param name="progress">削除の進捗通知を受ける Progress。もし通知を受けない場合は null の指定が可能です</param>
         /// <returns>アセットバンドルの削除を非同期で行っているタスクを返します</returns>
+        [Obsolete]
         public Task RemoveAllAsync(IProgress<double> progress)
         {
             // コントローラに全削除を要求して返す
@@ -354,9 +391,59 @@ namespace IceMilkTea.Service
             return (await createContextTask).GetAssetBundle();
         }
 
+        public async Task<AssetBundle> OpenAsync(ImtCatalog catalog, ImtCatalogItem item)
+        {
+            foreach (var dependenceAssetBundleName in item.DependentItemNames)
+            {
+                var dependentItem = catalog.GetItem(dependenceAssetBundleName);
+                if (dependentItem == null)
+                {
+                    throw new InvalidOperationException($"アセットバンドル '{item.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
+                }
+
+                await OpenAsync(catalog, dependentItem);
+            }
+
+            // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
+            Task<AssetBundleManagementContext> context;
+            if (assetBundleTable.TryGetValue(item.Name, out context))
+            {
+                // コンテキストからアセットバンドルを取得して返す
+                return (await context).GetAssetBundle();
+            }
+
+
+            // 開こうとしているアセットバンドルがまだストレージに存在しないなら
+            if (!storage.ExistsAsset(item.LocalUri))
+            {
+                // 未インストールアセットバンドルが存在することを例外で吐く
+                throw new InvalidOperationException($"アセットバンドル '{item.Name}' がストレージにインストールされていないため開くことが出来ません");
+            }
+
+            // 新しくコントローラからアセットバンドルを開くことを要求する
+            var createContextTask = CreateAssetBundleManagementContextAsync(item);
+            assetBundleTable[item.Name] = createContextTask;
+            return (await createContextTask).GetAssetBundle();
+        }
+
         private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(AssetBundleInfo info)
         {
             var assetBundle = await storageController.OpenAsync(info);
+            return new AssetBundleManagementContext(assetBundle);
+        }
+
+        private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(ImtCatalogItem item)
+        {
+            var stream = storage.OpenAsset(item.LocalUri, AssetStorageAccess.Read);
+            // 指定されたパスのアセットバンドルを非同期で開くが開けなかったら
+            var assetBundle = await AssetBundle.LoadFromStreamAsync(stream);
+            if (assetBundle == null)
+            {
+                // アセットバンドルが開けなかったことを例外で吐く
+                throw new InvalidOperationException($"アセットバンドル '{item.Name}' を開くことが出来ませんでした");
+            }
+
+            // 開いたアセットバンドルを返す
             return new AssetBundleManagementContext(assetBundle);
         }
 

@@ -1,6 +1,6 @@
 ﻿// zlib/libpng License
 //
-// Copyright (c) 2018 Sinoa
+// Copyright (c) 2018 - 2019 Sinoa
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -429,6 +429,12 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 完了済み Awaitable を取得します
+        /// </summary>
+        public static IAwaitable CompletedAwaitable { get; } = new CompletedAwaitableImpl();
+
+
+        /// <summary>
         /// タスクが完了しているかどうか
         /// </summary>
         public virtual bool IsCompleted { get; protected set; }
@@ -652,6 +658,30 @@ namespace IceMilkTea.Core
                 throw new ObjectDisposedException(this.GetType().FullName);
             }
         }
+
+
+
+        /// <summary>
+        /// 常に完了を返し続ける Awaitable クラスです
+        /// </summary>
+        private sealed class CompletedAwaitableImpl : ImtAwaitable
+        {
+            /// <summary>
+            /// 常に true を返し続けます
+            /// </summary>
+            public override bool IsCompleted { get => true; protected set => _ = value; }
+
+
+
+            /// <summary>
+            /// このクラスは Dispose() による影響を一切受けないように上書きします
+            /// </summary>
+            /// <param name="disposing">何も実行しません</param>
+            protected override void Dispose(bool disposing)
+            {
+                // Disposedにならないように空で上書きする
+            }
+        }
     }
 
 
@@ -700,6 +730,69 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <returns>結果を返します</returns>
         public abstract TResult GetResult();
+
+
+        /// <summary>
+        /// 指定された値を返す完了済み Awaitable を生成します
+        /// </summary>
+        /// <param name="result">結果として返す値</param>
+        /// <returns>指定された値を返す完了済み Awaitable のインスタンスを返します</returns>
+        public static IAwaitable<TResult> FromResult(TResult result)
+        {
+            // 値を返す完了済みインスタンスを生成して返す
+            return new CompletedAwaitableImpl(result);
+        }
+
+
+
+        /// <summary>
+        /// 常に完了を返し続ける値を持った Awaitable クラスです
+        /// </summary>
+        private sealed class CompletedAwaitableImpl : ImtAwaitable<TResult>
+        {
+            // メンバ変数定義
+            private TResult result;
+
+
+
+            /// <summary>
+            /// 常に true を返し続けます
+            /// </summary>
+            public override bool IsCompleted { get => true; protected set => _ = value; }
+
+
+
+            /// <summary>
+            /// CompletedAwaitableImpl クラスのインスタンスを初期化します
+            /// </summary>
+            /// <param name="result">返すべき値</param>
+            public CompletedAwaitableImpl(TResult result)
+            {
+                // 返す値を覚えておく
+                this.result = result;
+            }
+
+
+            /// <summary>
+            /// この待機可能クラスの結果を取得します
+            /// </summary>
+            /// <returns>結果を返します</returns>
+            public override TResult GetResult()
+            {
+                // 覚えた結果を返す
+                return result;
+            }
+
+
+            /// <summary>
+            /// このクラスは Dispose() による影響を一切受けないように上書きします
+            /// </summary>
+            /// <param name="disposing">何も実行しません</param>
+            protected override void Dispose(bool disposing)
+            {
+                // Disposedにならないように空で上書きする
+            }
+        }
     }
     #endregion
 

@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -139,6 +140,8 @@ namespace IceMilkTea.SubSystem
             // カタログ情報を取得してフェッチャと書き込みストリームを用意
             TryGetCatalogInfo(name, out var catalogInfo);
             var fetcher = CreateFetcher(catalogInfo.RemoteUri);
+
+            // Catalogのディスク書き込みは、Catalog内Itemの更新完了後とする
             var writeStream = AssetStorage.OpenCatalog(name, AssetStorageAccess.Write);
 
 
@@ -149,7 +152,6 @@ namespace IceMilkTea.SubSystem
                 return false;
             }
 
-
             // 書き込みストリームを監視可能ストリームに包む
             using (var outStream = new MonitorableStream(writeStream))
             {
@@ -158,15 +160,13 @@ namespace IceMilkTea.SubSystem
                 var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
                 {
                     // 転送レートを含む監視情報を更新する
-                    report.Update(name, null, x.ContentLength, x.FetchedLength, outStream.WriteBitRate);
+                    report.Update(name, null, x.ContentLength, x.FetchedLength, outStream.WriteBitRate, 0, 1);
                     progress.Report(report);
                 });
-
 
                 // フェッチを非同期で実行する
                 await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
             }
-
 
             // 成功を返す
             return true;
@@ -186,6 +186,12 @@ namespace IceMilkTea.SubSystem
             // カタログ情報テーブルのレコード数分回る
             foreach (var name in catalogInfoTable.Keys)
             {
+                //Cancelリクエストされてるか見る
+                if(cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
                 // 単体のフェッチ関数を叩いてもし失敗を返されたら
                 var result = await FetchCatalogAsync(name, progress, cancellationToken);
                 if (result == false)
@@ -245,19 +251,18 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentNullException">differenceList が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList, CancellationToken cancellationToken)
+        public async Task<ICatalog> CheckUpdatableAssetAsync(string catalogName, IList<AssetDifference> differenceList, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
             ThrowExceptionIfInvalidCatalogName(catalogName);
             ThrowExceptionIfDifferenceListIsNull(differenceList);
 
-
             // ストレージに指定されたカタログ名のデータが無いのなら
             if (!AssetStorage.ExistsCatalog(catalogName))
             {
                 // 何もせず終了
-                return;
+                return null;
             }
 
 
@@ -265,18 +270,20 @@ namespace IceMilkTea.SubSystem
             if (!catalogInfoTable.ContainsKey(catalogName))
             {
                 // お取り扱いが出来ない
-                return;
+                throw new ArgumentException(catalogName);
             }
 
-
             // カタログを読み込む
-            var catalogStream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Read);
-            var catalog = await catalogInfoTable[catalogName].Reader.ReadCatalogAsync(catalogStream);
-            catalogStream.Dispose();
-
+            var catalogInfo = catalogInfoTable[catalogName];
+            var catalog = default(ICatalog);
+            using (var stream = AssetStorage.OpenCatalog(catalogName, AssetStorageAccess.Read))
+            {
+                catalog = await catalogInfo.Reader.ReadCatalogAsync(stream);
+            }
 
             // 差分判定を非同期で実行する
             await Task.Run(() => AssetDatabase.GetCatalogDifference(catalogName, catalog, differenceList), cancellationToken);
+            return catalog;
         }
 
 
@@ -289,7 +296,7 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
-        public async Task UpdateAssetAsync(IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public async Task UpdateAssetAsync(IProgress<FetchReport> progress, CancellationToken cancellationToken)
         {
             // 通知オブジェクトがnullなら
             if (progress == null)
@@ -305,6 +312,8 @@ namespace IceMilkTea.SubSystem
                 // 名前入りアセット更新を叩く
                 await UpdateAssetAsync(catalogName, progress, cancellationToken);
             }
+
+            await Task.Run(() => this.AssetDatabase.Save());
         }
 
 
@@ -317,13 +326,52 @@ namespace IceMilkTea.SubSystem
         /// <exception cref="OperationCanceledException">非同期操作がキャンセルされました</exception>
         /// <exception cref="TaskCanceledException">非同期操作がキャンセルされました</exception>
         /// <returns>アセットの更新を実行しているタスクを返します</returns>
-        public Task UpdateAssetAsync(string catalogName, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public async Task UpdateAssetAsync(string catalogName, IProgress<FetchReport> progress, CancellationToken cancellationToken)
         {
             // 例外判定を入れる
             cancellationToken.ThrowIfCancellationRequested();
             ThrowExceptionIfInvalidCatalogName(catalogName);
             ThrowExceptionIfProgressIsNull(progress);
-            throw new NotImplementedException();
+
+            var differences = new List<AssetDifference>();
+            var newCatalog = await CheckUpdatableAssetAsync(catalogName, differences, cancellationToken);
+
+            //基本的には起きないはずなんだが…
+            if (newCatalog is null)
+                return;
+
+            //まずは更新が必要な全数を出す
+            var totalCount = differences.Count(x => x.Status == AssetDifferenceStatus.Update || x.Status == AssetDifferenceStatus.New);
+
+            int downloadedCount = 0;
+            foreach(var diff in differences)
+            {
+                if(diff.Status == AssetDifferenceStatus.Delete)
+                {
+                    this.AssetStorage.DeleteAsset(diff.Asset.LocalUri);
+                }
+                else if(diff.Status == AssetDifferenceStatus.Update || diff.Status == AssetDifferenceStatus.New)
+                {
+                    using(var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
+                    using (var outStream = new MonitorableStream(stream))
+                    {
+                        // フェッチ用進捗通知オブジェクトとレポートオブジェクトを生成
+                        var report = new FetchReport();
+                        var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
+                        {
+                            // 転送レートを含む監視情報を更新する
+                            report.Update(null, diff.Asset.Name, x.ContentLength, x.FetchedLength, outStream.WriteBitRate, downloadedCount, totalCount);
+                            progress.Report(report);
+                        });
+
+                        var fetcher = CreateFetcher(diff.Asset.RemoteUri);
+                        await fetcher.FetchAsync(stream, fetchProgress, cancellationToken);
+                    }
+                    downloadedCount++;
+                }
+            }
+
+            this.AssetDatabase.UpdateCatalog(catalogName, newCatalog);
         }
         #endregion
 
@@ -340,8 +388,13 @@ namespace IceMilkTea.SubSystem
             var scheme = remoteUri.Scheme;
             if (scheme == Uri.UriSchemeHttp || scheme == Uri.UriSchemeHttps)
             {
+#if UNITY_5_3_OR_NEWER
+				// UnityWebRequestフェッチャを生成して返す
+                return new UnityWebRequestFetcher(remoteUri);
+#else 
                 // HTTP向けフェッチャを生成して返す
                 return new HttpDataFetcher(remoteUri);
+#endif
             }
             else if (scheme == Uri.UriSchemeFile)
             {
@@ -418,13 +471,22 @@ namespace IceMilkTea.SubSystem
             }
         }
         #endregion
+
+
+        #region AssetDatabase
+
+        public Task LoadAssetDatabase()
+        {
+            return Task.Run(() => this.AssetDatabase.Load());
+        }
+        #endregion
     }
 
 
 
-    #region 情報構造体
+    #region 情報
     /// <summary>
-    /// カタログを扱う情報を保持した構造体です
+    /// カタログを扱う情報を保持したクラスです
     /// </summary>
     public readonly struct CatalogInfo
     {
@@ -444,8 +506,6 @@ namespace IceMilkTea.SubSystem
         /// カタログを読み込むリーダー
         /// </summary>
         public ICatalogReader Reader { get; }
-
-
 
         /// <summary>
         /// CatalogInfo 構造体のインスタンスを初期化します
@@ -504,9 +564,19 @@ namespace IceMilkTea.SubSystem
         /// <summary>
         /// 現在の進捗割合
         /// </summary>
-        public double Progress => FetchedLength == ContentLength ? 0.0 : FetchedLength / (double)ContentLength;
+        public double Progress => FetchedLength == ContentLength ? 1.0 : FetchedLength / (double)ContentLength;
 
 
+        /// <summary>
+        /// ダウンロードしたファイル数
+        /// </summary>
+        public int DownloadedCount { get; private set; }
+
+
+        /// <summary>
+        /// ダウンロードする全ファイル数
+        /// </summary>
+        public int TotalCount { get; private set; }
 
         /// <summary>
         /// FetchCatalogMonitor クラスのインスタンスを初期化します
@@ -514,7 +584,7 @@ namespace IceMilkTea.SubSystem
         public FetchReport()
         {
             // 更新処理を呼んでおく
-            Update(null, null, 0, 0, 0);
+            Update(null, null, 0, 0, 0, 0, 0);
         }
 
 
@@ -526,7 +596,7 @@ namespace IceMilkTea.SubSystem
         /// <param name="contentLength">フェッチされるコンテンツの長さ、もし fetchedLength より小さい場合は fetchedLength と同値になります。</param>
         /// <param name="fetchedLength">フェッチされた長さ、負の値になった場合は 0 になります</param>
         /// <param name="bitRate">フェッチの転送ビットレート、負の値になった場合は 0 になります</param>
-        public void Update(string catalogName, string assetName, long contentLength, long fetchedLength, long bitRate)
+        public void Update(string catalogName, string assetName, long contentLength, long fetchedLength, long bitRate, int downloadedCount, int totalCount)
         {
             // 全パラメータを有効な状態で設定する
             CatalogName = catalogName ?? string.Empty;
@@ -534,6 +604,8 @@ namespace IceMilkTea.SubSystem
             FetchedLength = Math.Max(fetchedLength, 0);
             ContentLength = Math.Max(contentLength, FetchedLength);
             BitRate = Math.Max(bitRate, 0);
+            DownloadedCount = downloadedCount;
+            TotalCount = totalCount;
         }
     }
     #endregion
