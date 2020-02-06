@@ -18,5 +18,11 @@
     "email": "sinoa.dev@gmail.com",
     "url": "https://github.com/Sinoa/IceMilkTea"
   },
-  "type": "library"
+  "type": "library",
+  "dependencies": {
+    "com.unity.modules.assetbundle": "1.0.0",
+    "com.unity.ugui": "1.0.0",
+    "com.unity.ext.nunit": "1.0.0",
+    "com.unity.test-framework": "1.1.11"
+  }
 }
