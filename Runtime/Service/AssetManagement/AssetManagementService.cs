@@ -170,6 +170,34 @@ namespace IceMilkTea.Service
         }
 
 
+        #region ServiceEvent
+        /// <summary>
+        /// サービスの起動をします
+        /// </summary>
+        /// <param name="info">サービス起動時の情報を設定します</param>
+        protected internal override void Startup(out GameServiceStartupInfo info)
+        {
+            // サービスの起動情報を設定する
+            info = new GameServiceStartupInfo();
+            info.UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
+            {
+                // サービスの更新タイミングを登録する
+                { GameServiceUpdateTiming.MainLoopTail, MainLoopTail },
+            };
+        }
+
+
+        /// <summary>
+        /// ゲームメインループの最後のタイミングを処理します
+        /// </summary>
+        private void MainLoopTail()
+        {
+            // 未参照となったキャッシュのクリーンアップ
+            assetCache.CleanupUnreferencedCache();
+        }
+        #endregion
+
+
         #region LoadAsync
         /// <summary>
         /// 指定されたアセットURLのアセットを非同期でロードします
