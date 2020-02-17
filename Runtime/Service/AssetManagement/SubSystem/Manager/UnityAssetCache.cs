@@ -35,16 +35,19 @@ namespace IceMilkTea.Service
 
         // メンバ変数定義
         private Dictionary<UriInfo, WeakUnityAsset> assetCacheTable;
+        private IAssetManagementEventListener eventListener;
 
 
 
         /// <summary>
         /// UnityAssetCache のインスタンスを初期化します
         /// </summary>
-        public UnityAssetCache()
+        /// <param name="listener">アセット管理イベントリスナーへの参照</param>
+        public UnityAssetCache(IAssetManagementEventListener listener)
         {
             // アセットキャッシュテーブルを生成する
             assetCacheTable = new Dictionary<UriInfo, WeakUnityAsset>(DefaultCapacity);
+            eventListener = listener;
         }
 
 
@@ -85,6 +88,7 @@ namespace IceMilkTea.Service
 
             // キャッシュテーブルにもキャッシュすらない場合は新しい参照を追加する
             assetCacheTable[assetUrl] = new WeakUnityAsset(asset);
+            eventListener.OnNewAssetCached(assetUrl.Uri);
         }
 
 
@@ -119,6 +123,7 @@ namespace IceMilkTea.Service
             {
                 asset = null;
                 assetCacheTable.Remove(assetUrl);
+                eventListener.OnPurgeAssetCache(assetUrl.Uri);
                 return false;
             }
 
@@ -151,6 +156,7 @@ namespace IceMilkTea.Service
             {
                 // キャッシュテーブルから削除する
                 assetCacheTable.Remove(assetId);
+                eventListener.OnPurgeAssetCache(assetId.Uri);
             }
         }
 

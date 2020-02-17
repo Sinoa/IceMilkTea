@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+
 namespace IceMilkTea.Service
 {
     /// <summary>
@@ -20,8 +22,16 @@ namespace IceMilkTea.Service
     /// </summary>
     public interface IAssetManagementEventListener
     {
-        void NewAssetCached(string assetUri);
+        /// <summary>
+        /// アセットが新たにキャッシュされた時に呼び出されます
+        /// </summary>
+        /// <param name="assetUri">キャッシュされたアセットのURI</param>
+        void OnNewAssetCached(Uri assetUri);
 
-        void PurgeAssetCache(string assetUri);
+        /// <summary>
+        /// アセットがキャッシュテーブルからパージされた時に呼び出されます
+        /// </summary>
+        /// <param name="assetUri">パージされたアセットのURI</param>
+        void OnPurgeAssetCache(Uri assetUri);
     }
 }

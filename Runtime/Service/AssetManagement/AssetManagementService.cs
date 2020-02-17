@@ -92,7 +92,8 @@ namespace IceMilkTea.Service
             DirectoryInfo storageDirectoryInfo,
             AssetBundleLoadMode loadMode,
             IAssetStorage storage,
-            ImtAssetDatabase assetDatabase)
+            ImtAssetDatabase assetDatabase,
+            IAssetManagementEventListener listener)
         {
             // storageがnullなら
             if (storageController == null)
@@ -157,7 +158,7 @@ namespace IceMilkTea.Service
 
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
-            assetCache = new UnityAssetCache();
+            assetCache = new UnityAssetCache(listener ?? new NullAssetManagementEventListener());
             manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
             storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer, storage, assetDatabase);
             this.loadMode = loadMode;
@@ -640,6 +641,33 @@ namespace IceMilkTea.Service
             {
                 // 必ず初期化スレッドと同じスレッドじゃないと駄目
                 throw new InvalidOperationException("初期化スレッド以外からのスレッドでアクセスすることは許可されていません");
+            }
+        }
+        #endregion
+
+
+
+        #region NullAssetManagementEventListener
+        /// <summary>
+        /// 全く何もしないイベントリスナクラスです
+        /// </summary>
+        private sealed class NullAssetManagementEventListener : IAssetManagementEventListener
+        {
+            /// <summary>
+            /// この関数は何もしません
+            /// </summary>
+            /// <param name="assetUri"></param>
+            public void OnNewAssetCached(Uri assetUri)
+            {
+            }
+
+
+            /// <summary>
+            /// この関数は何もしません
+            /// </summary>
+            /// <param name="assetUri"></param>
+            public void OnPurgeAssetCache(Uri assetUri)
+            {
             }
         }
         #endregion
