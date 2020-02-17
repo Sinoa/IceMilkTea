@@ -98,8 +98,7 @@ namespace IceMilkTea.Service
         public bool TryGetAsset(UriInfo assetUrl, out UnityAsset asset)
         {
             // キャッシュテーブルから参照の取得ができなかった場合は
-            WeakUnityAsset weakUnityAsset;
-            if (!assetCacheTable.TryGetValue(assetUrl, out weakUnityAsset))
+            if (!assetCacheTable.TryGetValue(assetUrl, out var weakUnityAsset))
             {
                 // 参照を初期化して取得に失敗を返す
                 asset = null;
@@ -108,8 +107,7 @@ namespace IceMilkTea.Service
 
 
             // 参照変数からキャッシュへの参照を取得を試み結果を返す（参照が途切れてレコードの削除は別関数で行う）
-            UnityAsset assetTemp = null;
-            if(!weakUnityAsset.TryGetTarget(out assetTemp))
+            if (!weakUnityAsset.TryGetTarget(out var assetTemp))
             {
                 asset = null;
                 return false;
@@ -139,17 +137,12 @@ namespace IceMilkTea.Service
             var removeTargetList = new List<UriInfo>(assetCacheTable.Count);
             foreach (var kvp in assetCacheTable)
             {
-                // 参照からキャッシュの参照が取得できるのなら
-                UnityAsset asset;
-                if (kvp.Value.TryGetTarget(out asset))
+                // 参照からキャッシュの参照が取得でき無いのなら
+                if (!kvp.Value.TryGetTarget(out var _))
                 {
-                    // そっとそのままにしておく
-                    continue;
+                    // 削除する対象として記録する
+                    removeTargetList.Add(kvp.Key);
                 }
-
-
-                // 削除する対象として記録する
-                removeTargetList.Add(kvp.Key);
             }
 
 
