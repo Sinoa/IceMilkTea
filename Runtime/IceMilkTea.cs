@@ -461,34 +461,6 @@ namespace IceMilkTea.Core
         /// </summary>
         public Dictionary<GameServiceUpdateTiming, Action> UpdateFunctionTable { get; set; }
     }
-
-
-
-    /// <summary>
-    /// サービスが既に存在している場合にスローされる例外クラスです
-    /// </summary>
-    public class GameServiceAlreadyExistsException : Exception
-    {
-        /// <summary>
-        /// GameServiceAlreadyExistsException インスタンスの初期化をします
-        /// </summary>
-        /// <param name="serviceType">既に存在しているサービスのタイプ</param>
-        /// <param name="baseType">存在しているサービスの基本となるタイプ</param>
-        public GameServiceAlreadyExistsException(Type serviceType, Type baseType) : base($"'{serviceType.Name}'のサービスは既に、'{baseType.Name}'として存在しています")
-        {
-        }
-
-
-        /// <summary>
-        /// GameServiceAlreadyExistsException インスタンスの初期化をします
-        /// </summary>
-        /// <param name="serviceType">既に存在しているサービスのタイプ</param>
-        /// <param name="baseType">存在しているサービスの基本となるタイプ</param>
-        /// <param name="inner">この例外がスローされる原因となったら例外</param>
-        public GameServiceAlreadyExistsException(Type serviceType, Type baseType, Exception inner) : base($"'{serviceType.Name}'のサービスは既に、'{baseType.Name}'として存在しています", inner)
-        {
-        }
-    }
     #endregion
 
 
