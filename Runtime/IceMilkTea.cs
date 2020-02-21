@@ -696,47 +696,6 @@ namespace IceMilkTea.Core
 
 
     /// <summary>
-    /// ゲームのサブシステムをサービスとして提供するための基本クラスです。
-    /// ゲームのサブシステムを実装する場合は、このクラスを継承し適切な振る舞いを実装してください。
-    /// </summary>
-    public abstract class GameService
-    {
-        /// <summary>
-        /// サービスを起動します。
-        /// </summary>
-        /// <param name="info">サービスが起動する時に必要とする情報を設定します</param>
-        protected internal virtual void Startup(out GameServiceStartupInfo info)
-        {
-            // 特に何もしない起動情報を設定して修了
-            info = new GameServiceStartupInfo()
-            {
-                UpdateFunctionTable = null,
-            };
-        }
-
-
-        /// <summary>
-        /// ゲームアプリケーションが終了することを許可するかどうかを判断します。
-        /// </summary>
-        /// <returns>アプリケーションが終了することを許可する場合は GameShutdownAnswer.Approve を、許可しない場合は GameShutdownAnswer.Reject を返します</returns>
-        protected internal virtual GameShutdownAnswer JudgeGameShutdown()
-        {
-            // 通常は許可をする
-            return GameShutdownAnswer.Approve;
-        }
-
-
-        /// <summary>
-        /// サービスをシャットダウンします
-        /// </summary>
-        protected internal virtual void Shutdown()
-        {
-        }
-    }
-
-
-
-    /// <summary>
     /// IceMilkTeaのゲームサービスを管理及び制御を行うクラスです。
     /// </summary>
     public class GameServiceManager
