@@ -19,7 +19,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.LowLevel;
-using UnityEngine.PlayerLoop;
 using UnityObject = UnityEngine.Object;
 
 namespace IceMilkTea.Core
@@ -717,32 +716,6 @@ namespace IceMilkTea.Core
         /// <param name="baseType">存在しているサービスの基本となるタイプ</param>
         /// <param name="inner">この例外がスローされる原因となったら例外</param>
         public GameServiceAlreadyExistsException(Type serviceType, Type baseType, Exception inner) : base($"'{serviceType.Name}'のサービスは既に、'{baseType.Name}'として存在しています", inner)
-        {
-        }
-    }
-
-
-
-    /// <summary>
-    /// サービスが見つからなかった場合にスローされる例外クラスです
-    /// </summary>
-    public class GameServiceNotFoundException : Exception
-    {
-        /// <summary>
-        /// GameServiceNotFoundException インスタンスの初期化をします
-        /// </summary>
-        /// <param name="serviceType">見つけられなかったサービスのタイプ</param>
-        public GameServiceNotFoundException(Type serviceType) : base($"'{serviceType.Name}'のサービスを見つけられませんでした")
-        {
-        }
-
-
-        /// <summary>
-        /// GameServiceNotFoundException インスタンスの初期化をします
-        /// </summary>
-        /// <param name="serviceType">見つけられなかったサービスのタイプ</param>
-        /// <param name="inner">この例外がスローされる原因となった例外</param>
-        public GameServiceNotFoundException(Type serviceType, Exception inner) : base($"'{serviceType.Name}'のサービスを見つけられませんでした", inner)
         {
         }
     }
