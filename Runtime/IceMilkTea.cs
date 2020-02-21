@@ -432,26 +432,6 @@ namespace IceMilkTea.Core
 
 
 
-    #region GameService
-    /// <summary>
-    /// ゲームが終了要求に対する答えを表します
-    /// </summary>
-    public enum GameShutdownAnswer
-    {
-        /// <summary>
-        /// ゲームが終了することを許可します
-        /// </summary>
-        Approve,
-
-        /// <summary>
-        /// ゲームが終了することを拒否します
-        /// </summary>
-        Reject,
-    }
-    #endregion
-
-
-
     #region Utility
     /// <summary>
     /// Unity関連実装でユーティリティな関数として使えるような、関数が実装されているクラスです
