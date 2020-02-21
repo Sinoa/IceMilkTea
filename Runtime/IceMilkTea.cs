@@ -448,19 +448,6 @@ namespace IceMilkTea.Core
         /// </summary>
         Reject,
     }
-
-
-
-    /// <summary>
-    /// ゲームサービスが動作を開始するための情報を保持する構造体です
-    /// </summary>
-    public struct GameServiceStartupInfo
-    {
-        /// <summary>
-        /// サービスが更新処理として必要としている更新関数テーブル
-        /// </summary>
-        public Dictionary<GameServiceUpdateTiming, Action> UpdateFunctionTable { get; set; }
-    }
     #endregion
 
 
