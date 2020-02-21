@@ -18,40 +18,6 @@ using UnityObject = UnityEngine.Object;
 
 namespace IceMilkTea.Core
 {
-    #region PlayerLoop
-    /// <summary>
-    /// ループシステムの挿入をする時、対象の型に対して挿入するタイミングを指示します
-    /// </summary>
-    public enum InsertTiming
-    {
-        /// <summary>
-        /// 対象の前に挿入を指示します
-        /// </summary>
-        BeforeInsert,
-
-        /// <summary>
-        /// 対象の後に挿入を指示します
-        /// </summary>
-        AfterInsert,
-    }
-
-
-
-    /// <summary>
-    /// ループシステムに挿入するユーザーカスタムの更新抽象クラスです
-    /// </summary>
-    public abstract class PlayerLoopUpdater
-    {
-        /// <summary>
-        /// ループシステムによって実行される更新関数です
-        /// </summary>
-        protected internal abstract void Update();
-    }
-    #endregion
-
-
-
-    #region Utility
     /// <summary>
     /// Unity関連実装でユーティリティな関数として使えるような、関数が実装されているクラスです
     /// </summary>
@@ -111,5 +77,4 @@ namespace IceMilkTea.Core
             return gameObject;
         }
     }
-    #endregion
 }
