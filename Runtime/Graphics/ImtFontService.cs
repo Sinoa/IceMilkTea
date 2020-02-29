@@ -26,7 +26,7 @@ namespace IceMilkTea.Graphics
     public class ImtFontService : GameService
     {
         // 以下メンバ変数定義
-        private readonly Dictionary<Font, List<IImtTextRendererMetaData>> rendererTable;
+        private readonly Dictionary<Font, HashSet<IImtTextRendererMetaData>> rendererTable;
         private readonly Action<string, int, FontStyle> requestFunction;
         private Font currentControlFont;
 
@@ -38,7 +38,7 @@ namespace IceMilkTea.Graphics
         public ImtFontService()
         {
             // テーブルと関数参照の用意
-            rendererTable = new Dictionary<Font, List<IImtTextRendererMetaData>>();
+            rendererTable = new Dictionary<Font, HashSet<IImtTextRendererMetaData>>();
             requestFunction = RequestCharacters;
         }
 
@@ -53,7 +53,7 @@ namespace IceMilkTea.Graphics
             info = new GameServiceStartupInfo()
             {
                 // 更新関数テーブルの初期化
-                UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, System.Action>()
+                UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
                 {
                     { GameServiceUpdateTiming.PostLateUpdate, PostLateUpdate },
                 }
@@ -100,19 +100,38 @@ namespace IceMilkTea.Graphics
         /// <summary>
         /// サービスにテキスト描画メタデータを登録します
         /// </summary>
+        /// <param name="font">対象のメタデータが使用するフォント</param>
         /// <param name="metaData">登録するメタデータ</param>
         public void RegisterRendererMetaData(Font font, IImtTextRendererMetaData metaData)
         {
+            // フォントからメタデータセットを引っ張り出せないのなら
+            if (!rendererTable.TryGetValue(font, out var metaDataSet))
+            {
+                // 新しくセットを生成してテーブルに設定する
+                metaDataSet = new HashSet<IImtTextRendererMetaData>();
+                rendererTable[font] = metaDataSet;
+            }
+
+
+            // セットに追加する
+            metaDataSet.Add(metaData);
         }
 
 
         /// <summary>
         /// サービスからテキスト描画メタデータを解除します
         /// </summary>
-        /// <param name="font"></param>
-        /// <param name="metaData"></param>
+        /// <param name="font">対象のメタデータが使用するフォント</param>
+        /// <param name="metaData">解除するメタデータ</param>
         public void UnregisterRendererMetaData(Font font, IImtTextRendererMetaData metaData)
         {
+            // そもそも対象フォントのキーが無いなら終了
+            if (!rendererTable.ContainsKey(font ?? throw new ArgumentNullException(nameof(font)))) return;
+
+
+            // 対象のセットから指定されたメタデータの登録を解除する
+            var metaDataSet = rendererTable[font];
+            metaDataSet.Remove(metaData);
         }
     }
 }
