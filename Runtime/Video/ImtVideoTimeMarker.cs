@@ -17,13 +17,15 @@ namespace IceMilkTea.Video
 {
     public class ImtVideoTimeMarker
     {
+        public int ID { get; }
         public float MarkedTime { get; }
         public object UserObject { get; }
 
 
 
-        public ImtVideoTimeMarker(float time, object userObject)
+        public ImtVideoTimeMarker(int id, float time, object userObject)
         {
+            ID = id;
             MarkedTime = time;
             UserObject = userObject;
         }

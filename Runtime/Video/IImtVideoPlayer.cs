@@ -26,7 +26,7 @@ namespace IceMilkTea.Video
         void Stop();
 
 
-        void AddMarker(float time, object userObject);
+        void AddMarker(int id, float time, object userObject);
 
 
         void AddMarker(ImtVideoTimeMarker marker);

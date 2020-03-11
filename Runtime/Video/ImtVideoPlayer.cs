@@ -87,9 +87,9 @@ namespace IceMilkTea.Video
         }
 
 
-        public void AddMarker(float time, object userObject)
+        public void AddMarker(int id, float time, object userObject)
         {
-            AddMarker(new ImtVideoTimeMarker(time, userObject));
+            AddMarker(new ImtVideoTimeMarker(id, time, userObject));
         }
 
 
