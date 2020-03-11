@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Video;
+using System.Linq;
 
 namespace IceMilkTea.Video
 {
@@ -25,33 +26,51 @@ namespace IceMilkTea.Video
         private List<ImtVideoTimeMarker> markerList;
         private List<IImtVideoPlayerEventListener> eventListenerList;
         private VideoPlayer unityVideoPlayer;
-        private RenderTexture renderTarget;
+        private Queue<ImtVideoTimeMarker> markerQueue;
 
 
 
-        public RenderTexture RenderTarget => renderTarget;
+        public RenderTexture RenderTarget => unityVideoPlayer.targetTexture;
 
 
 
         public static ImtVideoPlayer Create(VideoClip videoClip)
         {
-            throw new NotImplementedException();
+            return Create(videoClip, new RenderTexture((int)videoClip.width, (int)videoClip.height, 0, RenderTextureFormat.BGRA32, 0));
         }
 
 
         public static ImtVideoPlayer Create(VideoClip videoClip, RenderTexture outsideRenderTexture)
         {
-            throw new NotImplementedException();
+            var gameObject = GetOrCreateVideoPlayerGameObject();
+            var videoPlayer = CreateVideoPlayerComponent(gameObject);
+            videoPlayer.unityVideoPlayer.clip = videoClip;
+            videoPlayer.unityVideoPlayer.targetTexture = outsideRenderTexture;
+
+
+            return videoPlayer;
         }
 
 
-        public static ImtVideoPlayer Create(VideoClip videoClip, Camera directRenderTargetCamera)
+        private static ImtVideoPlayer CreateVideoPlayerComponent(GameObject gameObject)
         {
-            throw new NotImplementedException();
+            var videoPlayer = gameObject.AddComponent<VideoPlayer>();
+            var imtVideoPlayer = gameObject.AddComponent<ImtVideoPlayer>();
+            videoPlayer.playOnAwake = false;
+            videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+            videoPlayer.isLooping = false;
+            videoPlayer.aspectRatio = VideoAspectRatio.FitVertically;
+
+
+            imtVideoPlayer.unityVideoPlayer = videoPlayer;
+            imtVideoPlayer.markerList = new List<ImtVideoTimeMarker>();
+            imtVideoPlayer.eventListenerList = new List<IImtVideoPlayerEventListener>();
+            imtVideoPlayer.markerQueue = new Queue<ImtVideoTimeMarker>();
+            return imtVideoPlayer;
         }
 
 
-        private GameObject GetOrCreateVideoPlayerGameObject()
+        private static GameObject GetOrCreateVideoPlayerGameObject()
         {
             var gameObjectName = "__IMT_VIDEOPLAYER_GAMEOBJECT__";
             var gameObject = GameObject.Find(gameObjectName);
@@ -74,16 +93,53 @@ namespace IceMilkTea.Video
 
         public void Play()
         {
+            if (unityVideoPlayer.isPlaying) return;
+
+
+            if (!unityVideoPlayer.isPaused)
+            {
+                markerQueue.Clear();
+                foreach (var marker in markerList.OrderBy(x => x.MarkedTime))
+                {
+                    markerQueue.Enqueue(marker);
+                }
+            }
+
+
+            unityVideoPlayer.Play();
+            foreach (var listener in eventListenerList)
+            {
+                listener.OnPlayVideo(this);
+            }
         }
 
 
         public void Pause()
         {
+            if (unityVideoPlayer.isPrepared) return;
+
+
+            unityVideoPlayer.Pause();
+            foreach (var listener in eventListenerList)
+            {
+                listener.OnPauseVideo(this);
+            }
         }
 
 
         public void Stop()
         {
+            if (!unityVideoPlayer.isPlaying && !unityVideoPlayer.isPaused)
+            {
+                return;
+            }
+
+
+            unityVideoPlayer.Stop();
+            foreach (var listener in eventListenerList)
+            {
+                listener.OnStopVideo(this);
+            }
         }
 
 
@@ -95,17 +151,48 @@ namespace IceMilkTea.Video
 
         public void AddMarker(ImtVideoTimeMarker marker)
         {
-            throw new NotImplementedException();
+            markerList.Add(marker);
         }
 
 
         public void AddEventListener(IImtVideoPlayerEventListener listener)
         {
+            if (eventListenerList.Contains(listener)) return;
+            eventListenerList.Add(listener);
         }
 
 
         public void RemoveEventListener(IImtVideoPlayerEventListener listener)
         {
+            eventListenerList.Remove(listener);
+        }
+
+
+        private void RaiseMarkerEvent(ImtVideoTimeMarker marker)
+        {
+            foreach (var listener in eventListenerList)
+            {
+                listener.OnVideoTimeMarkerTriggered(this, marker);
+            }
+        }
+
+
+        private void Update()
+        {
+            if (markerQueue.Count == 0) return;
+
+
+            var marker = markerQueue.Peek();
+            while (marker != null && unityVideoPlayer.time >= marker.MarkedTime)
+            {
+                RaiseMarkerEvent(marker);
+
+
+                if (markerQueue.Count == 0) break;
+
+
+                marker = markerQueue.Dequeue();
+            }
         }
     }
 }
