@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -22,14 +23,31 @@ namespace IceMilkTea.UI
 {
     public class TextAnimator : UIBehaviour, IMeshModifier
     {
-        public void ModifyMesh(Mesh mesh)
+        public new void OnValidate()
         {
-            throw new NotImplementedException();
+            base.OnValidate();
+
+            var graphics = base.GetComponent<Graphic>();
+            if (graphics != null)
+            {
+                graphics.SetVerticesDirty();
+            }
         }
 
+        public void ModifyMesh(Mesh mesh) { }
         public void ModifyMesh(VertexHelper verts)
         {
-            throw new NotImplementedException();
+            List<UIVertex> stream = new List<UIVertex>();
+            verts.GetUIVertexStream(stream);
+
+            modify(ref stream);
+
+            verts.Clear();
+            verts.AddUIVertexTriangleStream(stream);
+        }
+
+        void modify(ref List<UIVertex> stream)
+        {
         }
     }
 }
