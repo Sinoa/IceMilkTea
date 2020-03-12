@@ -48,6 +48,20 @@ namespace IceMilkTea.UI
 
         void modify(ref List<UIVertex> stream)
         {
+            Debug.Log("Log");
+            for (int i = 0, streamCount = stream.Count; i < streamCount; i += 6)
+            {
+                var center = Vector2.Lerp(stream[i].position, stream[i + 3].position, 0.5f);
+                for (int r = 0; r < 6; r++)
+                {
+                    var element = stream[i + r];
+
+                    var pos = element.position - (Vector3)center;
+                    element.position = (Vector3)(pos + new Vector3(center.x, center.y, 0.0f));
+
+                    stream[i + r] = element;
+                }
+            }
         }
     }
 }
