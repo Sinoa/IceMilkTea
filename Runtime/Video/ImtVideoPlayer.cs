@@ -116,7 +116,7 @@ namespace IceMilkTea.Video
 
         public void Pause()
         {
-            if (unityVideoPlayer.isPrepared) return;
+            if (unityVideoPlayer.isPaused) return;
 
 
             unityVideoPlayer.Pause();
