@@ -320,6 +320,11 @@ public class TestAnimation : BaseMeshEffect
 
         for (int i = 0; i < verts.Count; i++)
         {
+            var maxGlyphSize = Vector2.zero;
+            var text = "";
+            var size = 12;
+
+
             if (i % 4 == 0)
             {
                 currentCharacterNumber = i / 4;
@@ -392,6 +397,22 @@ public class TestAnimation : BaseMeshEffect
                 }
 
                 Color col = uiVertex0.color;
+
+                foreach (var character in text)
+                {
+                    // 文字情報の取得をするが出来なかったら（本来は事前にリクエストしているので取得できるはず）
+                    CharacterInfo info;
+                    if (!Font.GetCharacterInfo(character, out info, size, style))
+                    {
+                        // そのまま次へ
+                        continue;
+                    }
+
+
+                    // グリフの最大値を更新する
+                    maxGlyphSize.x = Mathf.Max(maxGlyphSize.x, info.glyphWidth);
+                    maxGlyphSize.y = Mathf.Max(maxGlyphSize.y, info.glyphHeight);
+                }
 
                 if (useColor)
                 {
