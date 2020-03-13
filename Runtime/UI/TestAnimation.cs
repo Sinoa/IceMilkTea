@@ -1,8 +1,8 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using System.Collections;
-using System.Collections.Generic;
 
 public class TestAnimation : BaseMeshEffect
 {
@@ -352,20 +352,6 @@ public class TestAnimation : BaseMeshEffect
                         float centerX = (uiVertex1.position.x - uiVertex3.position.x) * scalePivot.x + uiVertex3.position.x;
                         float centerY = (uiVertex1.position.y - uiVertex3.position.y) * scalePivot.y + uiVertex3.position.y;
                         Vector3 center = new Vector3(centerX, centerY, 0);
-                        uiVertex0.position = (uiVertex0.position - center) * offset + center;
-                        uiVertex1.position = (uiVertex1.position - center) * offset + center;
-                        uiVertex2.position = (uiVertex2.position - center) * offset + center;
-                        uiVertex3.position = (uiVertex3.position - center) * offset + center;
-
-                    }
-                    else
-                    {
-
-                        float temp = scaleAnimationCurve.Evaluate(SeparationRate(progress, currentCharacterNumber, characterNumber, scaleSeparation));
-                        float offset = (scaleTo - scaleFrom) * temp + scaleFrom;
-                        float centerX = (uiVertex1.position.x - uiVertex3.position.x) * scalePivot.x + uiVertex3.position.x;
-                        float centerY = (uiVertex1.position.y - uiVertex3.position.y) * scalePivot.y + uiVertex3.position.y;
-                        Vector3 center = new Vector3(centerX, centerY, 0);
                         uiVertex0.position = new Vector3(((uiVertex0.position - center) * offset + center).x, uiVertex0.position.y, uiVertex0.position.z);
                         uiVertex1.position = new Vector3(((uiVertex1.position - center) * offset + center).x, uiVertex1.position.y, uiVertex1.position.z);
                         uiVertex2.position = new Vector3(((uiVertex2.position - center) * offset + center).x, uiVertex2.position.y, uiVertex2.position.z);
@@ -381,19 +367,18 @@ public class TestAnimation : BaseMeshEffect
                         uiVertex2.position = new Vector3(uiVertex2.position.x, ((uiVertex2.position - center) * offset + center).y, uiVertex2.position.z);
                         uiVertex3.position = new Vector3(uiVertex3.position.x, ((uiVertex3.position - center) * offset + center).y, uiVertex3.position.z);
                     }
-                }
-
-                if (useRotation)
-                {
-                    float temp = rotationAnimationCurve.Evaluate(SeparationRate(progress, currentCharacterNumber, characterNumber, rotationSeparation));
-                    float offset = (rotationTo - rotationFrom) * temp + rotationFrom;
-                    float centerX = (uiVertex1.position.x - uiVertex3.position.x) * rotationPivot.x + uiVertex3.position.x;
-                    float centerY = (uiVertex1.position.y - uiVertex3.position.y) * rotationPivot.y + uiVertex3.position.y;
-                    Vector3 center = new Vector3(centerX, centerY, 0);
-                    uiVertex0.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex0.position - center) + center;
-                    uiVertex1.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex1.position - center) + center;
-                    uiVertex2.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex2.position - center) + center;
-                    uiVertex3.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex3.position - center) + center;
+                    else
+                    {
+                        float temp = scaleAnimationCurve.Evaluate(SeparationRate(progress, currentCharacterNumber, characterNumber, scaleSeparation));
+                        float offset = (scaleTo - scaleFrom) * temp + scaleFrom;
+                        float centerX = (uiVertex1.position.x - uiVertex3.position.x) * scalePivot.x + uiVertex3.position.x;
+                        float centerY = (uiVertex1.position.y - uiVertex3.position.y) * scalePivot.y + uiVertex3.position.y;
+                        Vector3 center = new Vector3(centerX, centerY, 0);
+                        uiVertex0.position = (uiVertex0.position - center) * offset + center;
+                        uiVertex1.position = (uiVertex1.position - center) * offset + center;
+                        uiVertex2.position = (uiVertex2.position - center) * offset + center;
+                        uiVertex3.position = (uiVertex3.position - center) * offset + center;
+                    }
                 }
 
                 Color col = uiVertex0.color;
@@ -412,6 +397,20 @@ public class TestAnimation : BaseMeshEffect
                     // グリフの最大値を更新する
                     maxGlyphSize.x = Mathf.Max(maxGlyphSize.x, info.glyphWidth);
                     maxGlyphSize.y = Mathf.Max(maxGlyphSize.y, info.glyphHeight);
+                }
+
+
+                if (useRotation)
+                {
+                    float temp = rotationAnimationCurve.Evaluate(SeparationRate(progress, currentCharacterNumber, characterNumber, rotationSeparation));
+                    float offset = (rotationTo - rotationFrom) * temp + rotationFrom;
+                    float centerX = (uiVertex1.position.x - uiVertex3.position.x) * rotationPivot.x + uiVertex3.position.x;
+                    float centerY = (uiVertex1.position.y - uiVertex3.position.y) * rotationPivot.y + uiVertex3.position.y;
+                    Vector3 center = new Vector3(centerX, centerY, 0);
+                    uiVertex0.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex0.position - center) + center;
+                    uiVertex1.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex1.position - center) + center;
+                    uiVertex2.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex2.position - center) + center;
+                    uiVertex3.position = Quaternion.AngleAxis(offset, Vector3.forward) * (uiVertex3.position - center) + center;
                 }
 
                 if (useColor)
