@@ -60,6 +60,9 @@ namespace IceMilkTea.UI
         private TextAlignment textAlignment;
         [SerializeField]
         private bool forceProportional;
+        [Header("AnimationSetting")]
+        [SerializeField]
+        private ImtTextAnimator textAnimator;
         [Header("GameText")]
         [SerializeField]
         [TextArea(5, 10)]
@@ -157,6 +160,7 @@ namespace IceMilkTea.UI
             // ベースのAwakeを呼んでから初期化を行う
             base.Awake();
             Initialize();
+            textAnimator?.Initialize(this);
         }
 
 
@@ -201,7 +205,7 @@ namespace IceMilkTea.UI
 
             // フォントと頂点キャッシュの生成
             fontData = new RubyableTextFontData(font ?? Resources.GetBuiltinResource<Font>("Arial.ttf"), requestMainFontSize, requestRubyFontSize, style, style, gameText);
-            verticesCache = new RubyableTextVerticesCache(1024);
+            verticesCache = new RubyableTextVerticesCache(1024, textAnimator);
 
 
             // ビルド設定を設定する
@@ -1711,6 +1715,7 @@ namespace IceMilkTea.UI
         private UIVertex[] translateBuffer;
         private int mainCharacterCount;
         private int rubyCharacterCount;
+        private ImtTextAnimator textAnimator;
 
 
 
@@ -1736,6 +1741,16 @@ namespace IceMilkTea.UI
         /// <param name="initialCharacterCapacity">初期確保する本文とルビを含む文字容量</param>
         public RubyableTextVerticesCache(int initialCharacterCapacity)
         {
+        }
+
+
+        /// <summary>
+        /// RubyableTextVerticesCache のインスタンスを初期化します
+        /// </summary>
+        /// <param name="initialCharacterCapacity">初期確保する本文とルビを含む文字容量</param>
+        /// <param name="textAnimator">生成された頂点に対してアニメーションする場合のテキストアニメータ</param>
+        public RubyableTextVerticesCache(int initialCharacterCapacity, ImtTextAnimator textAnimator)
+        {
             // メンバの初期化をして、頂点キャッシュを確保する（1文字4頂点分なので4倍）
             BoundingRect = Rect.zero;
             verticesCache = new UIVertex[initialCharacterCapacity * 4];
@@ -1743,6 +1758,10 @@ namespace IceMilkTea.UI
 
             // 転送バッファを用意する
             translateBuffer = new UIVertex[4];
+
+
+            // テキストアニメータも覚える
+            this.textAnimator = textAnimator;
         }
         #endregion
 
@@ -2385,6 +2404,7 @@ namespace IceMilkTea.UI
                 translateBuffer[1] = verticesCache[i * 4 + 1];
                 translateBuffer[2] = verticesCache[i * 4 + 2];
                 translateBuffer[3] = verticesCache[i * 4 + 3];
+                textAnimator.AnimateCharaVertex(translateBuffer, i, 0);
                 uploadHandler(translateBuffer);
             }
         }
@@ -2417,6 +2437,7 @@ namespace IceMilkTea.UI
                 translateBuffer[1] = verticesCache[index * 4 + 1];
                 translateBuffer[2] = verticesCache[index * 4 + 2];
                 translateBuffer[3] = verticesCache[index * 4 + 3];
+                textAnimator.AnimateCharaVertex(translateBuffer, 0, i);
                 uploadHandler(translateBuffer);
             }
         }
