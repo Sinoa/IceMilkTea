@@ -182,8 +182,14 @@ namespace IceMilkTea.Video
             if (markerQueue.Count == 0) return;
 
 
-            var marker = markerQueue.Dequeue();
-            while (marker != null && unityVideoPlayer.time >= marker.MarkedTime)
+            var marker = markerQueue.Peek();
+            if (unityVideoPlayer.time < marker.MarkedTime)
+            {
+                return;
+            }
+
+
+            while (marker != null)
             {
                 RaiseMarkerEvent(marker);
                 if (markerQueue.Count == 0)
