@@ -189,16 +189,13 @@ namespace IceMilkTea.Video
             }
 
 
-            while (marker != null)
+            while ((marker = markerQueue.Dequeue()) != null)
             {
                 RaiseMarkerEvent(marker);
                 if (markerQueue.Count == 0)
                 {
                     break;
                 }
-
-
-                marker = markerQueue.Dequeue();
             }
         }
     }
