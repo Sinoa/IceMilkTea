@@ -24,6 +24,8 @@ namespace IceMilkTea.UI
 
         private float charaPerSecond;
         private float startTime;
+        private int currentDecorationEntryIndex;
+        private int shownRubyTextIndex;
 
 
 
@@ -44,13 +46,27 @@ namespace IceMilkTea.UI
         {
             startTime = Time.time;
             enabled = true;
+            currentDecorationEntryIndex = 0;
+            shownRubyTextIndex = 0;
+
+
+            if (TargetRubyableText.DecorationEntryCount == 0)
+            {
+                return;
+            }
+        }
+
+
+        private int GetShownCharaCount()
+        {
+            var elapseTime = Time.time - startTime;
+            return (int)(elapseTime / charaPerSecond);
         }
 
 
         public override void AnimateMainCharaVertex(UIVertex[] charVertexces, int textIndex)
         {
-            var elapseTime = Time.time - startTime;
-            var shownCharaCount = (int)(elapseTime / charaPerSecond);
+            var shownCharaCount = GetShownCharaCount();
             if (TargetRubyableText.MainText.Length < shownCharaCount)
             {
                 enabled = false;
@@ -59,6 +75,41 @@ namespace IceMilkTea.UI
 
 
             if (textIndex <= shownCharaCount)
+            {
+                return;
+            }
+
+
+            for (int i = 0; i < charVertexces.Length; ++i)
+            {
+                var vertex = charVertexces[i];
+                vertex.position = Vector3.zero;
+                charVertexces[i] = vertex;
+            }
+        }
+
+
+        public override void AnimateRubyCharaVertex(UIVertex[] charVertexces, int textIndex)
+        {
+            if (TargetRubyableText.DecorationEntryCount == 0)
+            {
+                return;
+            }
+
+
+            TargetRubyableText.TryGetDecorationEntry(currentDecorationEntryIndex, out var entry);
+            var shownMainCharaCount = GetShownCharaCount();
+            if (shownMainCharaCount >= (entry.MainTextStartIndex + entry.MainTextCharacterCount - 1))
+            {
+                shownRubyTextIndex = entry.RubyTextStartIndex + entry.RubyTextCharacterCount;
+                if ((TargetRubyableText.DecorationEntryCount - 1) > currentDecorationEntryIndex)
+                {
+                    ++currentDecorationEntryIndex;
+                }
+            }
+
+
+            if (textIndex < shownRubyTextIndex)
             {
                 return;
             }
