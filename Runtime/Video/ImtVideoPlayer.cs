@@ -179,23 +179,17 @@ namespace IceMilkTea.Video
 
         private void Update()
         {
-            if (markerQueue.Count == 0) return;
-
-
-            var marker = markerQueue.Peek();
-            if (unityVideoPlayer.time < marker.MarkedTime)
+            while (markerQueue.Count > 1)
             {
-                return;
-            }
-
-
-            while ((marker = markerQueue.Dequeue()) != null)
-            {
-                RaiseMarkerEvent(marker);
-                if (markerQueue.Count == 0)
+                var marker = markerQueue.Peek();
+                if (unityVideoPlayer.time < marker.MarkedTime)
                 {
                     break;
                 }
+
+
+                marker = markerQueue.Dequeue();
+                RaiseMarkerEvent(marker);
             }
         }
     }
