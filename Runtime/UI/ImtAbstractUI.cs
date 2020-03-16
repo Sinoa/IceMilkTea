@@ -32,43 +32,43 @@ namespace IceMilkTea.UI
         /// <summary>
         /// 表示に必要な横幅を返します。
         /// </summary>
-        public float preferredWidth => cachedBoundingRect.width;
+        public virtual float preferredWidth => cachedBoundingRect.width;
 
 
         /// <summary>
         /// 表示に必要な縦幅を返します。
         /// </summary>
-        public float preferredHeight => cachedBoundingRect.height;
+        public virtual float preferredHeight => cachedBoundingRect.height;
 
 
         /// <summary>
         /// 最小の横幅を返します。常に 0.0 を返します。
         /// </summary>
-        public float minWidth => 0.0f;
+        public virtual float minWidth => 0.0f;
 
 
         /// <summary>
         /// 最小の縦幅を返します。常に 0.0 を返します
         /// </summary>
-        public float minHeight => 0.0f;
+        public virtual float minHeight => 0.0f;
 
 
         /// <summary>
         /// 残りのサイズに対して割り当てる割合。常に -1.0(disable) を返します
         /// </summary>
-        public float flexibleWidth => -1.0f;
+        public virtual float flexibleWidth => -1.0f;
 
 
         /// <summary>
         /// 残りのサイズに対して割り当てる割合。常に -1.0(disable) を返します
         /// </summary>
-        public float flexibleHeight => -1.0f;
+        public virtual float flexibleHeight => -1.0f;
 
 
         /// <summary>
         /// レイアウト計算の優先順位。常に 0 を返します
         /// </summary>
-        public int layoutPriority => 0;
+        public virtual int layoutPriority => 0;
 
 
 

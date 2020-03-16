@@ -25,7 +25,6 @@ namespace IceMilkTea.UI
     {
         // メンバ変数定義
         private string text;
-        private Rect cachedBoundingRect;
 
 
 
