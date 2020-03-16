@@ -134,7 +134,25 @@ namespace IceMilkTea.UI
         /// <summary>
         /// テキストを取得設定します
         /// </summary>
-        public string Text { get { return text; } set { text = value; needRebuild = true; gameText.Parse(text); SetAllDirty(); } }
+        public string Text { get { return text; } set { text = value; needRebuild = true; gameText.Parse(text); SetAllDirty(); textAnimator?.OnTextChanged(); } }
+
+
+        /// <summary>
+        /// 本文テキストを取得します
+        /// </summary>
+        public string MainText => gameText.MainText;
+
+
+        /// <summary>
+        /// ルビテキストを取得します
+        /// </summary>
+        public string RubyText => gameText.RubyText;
+
+
+        /// <summary>
+        /// 装飾エントリ情報カウントを取得します
+        /// </summary>
+        public int DecorationEntryCount => gameText.DecorationEntryCount;
         #endregion
 
 
@@ -177,6 +195,18 @@ namespace IceMilkTea.UI
 
 
         #region 汎用ロジック関数群
+        /// <summary>
+        /// 指定されたインデックスの装飾エントリを取得します
+        /// </summary>
+        /// <param name="index">取り出すエントリのインデックス</param>
+        /// <param name="decorationEntry">取り出したエントリを格納する参照</param>
+        public bool TryGetDecorationEntry(int index, out GameText.DecorationEntry decorationEntry)
+        {
+            // 実際の操作しているゲームテキストから取り出す
+            return gameText.TryGetDecorationEntry(index, out decorationEntry);
+        }
+
+
         /// <summary>
         /// 未初期化の場合に初期化の処理を実行します
         /// </summary>
@@ -2404,7 +2434,7 @@ namespace IceMilkTea.UI
                 translateBuffer[1] = verticesCache[i * 4 + 1];
                 translateBuffer[2] = verticesCache[i * 4 + 2];
                 translateBuffer[3] = verticesCache[i * 4 + 3];
-                textAnimator.AnimateCharaVertex(translateBuffer, i, 0);
+                textAnimator?.AnimateMainCharaVertex(translateBuffer, i);
                 uploadHandler(translateBuffer);
             }
         }
@@ -2437,7 +2467,7 @@ namespace IceMilkTea.UI
                 translateBuffer[1] = verticesCache[index * 4 + 1];
                 translateBuffer[2] = verticesCache[index * 4 + 2];
                 translateBuffer[3] = verticesCache[index * 4 + 3];
-                textAnimator.AnimateCharaVertex(translateBuffer, 0, i);
+                textAnimator?.AnimateRubyCharaVertex(translateBuffer, i);
                 uploadHandler(translateBuffer);
             }
         }

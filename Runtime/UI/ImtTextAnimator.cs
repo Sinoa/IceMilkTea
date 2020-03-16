@@ -29,7 +29,17 @@ namespace IceMilkTea.UI
         }
 
 
-        public virtual void AnimateCharaVertex(UIVertex[] charVertexces, int mainTextIndex, int rubyTextIndex)
+        public virtual void OnTextChanged()
+        {
+        }
+
+
+        public virtual void AnimateMainCharaVertex(UIVertex[] charVertexces, int textIndex)
+        {
+        }
+
+
+        public virtual void AnimateRubyCharaVertex(UIVertex[] charVertexces, int textIndex)
         {
         }
     }

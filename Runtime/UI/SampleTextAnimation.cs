@@ -23,15 +23,20 @@ namespace IceMilkTea.UI
         public float evenScale;
 
 
-        public override void AnimateCharaVertex(UIVertex[] charVertexces, int mainTextIndex, int rubyTextIndex)
+        public override void AnimateMainCharaVertex(UIVertex[] charVertexces, int textIndex)
         {
             for (int i = 0; i < charVertexces.Length; ++i)
             {
-                Debug.Log(mainTextIndex);
+                Debug.Log(textIndex);
                 var pos = charVertexces[i].position;
-                pos = pos * ((mainTextIndex % 2) == 0 ? oddScale : evenScale);
+                pos = pos * ((textIndex % 2) == 0 ? oddScale : evenScale);
                 charVertexces[i].position = pos;
             }
+        }
+
+
+        public override void AnimateRubyCharaVertex(UIVertex[] charVertexces, int textIndex)
+        {
         }
     }
 }
