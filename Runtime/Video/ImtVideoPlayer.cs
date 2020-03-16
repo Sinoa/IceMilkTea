@@ -116,7 +116,7 @@ namespace IceMilkTea.Video
 
         public void Pause()
         {
-            if (unityVideoPlayer.isPrepared) return;
+            if (unityVideoPlayer.isPaused) return;
 
 
             unityVideoPlayer.Pause();
@@ -183,15 +183,19 @@ namespace IceMilkTea.Video
 
 
             var marker = markerQueue.Peek();
-            while (marker != null && unityVideoPlayer.time >= marker.MarkedTime)
+            if (unityVideoPlayer.time < marker.MarkedTime)
+            {
+                return;
+            }
+
+
+            while ((marker = markerQueue.Dequeue()) != null)
             {
                 RaiseMarkerEvent(marker);
-
-
-                if (markerQueue.Count == 0) break;
-
-
-                marker = markerQueue.Dequeue();
+                if (markerQueue.Count == 0)
+                {
+                    break;
+                }
             }
         }
     }
