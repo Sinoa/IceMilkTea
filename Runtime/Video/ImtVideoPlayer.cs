@@ -179,7 +179,7 @@ namespace IceMilkTea.Video
 
         private void Update()
         {
-            while (markerQueue.Count > 1)
+            while (markerQueue.Count > 0)
             {
                 var marker = markerQueue.Peek();
                 if (unityVideoPlayer.time < marker.MarkedTime)
