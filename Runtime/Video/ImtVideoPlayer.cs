@@ -33,6 +33,12 @@ namespace IceMilkTea.Video
         public RenderTexture RenderTarget => unityVideoPlayer.targetTexture;
 
 
+        public bool IsPlaying => unityVideoPlayer.isPlaying;
+
+
+        public bool IsPaused => unityVideoPlayer.isPaused;
+
+
 
         public static ImtVideoPlayer Create(VideoClip videoClip)
         {
@@ -60,6 +66,7 @@ namespace IceMilkTea.Video
             videoPlayer.renderMode = VideoRenderMode.RenderTexture;
             videoPlayer.isLooping = false;
             videoPlayer.aspectRatio = VideoAspectRatio.FitVertically;
+            videoPlayer.loopPointReached += imtVideoPlayer.OnLoopPointReached;
 
 
             imtVideoPlayer.unityVideoPlayer = videoPlayer;
@@ -69,6 +76,13 @@ namespace IceMilkTea.Video
             return imtVideoPlayer;
         }
 
+        private void OnLoopPointReached(VideoPlayer source)
+        {
+            foreach (var listener in eventListenerList)
+            {
+                listener.OnComplete(this);
+            }
+        }
 
         private static GameObject GetOrCreateVideoPlayerGameObject()
         {
