@@ -39,6 +39,9 @@ namespace IceMilkTea.Video
         public bool IsPaused => unityVideoPlayer.isPaused;
 
 
+        public double CurrentTime => unityVideoPlayer.time;
+
+
 
         public static ImtVideoPlayer Create(VideoClip videoClip)
         {
