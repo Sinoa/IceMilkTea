@@ -13,17 +13,21 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
-using System.Collections.Generic;
-using IceMilkTea.Core;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace IceMilkTea.Service
 {
     public class PerformanceGraphics
     {
         private Material mat = new Material(Shader.Find("GUI/Text Shader"));
+        private Font font;
+
+
+
+        public PerformanceGraphics()
+        {
+            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        }
 
 
         public void Render()
@@ -31,14 +35,21 @@ namespace IceMilkTea.Service
             GL.PushMatrix();
             GL.LoadOrtho();
 
+            {
+                mat.SetPass(0);
+                GL.Begin(GL.TRIANGLES);
+                GL.Color(Color.red);
+                GL.Vertex(Vector3.zero);
+                GL.Vertex(new Vector3(0.5f, 1.0f, 0.0f));
+                GL.Vertex(new Vector3(1.0f, 0.0f, 0.0f));
+                GL.End();
+            }
 
-            mat.SetPass(0);
-            GL.Begin(GL.TRIANGLES);
-            GL.Color(Color.red);
-            GL.Vertex(Vector3.zero);
-            GL.Vertex(new Vector3(0.5f, 1.0f, 0.0f));
-            GL.Vertex(new Vector3(1.0f, 0.0f, 0.0f));
-            GL.End();
+            {
+                font.material.SetPass(0);
+                GL.Begin(GL.TRIANGLES);
+                GL.End();
+            }
 
 
             GL.PopMatrix();
