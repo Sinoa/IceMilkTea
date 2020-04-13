@@ -34,7 +34,7 @@ namespace IceMilkTea.Service
             {
                 UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
                 {
-                    { GameServiceUpdateTiming.CameraPostRendering, OnPostDrawPresent }
+                    { GameServiceUpdateTiming.OnEndOfFrame, OnPostDrawPresent }
                 }
             };
         }
