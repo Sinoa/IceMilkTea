@@ -22,7 +22,7 @@ namespace IceMilkTea.Service
         private Material mat = new Material(Shader.Find("GUI/Text Shader"));
         private Font font;
         private Vector2 virtualResolution;
-        private Vector2 finalResolution;
+        private Matrix4x4 toScreenMatrix;
 
 
 
@@ -30,32 +30,38 @@ namespace IceMilkTea.Service
         {
             font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             virtualResolution = new Vector2(720.0f, 1280.0f);
-            
+
             var scaleRate = Screen.width / virtualResolution.x;
-            finalResolution = virtualResolution * scaleRate;
+            var finalResolution = virtualResolution * scaleRate;
+            finalResolution = new Vector2(1.0f / finalResolution.x, 1.0f / finalResolution.y);
+            toScreenMatrix = Matrix4x4.Scale(new Vector3(finalResolution.x, finalResolution.y, 1.0f));
+            Debug.Log(toScreenMatrix * new Vector3(710.0f, 1270.0f, 0.0f));
         }
 
 
         public void Render()
         {
             var scaleRate = Screen.width / virtualResolution.x;
-            finalResolution = virtualResolution * scaleRate;
+            var finalResolution = virtualResolution * scaleRate;
+            toScreenMatrix = Matrix4x4.Scale(new Vector3(finalResolution.x, finalResolution.y, 1.0f));
 
 
             GL.PushMatrix();
             GL.LoadOrtho();
 
+            // バーの描画で必要な最低限の処理箇所
             {
                 mat.SetPass(0);
                 GL.Begin(GL.QUADS);
                 GL.Color(new Color(0.0f, 0.0f, 0.0f, 0.5f));
-                GL.Vertex(new Vector3(10.0f / finalResolution.x, 10.0f / finalResolution.y, 0.0f));
-                GL.Vertex(new Vector3(10.0f / finalResolution.x, 1270.0f / finalResolution.y, 0.0f));
-                GL.Vertex(new Vector3(710.0f / finalResolution.x, 1270.0f / finalResolution.y, 0.0f));
-                GL.Vertex(new Vector3(710.0f / finalResolution.x, 10.0f / finalResolution.y, 0.0f));
+                GL.Vertex(toScreenMatrix * new Vector3(10.0f, 10.0f, 0.0f));
+                GL.Vertex(toScreenMatrix * new Vector3(10.0f, 1270.0f, 0.0f));
+                GL.Vertex(toScreenMatrix * new Vector3(710.0f, 1270.0f, 0.0f));
+                GL.Vertex(toScreenMatrix * new Vector3(710.0f, 10.0f, 0.0f));
                 GL.End();
             }
 
+            // テキスト描画で必要な最低限の処理箇所
             {
                 font.material.SetPass(0);
                 GL.Begin(GL.TRIANGLES);
