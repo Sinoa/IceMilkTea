@@ -13,36 +13,11 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
-using System.Collections.Generic;
-using IceMilkTea.Core;
+using UnityEngine;
 
 namespace IceMilkTea.Service
 {
-    public class ImtPerformanceMonitorService : GameService
+    public class ImtPerformanceText
     {
-        private PerformanceGraphics graphics;
-
-
-
-        protected internal override void Startup(out GameServiceStartupInfo info)
-        {
-            graphics = new PerformanceGraphics();
-
-
-            info = new GameServiceStartupInfo()
-            {
-                UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
-                {
-                    { GameServiceUpdateTiming.OnEndOfFrame, OnEndOfFrame }
-                }
-            };
-        }
-
-
-        private void OnEndOfFrame()
-        {
-            graphics.Render();
-        }
     }
 }

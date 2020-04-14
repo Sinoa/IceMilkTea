@@ -21,27 +21,38 @@ namespace IceMilkTea.Service
     {
         private Material mat = new Material(Shader.Find("GUI/Text Shader"));
         private Font font;
+        private Vector2 virtualResolution;
+        private Vector2 finalResolution;
 
 
 
         public PerformanceGraphics()
         {
             font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            virtualResolution = new Vector2(720.0f, 1280.0f);
+            
+            var scaleRate = Screen.width / virtualResolution.x;
+            finalResolution = virtualResolution * scaleRate;
         }
 
 
         public void Render()
         {
+            var scaleRate = Screen.width / virtualResolution.x;
+            finalResolution = virtualResolution * scaleRate;
+
+
             GL.PushMatrix();
             GL.LoadOrtho();
 
             {
                 mat.SetPass(0);
-                GL.Begin(GL.TRIANGLES);
-                GL.Color(Color.red);
-                GL.Vertex(Vector3.zero);
-                GL.Vertex(new Vector3(0.5f, 1.0f, 0.0f));
-                GL.Vertex(new Vector3(1.0f, 0.0f, 0.0f));
+                GL.Begin(GL.QUADS);
+                GL.Color(new Color(0.0f, 0.0f, 0.0f, 0.5f));
+                GL.Vertex(new Vector3(10.0f / finalResolution.x, 10.0f / finalResolution.y, 0.0f));
+                GL.Vertex(new Vector3(10.0f / finalResolution.x, 1270.0f / finalResolution.y, 0.0f));
+                GL.Vertex(new Vector3(710.0f / finalResolution.x, 1270.0f / finalResolution.y, 0.0f));
+                GL.Vertex(new Vector3(710.0f / finalResolution.x, 10.0f / finalResolution.y, 0.0f));
                 GL.End();
             }
 
