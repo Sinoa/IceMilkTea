@@ -19,7 +19,7 @@ using IceMilkTea.Core;
 
 namespace IceMilkTea.Service
 {
-    public class PerformanceManagerService : GameService
+    public class ImtPerformanceMonitorService : GameService
     {
         private PerformanceGraphics graphics;
 
