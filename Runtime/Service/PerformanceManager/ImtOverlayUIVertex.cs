@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace IceMilkTea.Service
 {
-    public class ImtPerformanceText
+    public struct ImtOverlayUIVertex
     {
     }
 }

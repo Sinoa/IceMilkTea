@@ -47,24 +47,50 @@ namespace IceMilkTea.Service
 
 
             GL.PushMatrix();
-            GL.LoadOrtho();
+            GL.LoadPixelMatrix(0.0f, 720.0f, 0.0f, 1280.0f);
+            //GL.LoadOrtho();
 
             // バーの描画で必要な最低限の処理箇所
             {
                 mat.SetPass(0);
                 GL.Begin(GL.QUADS);
-                GL.Color(new Color(0.0f, 0.0f, 0.0f, 0.5f));
-                GL.Vertex(toScreenMatrix * new Vector3(10.0f, 10.0f, 0.0f));
-                GL.Vertex(toScreenMatrix * new Vector3(10.0f, 1270.0f, 0.0f));
-                GL.Vertex(toScreenMatrix * new Vector3(710.0f, 1270.0f, 0.0f));
-                GL.Vertex(toScreenMatrix * new Vector3(710.0f, 10.0f, 0.0f));
+                GL.Color(new Color(1.0f, 1.0f, 1.0f, 1.0f));
+                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
+
+                GL.Color(new Color(1.0f, 0.0f, 0.0f, 1.0f));
+                GL.Vertex(new Vector3(0.0f, 1280.0f, 0.0f));
+
+                GL.Color(new Color(0.0f, 1.0f, 0.0f, 1.0f));
+                GL.Vertex(new Vector3(720.0f, 1280.0f, 0.0f));
+
+                GL.Color(new Color(0.0f, 0.0f, 1.0f, 1.0f));
+                GL.Vertex(new Vector3(720.0f, 0.0f, 0.0f));
                 GL.End();
             }
 
             // テキスト描画で必要な最低限の処理箇所
             {
+                font.RequestCharactersInTexture("あいうえお", 200);
                 font.material.SetPass(0);
-                GL.Begin(GL.TRIANGLES);
+                GL.Begin(GL.QUADS);
+
+                font.GetCharacterInfo('あ', out var info, 200);
+                GL.TexCoord(info.uvTopLeft);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
+
+                GL.TexCoord(info.uvBottomLeft);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(0.0f, 200.0f, 0.0f));
+
+                GL.TexCoord(info.uvBottomRight);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(200.0f, 200.0f, 0.0f));
+
+                GL.TexCoord(info.uvTopRight);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(200.0f, 0.0f, 0.0f));
+
                 GL.End();
             }
 
