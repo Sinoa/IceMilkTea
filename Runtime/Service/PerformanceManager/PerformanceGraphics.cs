@@ -46,7 +46,7 @@ namespace IceMilkTea.Service
             toScreenMatrix = Matrix4x4.Scale(new Vector3(finalResolution.x, finalResolution.y, 1.0f));
 
             GL.PushMatrix();
-            GL.LoadPixelMatrix(0.0f, 720.0f, 0.0f, 1280.0f);
+            GL.LoadPixelMatrix(0.0f, 720.0f, 0.0f, Screen.height * (720.0f / Screen.width));
             GL.MultMatrix(Matrix4x4.identity);
 
             // バーの描画で必要な最低限の処理箇所
