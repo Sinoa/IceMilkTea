@@ -21,130 +21,121 @@ namespace IceMilkTea.Service
     {
         private Material mat = new Material(Shader.Find("GUI/Text Shader"));
         private Font font;
-        private Vector2 virtualResolution;
-        private Matrix4x4 toScreenMatrix;
 
 
 
         public PerformanceGraphics()
         {
             font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            virtualResolution = new Vector2(720.0f, 1280.0f);
-
-            var scaleRate = Screen.width / virtualResolution.x;
-            var finalResolution = virtualResolution * scaleRate;
-            finalResolution = new Vector2(1.0f / finalResolution.x, 1.0f / finalResolution.y);
-            toScreenMatrix = Matrix4x4.Scale(new Vector3(finalResolution.x, finalResolution.y, 1.0f));
-            Debug.Log(toScreenMatrix * new Vector3(710.0f, 1270.0f, 0.0f));
         }
 
 
         public void Render()
         {
-            var scaleRate = Screen.width / virtualResolution.x;
-            var finalResolution = virtualResolution * scaleRate;
-            toScreenMatrix = Matrix4x4.Scale(new Vector3(finalResolution.x, finalResolution.y, 1.0f));
-
             GL.PushMatrix();
-            var sHeight = Screen.height * (720.0f / Screen.width);
-            GL.LoadPixelMatrix(0.0f, 720.0f, 0.0f, sHeight);
+            var sWidth = 720.0f;
+            var sHeight = Screen.height * (sWidth / Screen.width);
+            GL.LoadPixelMatrix(0.0f, sWidth, 0.0f, sHeight);
             GL.MultMatrix(Matrix4x4.identity);
 
             // バーの描画で必要な最低限の処理箇所
             {
                 mat.SetPass(0);
+
+                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 15.0f, 0.0f)));
+
                 GL.Begin(GL.QUADS);
                 GL.Color(new Color(1.0f, 1.0f, 1.0f, 1.0f));
-                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
+                GL.Vertex(new Vector3(5.0f, 0.0f, 0.0f));
 
-                GL.Color(new Color(1.0f, 0.0f, 0.0f, 1.0f));
-                GL.Vertex(new Vector3(720.0f, 0.0f, 0.0f));
+                GL.Color(new Color(1.0f, 1.0f, 0.0f, 1.0f));
+                GL.Vertex(new Vector3(5.0f, 10.0f, 0.0f));
 
                 GL.Color(new Color(0.0f, 1.0f, 0.0f, 1.0f));
-                GL.Vertex(new Vector3(720.0f, sHeight, 0.0f));
+                GL.Vertex(new Vector3(sWidth - 5.0f, 10.0f, 0.0f));
 
                 GL.Color(new Color(0.0f, 0.0f, 1.0f, 1.0f));
-                GL.Vertex(new Vector3(0.0f, sHeight, 0.0f));
+                GL.Vertex(new Vector3(sWidth - 5.0f, 0.0f, 0.0f));
                 GL.End();
             }
 
             // テキスト描画で必要な最低限の処理箇所
             {
-                font.RequestCharactersInTexture("あいうえお", 200);
+                font.RequestCharactersInTexture("あいうえお", 20);
                 font.material.SetPass(0);
 
+                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 10.0f, 0.0f)));
+
+                GL.Begin(GL.QUADS);
+
+                font.GetCharacterInfo('あ', out var info, 20);
+                GL.TexCoord(info.uvBottomLeft);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
+
+                GL.TexCoord(info.uvBottomRight);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(10.0f, 0.0f, 0.0f));
+
+                GL.TexCoord(info.uvTopRight);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(10.0f, 10.0f, 0.0f));
+
+                GL.TexCoord(info.uvTopLeft);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(0.0f, 10.0f, 0.0f));
+
+                GL.End();
+            }
+
+
+            {
                 GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 20.0f, 0.0f)));
 
                 GL.Begin(GL.QUADS);
 
-                font.GetCharacterInfo('あ', out var info, 200);
+                font.GetCharacterInfo('い', out var info, 20);
                 GL.TexCoord(info.uvBottomLeft);
                 GL.Color(Color.white);
                 GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
 
                 GL.TexCoord(info.uvBottomRight);
                 GL.Color(Color.white);
-                GL.Vertex(new Vector3(20.0f, 0.0f, 0.0f));
+                GL.Vertex(new Vector3(10.0f, 0.0f, 0.0f));
 
                 GL.TexCoord(info.uvTopRight);
                 GL.Color(Color.white);
-                GL.Vertex(new Vector3(20.0f, 20.0f, 0.0f));
+                GL.Vertex(new Vector3(10.0f, 10.0f, 0.0f));
 
                 GL.TexCoord(info.uvTopLeft);
                 GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 20.0f, 0.0f));
+                GL.Vertex(new Vector3(0.0f, 10.0f, 0.0f));
 
                 GL.End();
             }
 
 
             {
-                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 40.0f, 0.0f)));
+                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 30.0f, 0.0f)));
 
                 GL.Begin(GL.QUADS);
 
-                font.GetCharacterInfo('い', out var info, 200);
+                font.GetCharacterInfo('う', out var info, 20);
                 GL.TexCoord(info.uvBottomLeft);
                 GL.Color(Color.white);
                 GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
 
                 GL.TexCoord(info.uvBottomRight);
                 GL.Color(Color.white);
-                GL.Vertex(new Vector3(20.0f, 0.0f, 0.0f));
+                GL.Vertex(new Vector3(10.0f, 0.0f, 0.0f));
 
                 GL.TexCoord(info.uvTopRight);
                 GL.Color(Color.white);
-                GL.Vertex(new Vector3(20.0f, 20.0f, 0.0f));
+                GL.Vertex(new Vector3(10.0f, 10.0f, 0.0f));
 
                 GL.TexCoord(info.uvTopLeft);
                 GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 20.0f, 0.0f));
-
-                GL.End();
-            }
-
-
-            {
-                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 60.0f, 0.0f)));
-
-                GL.Begin(GL.QUADS);
-
-                font.GetCharacterInfo('う', out var info, 200);
-                GL.TexCoord(info.uvBottomLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvBottomRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(20.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(20.0f, 20.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 20.0f, 0.0f));
+                GL.Vertex(new Vector3(0.0f, 10.0f, 0.0f));
 
                 GL.End();
             }
