@@ -19,13 +19,14 @@ namespace IceMilkTea.Service
 {
     public class PerformanceGraphics
     {
-        private Material mat = new Material(Shader.Find("GUI/Text Shader"));
+        private ImtOverlaySimpleUI overlaySimpleUI;
         private ImtOverlayText overlayText;
 
 
 
         public PerformanceGraphics()
         {
+            overlaySimpleUI = new ImtOverlaySimpleUI(new Material(Shader.Find("GUI/Text Shader")));
             overlayText = new ImtOverlayText(Resources.GetBuiltinResource<Font>("Arial.ttf"), 25);
         }
 
@@ -39,25 +40,28 @@ namespace IceMilkTea.Service
             GL.MultMatrix(Matrix4x4.identity);
 
             // バーの描画で必要な最低限の処理箇所
-            {
-                mat.SetPass(0);
+            overlaySimpleUI.Begin();
+            overlaySimpleUI.RenderBar(new Vector2(100.0f, 10.0f), new Vector2(100.0f, 100.0f), Color.white);
+            overlaySimpleUI.End();
+            //{
+            //    mat.SetPass(0);
 
-                //GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 15.0f, 0.0f)));
+            //    //GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 15.0f, 0.0f)));
 
-                GL.Begin(GL.QUADS);
-                GL.Color(new Color(1.0f, 1.0f, 1.0f, 1.0f));
-                GL.Vertex(new Vector3(5.0f, 0.0f, 0.0f));
+            //    GL.Begin(GL.QUADS);
+            //    GL.Color(new Color(1.0f, 1.0f, 1.0f, 1.0f));
+            //    GL.Vertex(new Vector3(5.0f, 0.0f, 0.0f));
 
-                GL.Color(new Color(1.0f, 1.0f, 0.0f, 1.0f));
-                GL.Vertex(new Vector3(5.0f, 10.0f, 0.0f));
+            //    GL.Color(new Color(1.0f, 1.0f, 0.0f, 1.0f));
+            //    GL.Vertex(new Vector3(5.0f, 10.0f, 0.0f));
 
-                GL.Color(new Color(0.0f, 1.0f, 0.0f, 1.0f));
-                GL.Vertex(new Vector3(sWidth - 5.0f, 10.0f, 0.0f));
+            //    GL.Color(new Color(0.0f, 1.0f, 0.0f, 1.0f));
+            //    GL.Vertex(new Vector3(sWidth - 5.0f, 10.0f, 0.0f));
 
-                GL.Color(new Color(0.0f, 0.0f, 1.0f, 1.0f));
-                GL.Vertex(new Vector3(sWidth - 5.0f, 0.0f, 0.0f));
-                GL.End();
-            }
+            //    GL.Color(new Color(0.0f, 0.0f, 1.0f, 1.0f));
+            //    GL.Vertex(new Vector3(sWidth - 5.0f, 0.0f, 0.0f));
+            //    GL.End();
+            //}
 
             // テキスト描画で必要な最低限の処理箇所
             overlayText.Begin("あいうえおかきくけこ");
