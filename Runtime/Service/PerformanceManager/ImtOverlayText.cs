@@ -30,6 +30,20 @@ namespace IceMilkTea.Service
         }
 
 
+        public void Begin(string requestText)
+        {
+            font.RequestCharactersInTexture(requestText, fontSize);
+            font.material.SetPass(0);
+            GL.Begin(GL.QUADS);
+        }
+
+
+        public void End()
+        {
+            GL.End();
+        }
+
+
         public void Render(string text, float size, Vector2 position, Color color)
         {
             var nextXPos = 0.0f;

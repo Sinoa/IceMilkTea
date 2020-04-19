@@ -20,13 +20,13 @@ namespace IceMilkTea.Service
     public class PerformanceGraphics
     {
         private Material mat = new Material(Shader.Find("GUI/Text Shader"));
-        private Font font;
+        private ImtOverlayText overlayText;
 
 
 
         public PerformanceGraphics()
         {
-            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            overlayText = new ImtOverlayText(Resources.GetBuiltinResource<Font>("Arial.ttf"), 25);
         }
 
 
@@ -42,7 +42,7 @@ namespace IceMilkTea.Service
             {
                 mat.SetPass(0);
 
-                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 15.0f, 0.0f)));
+                //GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 15.0f, 0.0f)));
 
                 GL.Begin(GL.QUADS);
                 GL.Color(new Color(1.0f, 1.0f, 1.0f, 1.0f));
@@ -60,18 +60,10 @@ namespace IceMilkTea.Service
             }
 
             // テキスト描画で必要な最低限の処理箇所
-            font.RequestCharactersInTexture("あいうえおかきくけこ", 20);
-            font.material.SetPass(0);
-            GL.MultMatrix(Matrix4x4.identity);
-            GL.Begin(GL.QUADS);
-
-
-            var text = new ImtOverlayText(font, 20);
-            text.Render("あいうえお", 10.0f, new Vector2(100.0f, 100.0f), Color.white);
-            text.Render("かきくけこ", 10.0f, new Vector2(200.0f, 200.0f), Color.red);
-
-
-            GL.End();
+            overlayText.Begin("あいうえおかきくけこ");
+            overlayText.Render("あいうえお", 10.0f, new Vector2(100.0f, 100.0f), Color.white);
+            overlayText.Render("かきくけこ", 10.0f, new Vector2(200.0f, 200.0f), Color.red);
+            overlayText.End();
 
 
             GL.PopMatrix();
