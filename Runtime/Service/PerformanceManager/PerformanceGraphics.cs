@@ -43,25 +43,6 @@ namespace IceMilkTea.Service
             overlaySimpleUI.Begin();
             overlaySimpleUI.RenderBar(new Vector2(100.0f, 10.0f), new Vector2(200.0f, 200.0f), new Color(0.0f, 0.0f, 0.0f, 0.5f));
             overlaySimpleUI.End();
-            //{
-            //    mat.SetPass(0);
-
-            //    //GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 15.0f, 0.0f)));
-
-            //    GL.Begin(GL.QUADS);
-            //    GL.Color(new Color(1.0f, 1.0f, 1.0f, 1.0f));
-            //    GL.Vertex(new Vector3(5.0f, 0.0f, 0.0f));
-
-            //    GL.Color(new Color(1.0f, 1.0f, 0.0f, 1.0f));
-            //    GL.Vertex(new Vector3(5.0f, 10.0f, 0.0f));
-
-            //    GL.Color(new Color(0.0f, 1.0f, 0.0f, 1.0f));
-            //    GL.Vertex(new Vector3(sWidth - 5.0f, 10.0f, 0.0f));
-
-            //    GL.Color(new Color(0.0f, 0.0f, 1.0f, 1.0f));
-            //    GL.Vertex(new Vector3(sWidth - 5.0f, 0.0f, 0.0f));
-            //    GL.End();
-            //}
 
             // テキスト描画で必要な最低限の処理箇所
             overlayText.Begin("あいうえおかきくけこ");
