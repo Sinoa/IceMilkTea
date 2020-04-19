@@ -60,85 +60,18 @@ namespace IceMilkTea.Service
             }
 
             // テキスト描画で必要な最低限の処理箇所
-            {
-                font.RequestCharactersInTexture("あいうえお", 20);
-                font.material.SetPass(0);
-
-                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 10.0f, 0.0f)));
-
-                GL.Begin(GL.QUADS);
-
-                font.GetCharacterInfo('あ', out var info, 20);
-                GL.TexCoord(info.uvBottomLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvBottomRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(10.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(10.0f, 10.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 10.0f, 0.0f));
-
-                GL.End();
-            }
+            font.RequestCharactersInTexture("あいうえおかきくけこ", 20);
+            font.material.SetPass(0);
+            GL.MultMatrix(Matrix4x4.identity);
+            GL.Begin(GL.QUADS);
 
 
-            {
-                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 20.0f, 0.0f)));
-
-                GL.Begin(GL.QUADS);
-
-                font.GetCharacterInfo('い', out var info, 20);
-                GL.TexCoord(info.uvBottomLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvBottomRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(10.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(10.0f, 10.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 10.0f, 0.0f));
-
-                GL.End();
-            }
+            var text = new ImtOverlayText(font, 20);
+            text.Render("あいうえお", 10.0f, new Vector2(100.0f, 100.0f), Color.white);
+            text.Render("かきくけこ", 10.0f, new Vector2(200.0f, 200.0f), Color.red);
 
 
-            {
-                GL.MultMatrix(Matrix4x4.Translate(new Vector3(0.0f, sHeight - 30.0f, 0.0f)));
-
-                GL.Begin(GL.QUADS);
-
-                font.GetCharacterInfo('う', out var info, 20);
-                GL.TexCoord(info.uvBottomLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvBottomRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(10.0f, 0.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopRight);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(10.0f, 10.0f, 0.0f));
-
-                GL.TexCoord(info.uvTopLeft);
-                GL.Color(Color.white);
-                GL.Vertex(new Vector3(0.0f, 10.0f, 0.0f));
-
-                GL.End();
-            }
+            GL.End();
 
 
             GL.PopMatrix();
