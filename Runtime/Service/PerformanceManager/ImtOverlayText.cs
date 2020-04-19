@@ -55,10 +55,10 @@ namespace IceMilkTea.Service
 
 
                 var scale = size / fontSize;
-                var minX = (info.minX + nextXPos + position.x) * scale;
-                var maxX = (info.maxX + nextXPos + position.x) * scale;
-                var minY = (info.minY + position.y) * scale;
-                var maxY = (info.maxY + position.y) * scale;
+                var minX = (info.minX + nextXPos) * scale + position.x;
+                var maxX = (info.maxX + nextXPos) * scale + position.x;
+                var minY = info.minY * scale + position.y;
+                var maxY = info.maxY * scale + position.y;
 
 
                 GL.TexCoord(info.uvBottomLeft);

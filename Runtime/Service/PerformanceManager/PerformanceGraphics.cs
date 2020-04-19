@@ -41,7 +41,7 @@ namespace IceMilkTea.Service
 
             // バーの描画で必要な最低限の処理箇所
             overlaySimpleUI.Begin();
-            overlaySimpleUI.RenderBar(new Vector2(100.0f, 10.0f), new Vector2(100.0f, 100.0f), Color.white);
+            overlaySimpleUI.RenderBar(new Vector2(100.0f, 10.0f), new Vector2(200.0f, 200.0f), new Color(0.0f, 0.0f, 0.0f, 0.5f));
             overlaySimpleUI.End();
             //{
             //    mat.SetPass(0);
