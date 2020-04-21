@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -21,6 +23,9 @@ namespace IceMilkTea.Service
     {
         private ImtOverlaySimpleUI overlaySimpleUI;
         private ImtOverlayText overlayText;
+        private string needString;
+        private StringBuilder stringBuffer;
+        private List<ImtTextReference> textReferenceList;
 
 
 
@@ -28,6 +33,28 @@ namespace IceMilkTea.Service
         {
             overlaySimpleUI = new ImtOverlaySimpleUI(new Material(Shader.Find("GUI/Text Shader")));
             overlayText = new ImtOverlayText(Resources.GetBuiltinResource<Font>("Arial.ttf"), 25);
+            textReferenceList = new List<ImtTextReference>();
+            needString = string.Empty;
+            stringBuffer = new StringBuilder();
+        }
+
+
+        public ImtTextReference CreateTextReference()
+        {
+            needString = null;
+            var textReference = new ImtTextReference(x =>
+            {
+                needString = null; stringBuffer.Append(x);
+            });
+            textReferenceList.Add(textReference);
+            return textReference;
+        }
+
+
+        public void RemoveTextReference(ImtTextReference item)
+        {
+            needString = null;
+            textReferenceList.Remove(item);
         }
 
 
@@ -45,9 +72,12 @@ namespace IceMilkTea.Service
             overlaySimpleUI.End();
 
             // テキスト描画で必要な最低限の処理箇所
-            overlayText.Begin("あいうえおかきくけこ");
-            overlayText.Render("あいうえお", 10.0f, new Vector2(100.0f, 100.0f), Color.white);
-            overlayText.Render("かきくけこ", 10.0f, new Vector2(200.0f, 200.0f), Color.red);
+            needString = needString ?? stringBuffer.ToString();
+            overlayText.Begin(needString);
+            foreach (var textReference in textReferenceList)
+            {
+                overlayText.Render(textReference.Text, textReference.Size, textReference.Position, textReference.Color);
+            }
             overlayText.End();
 
 

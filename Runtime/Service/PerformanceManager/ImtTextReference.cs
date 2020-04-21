@@ -14,35 +14,34 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
-using IceMilkTea.Core;
+using System.Dynamic;
+using UnityEngine;
 
 namespace IceMilkTea.Service
 {
-    public class ImtPerformanceMonitorService : GameService
+    public class ImtTextReference
     {
-        public PerformanceGraphics Graphics { get; private set; }
+        private Action<string> resetCallback;
+        private string text;
+
+
+        public string Text { get => text; set => SetText(value); }
+        public Color Color = Color.white;
+        public float Size = 10.0f;
+        public Vector2 Position = Vector2.zero;
 
 
 
-        protected internal override void Startup(out GameServiceStartupInfo info)
+        public ImtTextReference(Action<string> resetCallback)
         {
-            Graphics = new PerformanceGraphics();
-
-
-            info = new GameServiceStartupInfo()
-            {
-                UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
-                {
-                    { GameServiceUpdateTiming.OnEndOfFrame, OnEndOfFrame }
-                }
-            };
+            this.resetCallback = resetCallback;
         }
 
 
-        private void OnEndOfFrame()
+        private void SetText(string value)
         {
-            Graphics.Render();
+            text = value;
+            resetCallback(value);
         }
     }
 }
