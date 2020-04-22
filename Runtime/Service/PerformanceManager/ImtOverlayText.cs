@@ -103,10 +103,23 @@ namespace IceMilkTea.Service
         }
 
 
+        private void Reverse(int length)
+        {
+            var i = 0;
+            int j = length - 1;
+            while (i < j)
+            {
+                var tmp = integerCharaBuffer[i];
+                integerCharaBuffer[i++] = integerCharaBuffer[j];
+                integerCharaBuffer[j--] = tmp;
+            }
+        }
+
+
         private int CreateNumberCharacters(double number)
         {
             var length = CreateNumberCharacters((long)(number * 1000));
-            Array.Reverse(integerCharaBuffer, 0, length);
+            Reverse(length);
             return length;
         }
 

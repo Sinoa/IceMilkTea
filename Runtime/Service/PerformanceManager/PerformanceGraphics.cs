@@ -85,7 +85,7 @@ namespace IceMilkTea.Service
             overlaySimpleUI.End();
 
             // テキスト描画で必要な最低限の処理箇所
-            needString = needString ?? $"1234567890.,{stringBuffer}";
+            needString = needString ?? $"1234567890., {stringBuffer}";
             overlayText.Begin(needString);
             foreach (var textReference in textReferenceList)
             {
