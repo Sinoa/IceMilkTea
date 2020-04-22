@@ -27,6 +27,7 @@ namespace IceMilkTea.Service
         private StringBuilder stringBuffer;
         private List<ImtTextReference> textReferenceList;
         private List<ImtNumberReference> numberReferenceList;
+        private List<ImtSquareReference> squareReferenceList;
 
 
 
@@ -36,6 +37,7 @@ namespace IceMilkTea.Service
             overlayText = new ImtOverlayText(Resources.GetBuiltinResource<Font>("Arial.ttf"), 25);
             textReferenceList = new List<ImtTextReference>();
             numberReferenceList = new List<ImtNumberReference>();
+            squareReferenceList = new List<ImtSquareReference>();
             needString = string.Empty;
             stringBuffer = new StringBuilder();
         }
@@ -58,6 +60,14 @@ namespace IceMilkTea.Service
         }
 
 
+        public ImtSquareReference CreateSquareReference()
+        {
+            var squareReference = new ImtSquareReference();
+            squareReferenceList.Add(squareReference);
+            return squareReference;
+        }
+
+
         public void RemoveTextReference(ImtTextReference item)
         {
             needString = null;
@@ -71,6 +81,12 @@ namespace IceMilkTea.Service
         }
 
 
+        public void RemoveSquareReference(ImtSquareReference item)
+        {
+            squareReferenceList.Remove(item);
+        }
+
+
         public void Render()
         {
             GL.PushMatrix();
@@ -81,7 +97,10 @@ namespace IceMilkTea.Service
 
             // バーの描画で必要な最低限の処理箇所
             overlaySimpleUI.Begin();
-            overlaySimpleUI.RenderBar(new Vector2(100.0f, 10.0f), new Vector2(200.0f, 200.0f), new Color(0.0f, 0.0f, 0.0f, 0.5f));
+            foreach (var squareReference in squareReferenceList)
+            {
+                overlaySimpleUI.RenderBar(squareReference.Size, squareReference.Position, squareReference.Color);
+            }
             overlaySimpleUI.End();
 
             // テキスト描画で必要な最低限の処理箇所
