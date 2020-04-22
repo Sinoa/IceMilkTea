@@ -26,6 +26,7 @@ namespace IceMilkTea.Service
         private string needString;
         private StringBuilder stringBuffer;
         private List<ImtTextReference> textReferenceList;
+        private List<ImtNumberReference> numberReferenceList;
 
 
 
@@ -34,6 +35,7 @@ namespace IceMilkTea.Service
             overlaySimpleUI = new ImtOverlaySimpleUI(new Material(Shader.Find("GUI/Text Shader")));
             overlayText = new ImtOverlayText(Resources.GetBuiltinResource<Font>("Arial.ttf"), 25);
             textReferenceList = new List<ImtTextReference>();
+            numberReferenceList = new List<ImtNumberReference>();
             needString = string.Empty;
             stringBuffer = new StringBuilder();
         }
@@ -42,12 +44,17 @@ namespace IceMilkTea.Service
         public ImtTextReference CreateTextReference()
         {
             needString = null;
-            var textReference = new ImtTextReference(x =>
-            {
-                needString = null; stringBuffer.Append(x);
-            });
+            var textReference = new ImtTextReference(x => { needString = null; stringBuffer.Append(x); });
             textReferenceList.Add(textReference);
             return textReference;
+        }
+
+
+        public ImtNumberReference CreateNumberReference()
+        {
+            var numberReference = new ImtNumberReference();
+            numberReferenceList.Add(numberReference);
+            return numberReference;
         }
 
 
@@ -55,6 +62,12 @@ namespace IceMilkTea.Service
         {
             needString = null;
             textReferenceList.Remove(item);
+        }
+
+
+        public void RemoveNumberReference(ImtNumberReference item)
+        {
+            numberReferenceList.Remove(item);
         }
 
 
@@ -72,11 +85,15 @@ namespace IceMilkTea.Service
             overlaySimpleUI.End();
 
             // テキスト描画で必要な最低限の処理箇所
-            needString = needString ?? stringBuffer.ToString();
+            needString = needString ?? $"1234567890.,{stringBuffer}";
             overlayText.Begin(needString);
             foreach (var textReference in textReferenceList)
             {
                 overlayText.Render(textReference.Text, textReference.Size, textReference.Position, textReference.Color);
+            }
+            foreach (var numberReference in numberReferenceList)
+            {
+                overlayText.Render(numberReference.Number, numberReference.Size, numberReference.Position, numberReference.Color);
             }
             overlayText.End();
 

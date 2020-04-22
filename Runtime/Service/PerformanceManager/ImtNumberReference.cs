@@ -13,34 +13,15 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using UnityEngine;
 
 namespace IceMilkTea.Service
 {
-    public class ImtTextReference
+    public class ImtNumberReference
     {
-        private Action<string> resetCallback;
-        private string text;
-
-
-        public string Text { get => text; set => SetText(value); }
+        public double Number { get; set; }
         public Color Color = Color.white;
         public float Size = 10.0f;
         public Vector2 Position = Vector2.zero;
-
-
-
-        public ImtTextReference(Action<string> resetCallback)
-        {
-            this.resetCallback = resetCallback;
-        }
-
-
-        private void SetText(string value)
-        {
-            text = value;
-            resetCallback(value);
-        }
     }
 }
