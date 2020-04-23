@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.PlayerLoop;
 
@@ -95,7 +96,16 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
+        private Stopwatch stopwatch;
+        private long serviceProcessTick;
         protected List<ServiceManagementInfo> serviceManageList;
+
+
+
+        /// <summary>
+        /// 1フレームで消費したサービスの処理時間をマイクロ秒で取得します
+        /// </summary>
+        public double ServiceProcessTime => (serviceProcessTick / (double)Stopwatch.Frequency) * 1000.0 * 1000.0;
 
 
 
@@ -106,6 +116,7 @@ namespace IceMilkTea.Core
         {
             // サービス管理用リストのインスタンスを生成
             serviceManageList = new List<ServiceManagementInfo>();
+            stopwatch = new Stopwatch();
         }
 
 
@@ -218,6 +229,10 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void StartupServices()
         {
+            // サービスの処理時間計測用ストップウォッチの再起動
+            stopwatch.Restart();
+
+
             // サービスの起動情報を受け取る変数を用意
             var serviceStartupInfo = default(GameServiceStartupInfo);
 
@@ -238,6 +253,10 @@ namespace IceMilkTea.Core
                 serviceManageList[i].Service.Startup(out serviceStartupInfo);
                 serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
             }
+
+
+            // 処理時間計測用ストップウォッチの一時停止
+            stopwatch.Stop();
         }
 
 
@@ -246,6 +265,10 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void CleanupServices()
         {
+            // サービスの処理時間計測用ストップウォッチの再起動
+            stopwatch.Restart();
+
+
             // 実際の破棄そのもののステップ必要かどうかを検知するための変数を用意
             var needDeleteStep = false;
 
@@ -281,7 +304,9 @@ namespace IceMilkTea.Core
             // もし破棄処理をしないなら
             if (!needDeleteStep)
             {
-                // ここで終了
+                // 処理時間計測用ストップウォッチの一時停止ここで終了
+                stopwatch.Stop();
+                serviceProcessTick = stopwatch.ElapsedTicks;
                 return;
             }
 
@@ -298,6 +323,11 @@ namespace IceMilkTea.Core
                     serviceManageList.RemoveAt(i);
                 }
             }
+
+
+            // 処理時間計測用ストップウォッチの一時停止
+            stopwatch.Stop();
+            serviceProcessTick = stopwatch.ElapsedTicks;
         }
         #endregion
 
@@ -686,6 +716,10 @@ namespace IceMilkTea.Core
         /// <param name="timing">実行するべきサービスの更新関数のタイミング</param>
         private void DoUpdateService(GameServiceUpdateTiming timing)
         {
+            // 処理負荷計測用ストップウォッチを再開する
+            stopwatch.Start();
+
+
             // サービスの数分回る
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
@@ -713,6 +747,10 @@ namespace IceMilkTea.Core
                 // 該当タイミングの更新関数を持っているのなら更新関数を叩く
                 updateFunction();
             }
+
+
+            // 処理負荷計測用ストップウォッチを一時停止する
+            stopwatch.Stop();
         }
 
 
