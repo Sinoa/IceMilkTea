@@ -15,8 +15,15 @@
 
 namespace IceMilkTea.Service
 {
-    public interface IImtPerformanceSensor
+    public class ImtPerformanceSensor
     {
-        long Value { get; }
+        public string Name { get; protected set; }
+        public long Value { get; protected set; }
+
+
+
+        public virtual void Update()
+        {
+        }
     }
 }

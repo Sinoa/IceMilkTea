@@ -21,12 +21,17 @@ namespace IceMilkTea.Service
 {
     public class ImtPerformanceMonitorService : GameService
     {
+        private List<ImtPerformanceSensor> sensorList;
+        private List<ImtPerformanceRenderer> rendererList;
+
         public PerformanceGraphics Graphics { get; private set; }
 
 
 
         protected internal override void Startup(out GameServiceStartupInfo info)
         {
+            sensorList = new List<ImtPerformanceSensor>();
+            rendererList = new List<ImtPerformanceRenderer>();
             Graphics = new PerformanceGraphics();
 
 
@@ -42,7 +47,66 @@ namespace IceMilkTea.Service
 
         private void OnEndOfFrame()
         {
+            UpdateSensor();
+            UpdateRenderer();
             Graphics.Render();
+        }
+
+
+        private void UpdateSensor()
+        {
+            foreach (var sensor in sensorList)
+            {
+                sensor.Update();
+            }
+        }
+
+
+        private void UpdateRenderer()
+        {
+            foreach (var renderer in rendererList)
+            {
+                renderer.Render();
+            }
+        }
+
+
+        public void AddSensor(ImtPerformanceSensor sensor)
+        {
+            sensorList.Add(sensor);
+        }
+
+
+        public void RemoveSensor(ImtPerformanceSensor sensor)
+        {
+            sensorList.Remove(sensor);
+        }
+
+
+        public ImtPerformanceSensor GetSensor(string name)
+        {
+            foreach (var sensor in sensorList)
+            {
+                if (sensor.Name == name)
+                {
+                    return sensor;
+                }
+            }
+
+
+            return null;
+        }
+
+
+        public void AddRenderer(ImtPerformanceRenderer renderer)
+        {
+            rendererList.Add(renderer);
+        }
+
+
+        public void RemoveRenderer(ImtPerformanceRenderer renderer)
+        {
+            rendererList.Remove(renderer);
         }
     }
 }

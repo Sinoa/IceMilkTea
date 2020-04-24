@@ -22,17 +22,15 @@ namespace IceMilkTea.Service
     public class ImtPerformanceRenderer : IDisposable
     {
         private bool disposed;
-        private IImtPerformanceSensor sensor;
-        private PerformanceGraphics graphics;
-        private List<ImtTextReference> textReferenceList;
-        private List<ImtNumberReference> numberReferenceList;
-        private List<ImtSquareReference> squareReferenceList;
+        private readonly PerformanceGraphics graphics;
+        private readonly List<ImtTextReference> textReferenceList;
+        private readonly List<ImtNumberReference> numberReferenceList;
+        private readonly List<ImtSquareReference> squareReferenceList;
 
 
 
-        public ImtPerformanceRenderer(IImtPerformanceSensor sensor)
+        public ImtPerformanceRenderer()
         {
-            this.sensor = sensor;
             graphics = GetGraphics();
             textReferenceList = new List<ImtTextReference>();
             numberReferenceList = new List<ImtNumberReference>();
@@ -143,7 +141,7 @@ namespace IceMilkTea.Service
         }
 
 
-        protected virtual void Render()
+        public virtual void Render()
         {
         }
     }
