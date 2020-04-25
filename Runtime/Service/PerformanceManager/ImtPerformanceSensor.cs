@@ -15,10 +15,9 @@
 
 namespace IceMilkTea.Service
 {
-    public class ImtPerformanceSensor
+    public abstract class ImtPerformanceSensor
     {
-        public string Name { get; protected set; }
-        public long Value { get; protected set; }
+        public abstract string Name { get; }
 
 
 
