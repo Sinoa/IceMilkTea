@@ -31,7 +31,7 @@ namespace IceMilkTea.Service
 
 
 
-        public int DisplayWidth { get; }
+        public Vector2 VirtualResolution {get; }
 
 
 
@@ -49,7 +49,7 @@ namespace IceMilkTea.Service
             squareReferenceList = new List<ImtSquareReference>();
             needString = string.Empty;
             stringBuffer = new StringBuilder();
-            DisplayWidth = displayWidth;
+            VirtualResolution = new Vector2(displayWidth, Screen.height * ((float)displayWidth / Screen.width));
         }
 
 
@@ -100,9 +100,7 @@ namespace IceMilkTea.Service
         public void Render()
         {
             GL.PushMatrix();
-            var sWidth = (float)DisplayWidth;
-            var sHeight = Screen.height * (sWidth / Screen.width);
-            GL.LoadPixelMatrix(0.0f, sWidth, 0.0f, sHeight);
+            GL.LoadPixelMatrix(0.0f, VirtualResolution.x, 0.0f, VirtualResolution.y);
             GL.MultMatrix(Matrix4x4.identity);
 
             // バーの描画で必要な最低限の処理箇所
