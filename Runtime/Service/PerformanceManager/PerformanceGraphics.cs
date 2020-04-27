@@ -31,7 +31,16 @@ namespace IceMilkTea.Service
 
 
 
-        public PerformanceGraphics()
+        public int DisplayWidth { get; }
+
+
+
+        public PerformanceGraphics() : this(720)
+        {
+        }
+
+
+        public PerformanceGraphics(int displayWidth)
         {
             overlaySimpleUI = new ImtOverlaySimpleUI(new Material(Shader.Find("GUI/Text Shader")));
             overlayText = new ImtOverlayText(Resources.GetBuiltinResource<Font>("Arial.ttf"), 25);
@@ -40,6 +49,7 @@ namespace IceMilkTea.Service
             squareReferenceList = new List<ImtSquareReference>();
             needString = string.Empty;
             stringBuffer = new StringBuilder();
+            DisplayWidth = displayWidth;
         }
 
 
@@ -90,7 +100,7 @@ namespace IceMilkTea.Service
         public void Render()
         {
             GL.PushMatrix();
-            var sWidth = 720.0f;
+            var sWidth = (float)DisplayWidth;
             var sHeight = Screen.height * (sWidth / Screen.width);
             GL.LoadPixelMatrix(0.0f, sWidth, 0.0f, sHeight);
             GL.MultMatrix(Matrix4x4.identity);
