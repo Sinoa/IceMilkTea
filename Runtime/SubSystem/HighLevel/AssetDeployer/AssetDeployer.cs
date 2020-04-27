@@ -164,8 +164,16 @@ namespace IceMilkTea.SubSystem
                     progress.Report(report);
                 });
 
-                // フェッチを非同期で実行する
-                await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
+
+                try
+                {
+                    // フェッチを非同期で実行する
+                    await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
+                }
+                catch (Exception error)
+                {
+                    throw new Exception($"カタログ '{catalogInfo.RemoteUri}' のフェッチに失敗しました", error);
+                }
             }
 
             // 成功を返す
@@ -187,7 +195,7 @@ namespace IceMilkTea.SubSystem
             foreach (var name in catalogInfoTable.Keys)
             {
                 //Cancelリクエストされてるか見る
-                if(cancellationToken.IsCancellationRequested)
+                if (cancellationToken.IsCancellationRequested)
                 {
                     return false;
                 }
@@ -344,15 +352,15 @@ namespace IceMilkTea.SubSystem
             var totalCount = differences.Count(x => x.Status == AssetDifferenceStatus.Update || x.Status == AssetDifferenceStatus.New);
 
             int downloadedCount = 0;
-            foreach(var diff in differences)
+            foreach (var diff in differences)
             {
-                if(diff.Status == AssetDifferenceStatus.Delete)
+                if (diff.Status == AssetDifferenceStatus.Delete)
                 {
                     this.AssetStorage.DeleteAsset(diff.Asset.LocalUri);
                 }
-                else if(diff.Status == AssetDifferenceStatus.Update || diff.Status == AssetDifferenceStatus.New)
+                else if (diff.Status == AssetDifferenceStatus.Update || diff.Status == AssetDifferenceStatus.New)
                 {
-                    using(var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
+                    using (var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
                     using (var outStream = new MonitorableStream(stream))
                     {
                         // フェッチ用進捗通知オブジェクトとレポートオブジェクトを生成
@@ -364,8 +372,16 @@ namespace IceMilkTea.SubSystem
                             progress.Report(report);
                         });
 
-                        var fetcher = CreateFetcher(diff.Asset.RemoteUri);
-                        await fetcher.FetchAsync(stream, fetchProgress, cancellationToken);
+
+                        try
+                        {
+                            var fetcher = CreateFetcher(diff.Asset.RemoteUri);
+                            await fetcher.FetchAsync(stream, fetchProgress, cancellationToken);
+                        }
+                        catch (Exception error)
+                        {
+                            throw new Exception($"アセット '{diff.Asset.RemoteUri}' のフェッチに失敗しました。", error);
+                        }
                     }
                     downloadedCount++;
                 }
@@ -389,7 +405,7 @@ namespace IceMilkTea.SubSystem
             if (scheme == Uri.UriSchemeHttp || scheme == Uri.UriSchemeHttps)
             {
 #if UNITY_5_3_OR_NEWER
-				// UnityWebRequestフェッチャを生成して返す
+                // UnityWebRequestフェッチャを生成して返す
                 return new UnityWebRequestFetcher(remoteUri);
 #else 
                 // HTTP向けフェッチャを生成して返す
