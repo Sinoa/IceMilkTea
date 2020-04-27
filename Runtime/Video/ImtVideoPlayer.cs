@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Video;
 using System.Linq;
+using UnityEngine.Experimental.Rendering;
 
 namespace IceMilkTea.Video
 {
@@ -45,7 +46,7 @@ namespace IceMilkTea.Video
 
         public static ImtVideoPlayer Create(VideoClip videoClip)
         {
-            return Create(videoClip, new RenderTexture((int)videoClip.width, (int)videoClip.height, 0, RenderTextureFormat.BGRA32, 0));
+            return Create(videoClip, new RenderTexture((int)videoClip.width, (int)videoClip.height, 0, GraphicsFormat.R8G8B8A8_UNorm, 0));
         }
 
 
