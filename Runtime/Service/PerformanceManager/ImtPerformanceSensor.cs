@@ -13,12 +13,68 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using IceMilkTea.Core;
+
 namespace IceMilkTea.Service
 {
-    public abstract class ImtPerformanceSensor
+    public abstract class ImtPerformanceSensor : IDisposable
     {
+        private bool disposed;
+
+
+
         public abstract string Name { get; }
 
+
+
+        public ImtPerformanceSensor()
+        {
+            GetService().AddSensor(this);
+        }
+
+
+        ~ImtPerformanceSensor()
+        {
+            Dispose(false);
+        }
+
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+
+            if (disposing)
+            {
+                GetService().RemoveSensor(this);
+            }
+
+
+            disposed = true;
+        }
+
+
+        private static ImtPerformanceMonitorService GetService()
+        {
+            return GameMain.Current.ServiceManager.GetService<ImtPerformanceMonitorService>();
+        }
+
+
+        private static PerformanceGraphics GetGraphics()
+        {
+            return GetService().Graphics;
+        }
 
 
         public virtual void Update()

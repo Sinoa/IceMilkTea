@@ -56,8 +56,6 @@ namespace IceMilkTea.Service
         {
             stopwatch = new Stopwatch();
             times = new double[TimesCapacity];
-            service = GameMain.Current.ServiceManager.GetService<ImtPerformanceMonitorService>();
-            service.AddSensor(this);
             InitializePlayerLoop();
         }
 

@@ -35,13 +35,7 @@ namespace IceMilkTea.Service
             textReferenceList = new List<ImtTextReference>();
             numberReferenceList = new List<ImtNumberReference>();
             squareReferenceList = new List<ImtSquareReference>();
-        }
-
-
-        private static PerformanceGraphics GetGraphics()
-        {
-            var service = GameMain.Current.ServiceManager.GetService<ImtPerformanceMonitorService>();
-            return service.Graphics;
+            GetService().AddRenderer(this);
         }
 
 
@@ -89,10 +83,25 @@ namespace IceMilkTea.Service
                 textReferenceList.Clear();
                 numberReferenceList.Clear();
                 squareReferenceList.Clear();
+
+
+                GetService().RemoveRenderer(this);
             }
 
 
             disposed = true;
+        }
+
+
+        private static ImtPerformanceMonitorService GetService()
+        {
+            return GameMain.Current.ServiceManager.GetService<ImtPerformanceMonitorService>();
+        }
+
+
+        private static PerformanceGraphics GetGraphics()
+        {
+            return GetService().Graphics;
         }
 
 
