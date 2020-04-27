@@ -24,6 +24,48 @@ using System.Threading.Tasks;
 namespace IceMilkTea.Core
 {
     /// <summary>
+    /// WebDownloader のダウンロード進捗内容を保持した構造体です
+    /// </summary>
+    public struct WebDownloadProgress
+    {
+        /// <summary>
+        /// ダウンロードしているデータの長さ。
+        /// ただし、サーバー側がContentLengthヘッダを返さなかった場合は -1 が入ることがあります。
+        /// </summary>
+        public long ContentLength { get; private set; }
+
+
+        /// <summary>
+        /// ダウンロードしている全体の進捗比率
+        /// </summary>
+        public double DownloadProgressRatio { get; private set; }
+
+
+        /// <summary>
+        /// ダウンロードスピード bps で表現しますが、この値は正確ではない可能性があります。
+        /// </summary>
+        public double DownloadBitPerSecond { get; private set; }
+
+
+
+        /// <summary>
+        /// WebDownloadProgress のインスタンスを初期化します
+        /// </summary>
+        /// <param name="contentLength">コンテンツの長さ</param>
+        /// <param name="progress">ダウンロード進捗</param>
+        /// <param name="speed">ダウンロードスピード</param>
+        public WebDownloadProgress(long contentLength, double progress, double speed)
+        {
+            // そのまま受け取る
+            ContentLength = contentLength;
+            DownloadProgressRatio = progress;
+            DownloadBitPerSecond = speed;
+        }
+    }
+
+
+
+    /// <summary>
     /// HTTPアクセスを用いたWebからデータをダウンロードをするダウンローダクラスです
     /// </summary>
     public class WebDownloader
@@ -277,7 +319,7 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">url が null です</exception>
         /// <exception cref="ArgumentNullException">outputStream が null です</exception>
         /// <exception cref="ArgumentException">ダウンロードデータの出力先ストリームが、書き込みをサポートしていません</exception>
-        public async Task DownloadAsync(Uri url, Stream outputStream, IProgress<double> progress)
+        public async Task DownloadAsync(Uri url, Stream outputStream, IProgress<WebDownloadProgress> progress)
         {
             // URLにnullを渡されたら
             if (url == null)
@@ -328,47 +370,64 @@ namespace IceMilkTea.Core
                 try
                 {
                     // 実際のダウンロードを呼び出して、何事もなく戻ってきたらエラーを忘れてループから抜ける
-                    await DownloadAsync(url, outputStream, progress, cancellationToken);
+                    await Task.Run(async () => await DownloadAsync(url, outputStream, progress, cancellationToken));
                     lastError = null;
                     break;
                 }
-                catch (OperationCanceledException canceledException)
+                catch (AggregateException aggregateException)
                 {
-                    // 操作キャンセル例外ならば例外情報だけ覚えて、そのままループを抜ける
-                    lastError = canceledException;
-                    break;
-                }
-                catch (TimeoutException timeoutException)
-                {
-                    // 最後に発生した例外として覚える
-                    lastError = timeoutException;
-                }
-                catch (WebException webException)
-                {
-                    // エラー原因を収集する
-                    var httpResponse = (HttpWebResponse)webException.Response;
-                    var statusCode = (int)httpResponse.StatusCode;
-                    var isServerError = statusCode >= 500 && statusCode <= 599;
+                    // リトライ可能かどうか
+                    var canRetry = false;
 
 
-                    // エラーが発生した原因のステータスコードがサーバー側エラーなら
-                    if (isServerError)
+                    // 例外の種類によってハンドリングの仕方を変える
+                    // TODO : C#バージョンが上がったら型スイッチ構文へ書き直す
+                    aggregateException.Handle(exception =>
                     {
-                        // 最後に発生した例外として覚える
-                        lastError = webException;
-                    }
-                    else
+                        // 操作キャンセル例外ならば
+                        if (exception is OperationCanceledException)
+                        {
+                            // 例外情報だけ覚えてリトライしない事を示す
+                            lastError = exception;
+                            canRetry = false;
+                        }
+                        else if (exception is TimeoutException)
+                        {
+                            // タイムアウトなら最後に発生した例外を覚えてリトライすることを示す
+                            lastError = exception;
+                            canRetry = true;
+                        }
+                        else if (exception is WebException)
+                        {
+                            // エラー原因を収集する
+                            var httpResponse = (HttpWebResponse)((WebException)exception).Response;
+                            var statusCode = (int)httpResponse.StatusCode;
+                            var isServerError = statusCode >= 500 && statusCode <= 599;
+
+
+                            // 最後に発生した例外を覚えてサーバー原因フラグをそのままリトライフラグとして設定
+                            lastError = exception;
+                            canRetry = isServerError;
+                        }
+                        else
+                        {
+                            // どれでもないのなら、例外を覚えてリトライできないとして示す
+                            lastError = exception;
+                            canRetry = false;
+                        }
+
+
+                        // エラーハンドリングしたことを返す
+                        return true;
+                    });
+
+
+                    // もしリトライができないのなら
+                    if (!canRetry)
                     {
-                        // サーバー側原因でないのなら例外を覚えて直ちにループを抜ける
-                        lastError = webException;
+                        // ループから抜ける
                         break;
                     }
-                }
-                catch (Exception exception)
-                {
-                    // 原因不明なら最後に発生した例外として覚えて、無理にリトライしないようにループから抜ける
-                    lastError = exception;
-                    break;
                 }
             }
 
@@ -412,7 +471,7 @@ namespace IceMilkTea.Core
         /// <returns>ダウンロード操作中のタスクを返します</returns>
         /// <exception cref="OperationCanceledException">操作がキャンセルされました</exception>
         /// <exception cref="TimeoutException">HTTP要求より先にタイムアウトしました</exception>
-        private async Task DownloadAsync(Uri url, Stream outputStream, IProgress<double> progress, CancellationToken cancellationToken)
+        private async Task DownloadAsync(Uri url, Stream outputStream, IProgress<WebDownloadProgress> progress, CancellationToken cancellationToken)
         {
             // この時点でキャンセルされているかどうかを見る
             cancellationToken.ThrowIfCancellationRequested();
@@ -443,15 +502,16 @@ namespace IceMilkTea.Core
             }
 
 
-            // レスポンスを受け取って全体の長さを取得（長さの取得が出来なかったら 1 を設定して計算時に飽和させる）
+            // レスポンスを受け取って全体の長さを取得
             var httpResponse = (HttpWebResponse)responseTask.Result;
-            var contentLength = httpResponse.ContentLength == -1 ? 1 : httpResponse.ContentLength;
+            var contentLength = httpResponse.ContentLength;
 
 
             // ダウンロードストリームを取得
             using (var downloadStream = httpResponse.GetResponseStream())
             {
-                // トータルの読み込み計上と読み込みサイズを覚える変数を宣言
+                // 通知時に覚えたトータル読み込み計上と、真のトータルの読み込み計上と、読み込みサイズを覚える変数を宣言
+                var lastNotifyTotalReadSize = 0;
                 var totalReadSize = 0;
                 var readSize = 0;
 
@@ -461,23 +521,37 @@ namespace IceMilkTea.Core
 
 
                 // 読み切るまでひたすらループする、また読み取りは非同期で読み取る
-                while ((readSize = await downloadStream.ReadAsync(receiveBuffer, 0, receiveBuffer.Length)) > 0)
+                while ((readSize = downloadStream.Read(receiveBuffer, 0, receiveBuffer.Length)) > 0)
                 {
                     // このタイミングでキャンセル通知を確認する
                     cancellationToken.ThrowIfCancellationRequested();
 
 
                     // 読み取ったサイズ分書き込んでトータル読み込みに加算（書き込みも非同期）
-                    await outputStream.WriteAsync(receiveBuffer, 0, readSize);
+                    outputStream.Write(receiveBuffer, 0, readSize);
                     totalReadSize += readSize;
 
 
                     // もしダウンロード通知経過時間が既定間隔を超えていたら
                     if (notifyStopwatch.ElapsedMilliseconds > DownloadProgressNotifyInterval)
                     {
+                        // 前回のトータル読み込み量からの差分量を出して、前回からのダウンロード数を求める
+                        var deltaReadSize = totalReadSize - lastNotifyTotalReadSize;
+                        lastNotifyTotalReadSize = totalReadSize;
+
+
+                        // 1秒あたりのダウンロードサイズを予想する（通知間隔が短いほど揺れる）
+                        // delta * (1 second / interval second) = expectSize
+                        var expectSize = deltaReadSize * (1.0 / (DownloadProgressNotifyInterval / 1000.0));
+
+
+                        // 予想サイズをbit値にしてそれをスピードとする
+                        var downloadSpeed = expectSize * 8.0;
+
+
                         // 進捗を求めて通知する
-                        var progressSize = (double)totalReadSize / contentLength;
-                        progress?.Report(progressSize);
+                        var progressSize = (double)totalReadSize / (contentLength == -1 ? totalReadSize : contentLength);
+                        progress?.Report(new WebDownloadProgress(contentLength, progressSize, downloadSpeed));
 
 
                         // ストップウォッチを再起動
@@ -493,7 +567,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// ダウンロード中の場合、ダウンロード中である例外を送出します
         /// </summary>
-        /// <param name="controlText">例外を送出する際に、付随する操作しようとした内容を出力する文字列</param>
+        /// <param name="controlText">例外を送出する際に付随する、操作しようとした内容を出力する文字列</param>
         private void ThrowIfDownloading(string controlText)
         {
             // ダウンロード中なら
