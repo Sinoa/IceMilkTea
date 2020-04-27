@@ -14,41 +14,44 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection;
 using IceMilkTea.Core;
-using UnityEngine.LowLevel;
+using UnityEngine;
+using UnityEngine.PlayerLoop;
 
 namespace IceMilkTea.Service
 {
     public class ImtBuiltinPerformanceSensor : ImtPerformanceSensor
     {
-        private const int FirstlyTimeIndex = 0;
+        private const int EarlyUpdateTimeIndex = 0;
         private const int FixedTimeIndex = 1;
-        private const int UpdateTimeIndex = 2;
-        private const int LateTimeIndex = 3;
-        private const int RenderTextureTimeIndex = 4;
-        private const int RenderTimeIndex = 5;
+        private const int PreUpdateTimeIndex = 2;
+        private const int UpdateTimeIndex = 3;
+        private const int LateTimeIndex = 4;
+        private const int RenderTextureTimeIndex = 5;
+        private const int RenderTimeIndex = 6;
         private const int TimesCapacity = RenderTimeIndex + 1;
 
+        private bool disposed;
         private Stopwatch stopwatch;
         private ImtPerformanceMonitorService service;
         private double[] times;
+        private int[] frames;
 
 
 
         public override string Name => "ImtBuiltin";
 
 
-        public double ServiceProcessTime => GameMain.Current.ServiceManager.ServiceProcessTime;
-        public double FirstlyUpdateProcessTime { get; private set; }
+        public double ServiceProcessTime { get; private set; }
+        public double EarlyUpdateProcessTime { get; private set; }
         public double FixedUpdateProcessTime { get; private set; }
+        public double PreUpdateProcessTime { get; private set; }
         public double UpdateProcessTime { get; private set; }
         public double LateUpdateProcessTime { get; private set; }
         public double RenderTextureProcessTime { get; private set; }
         public double RenderProcessTime { get; private set; }
-        public double VMMemoryUsage => GC.GetTotalMemory(false);
+        public double VMMemoryUsage { get; private set; }
 
 
 
@@ -56,26 +59,112 @@ namespace IceMilkTea.Service
         {
             stopwatch = new Stopwatch();
             times = new double[TimesCapacity];
+            frames = new int[TimesCapacity];
             InitializePlayerLoop();
+        }
+
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+
+            if (disposing)
+            {
+                Camera.onPreCull -= OnPreCull;
+                Camera.onPostRender -= OnPostRender;
+            }
+
+
+            disposed = true;
+            base.Dispose(disposing);
         }
 
 
         private void InitializePlayerLoop()
         {
-            var firstlyBeginUpdate = new ImtPlayerLoopSystem(GetType(), BeginCheckpoint);
-            var firstlyEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(FirstlyTimeIndex));
-            var fixedBeginUpdate = new ImtPlayerLoopSystem(GetType(), BeginCheckpoint);
+            var earlyBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(EarlyUpdateTimeIndex));
+            var earlyEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(EarlyUpdateTimeIndex));
+            var fixedBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(FixedTimeIndex));
             var fixedEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(FixedTimeIndex));
-            var UpdateBeginUpdate = new ImtPlayerLoopSystem(GetType(), BeginCheckpoint);
-            var UpdateEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(UpdateTimeIndex));
-            var LateBeginUpdate = new ImtPlayerLoopSystem(GetType(), BeginCheckpoint);
-            var LateEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(LateTimeIndex));
+            var preUpdateBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(PreUpdateTimeIndex));
+            var preUpdateEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(PreUpdateTimeIndex));
+            var updateBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(UpdateTimeIndex));
+            var updateEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(UpdateTimeIndex));
+            var lateBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(LateTimeIndex));
+            var lateEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(LateTimeIndex));
+            //var renderTextureBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(RenderTextureTimeIndex));
+            //var renderTextureEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(RenderTextureTimeIndex));
+            //var renderBeginUpdate = new ImtPlayerLoopSystem(GetType(), () => BeginCheckpoint(RenderTimeIndex));
+            //var renderEndUpdate = new ImtPlayerLoopSystem(GetType(), () => EndCheckpoint(RenderTimeIndex));
+
+
+            var current = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
+            current.Insert<EarlyUpdate.UnityWebRequestUpdate>(InsertTiming.BeforeInsert, earlyBeginUpdate);
+            current.Insert<EarlyUpdate.SpriteAtlasManagerUpdate>(InsertTiming.AfterInsert, earlyEndUpdate);
+            current.Insert<FixedUpdate.ClearLines>(InsertTiming.BeforeInsert, fixedBeginUpdate);
+            current.Insert<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, fixedEndUpdate);
+            current.Insert<PreUpdate.PhysicsUpdate>(InsertTiming.BeforeInsert, preUpdateBeginUpdate);
+            current.Insert<PreUpdate.UpdateVideo>(InsertTiming.AfterInsert, preUpdateEndUpdate);
+            current.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, updateBeginUpdate);
+            current.Insert<Update.DirectorUpdate>(InsertTiming.AfterInsert, updateEndUpdate);
+            current.Insert<PreLateUpdate.AIUpdatePostScript>(InsertTiming.BeforeInsert, lateBeginUpdate);
+            current.Insert<PostLateUpdate.ScriptRunDelayedDynamicFrameRate>(InsertTiming.AfterInsert, lateEndUpdate);
+            current.BuildAndSetUnityPlayerLoop();
+
+
+            Camera.onPreCull += OnPreCull;
+            Camera.onPostRender += OnPostRender;
         }
 
 
-        private void BeginCheckpoint()
+        public override void Update()
         {
-            stopwatch.Restart();
+            ServiceProcessTime = GameMain.Current.ServiceManager.ServiceProcessTime;
+            VMMemoryUsage = GC.GetTotalMemory(false);
+        }
+
+
+        private void OnPreCull(Camera camera)
+        {
+            if (camera.targetTexture == null)
+            {
+                BeginCheckpoint(RenderTimeIndex);
+                return;
+            }
+
+
+            BeginCheckpoint(RenderTextureTimeIndex);
+        }
+
+
+        private void OnPostRender(Camera camera)
+        {
+            if (camera.targetTexture == null)
+            {
+                EndCheckpoint(RenderTimeIndex);
+                return;
+            }
+
+
+            EndCheckpoint(RenderTextureTimeIndex);
+        }
+
+
+        private void BeginCheckpoint(int index)
+        {
+            if (frames[index] < Time.frameCount)
+            {
+                frames[index] = Time.frameCount;
+                stopwatch.Restart();
+            }
+            else
+            {
+                stopwatch.Start();
+            }
         }
 
 

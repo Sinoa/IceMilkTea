@@ -83,6 +83,21 @@ namespace IceMilkTea.Service
         }
 
 
+        public T GetSensor<T>() where T : ImtPerformanceSensor
+        {
+            foreach (var sensor in sensorList)
+            {
+                if (sensor is T)
+                {
+                    return (T)sensor;
+                }
+            }
+
+
+            return null;
+        }
+
+
         public ImtPerformanceSensor GetSensor(string name)
         {
             foreach (var sensor in sensorList)

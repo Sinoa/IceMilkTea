@@ -93,13 +93,13 @@ namespace IceMilkTea.Service
         }
 
 
-        private static ImtPerformanceMonitorService GetService()
+        protected static ImtPerformanceMonitorService GetService()
         {
             return GameMain.Current.ServiceManager.GetService<ImtPerformanceMonitorService>();
         }
 
 
-        private static PerformanceGraphics GetGraphics()
+        protected static PerformanceGraphics GetGraphics()
         {
             return GetService().Graphics;
         }
