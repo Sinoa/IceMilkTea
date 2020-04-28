@@ -31,7 +31,7 @@ namespace IceMilkTea.Service
 
 
 
-        public Vector2 VirtualResolution {get; }
+        public Vector2 VirtualResolution { get; private set; }
 
 
 
@@ -99,6 +99,8 @@ namespace IceMilkTea.Service
 
         public void Render()
         {
+            VirtualResolution = new Vector2(VirtualResolution.x, Screen.height * (VirtualResolution.x / Screen.width));
+
             GL.PushMatrix();
             GL.LoadPixelMatrix(0.0f, VirtualResolution.x, 0.0f, VirtualResolution.y);
             GL.MultMatrix(Matrix4x4.identity);

@@ -28,11 +28,16 @@ namespace IceMilkTea.Service
 
 
 
+        public ImtPerformanceMonitorService(int displayWidth)
+        {
+            Graphics = new PerformanceGraphics(displayWidth);
+        }
+
+
         protected internal override void Startup(out GameServiceStartupInfo info)
         {
             sensorList = new List<ImtPerformanceSensor>();
             rendererList = new List<ImtPerformanceRenderer>();
-            Graphics = new PerformanceGraphics();
 
 
             info = new GameServiceStartupInfo()

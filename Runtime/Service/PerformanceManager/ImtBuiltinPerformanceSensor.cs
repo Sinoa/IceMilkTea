@@ -125,6 +125,15 @@ namespace IceMilkTea.Service
         {
             ServiceProcessTime = GameMain.Current.ServiceManager.ServiceProcessTime;
             VMMemoryUsage = GC.GetTotalMemory(false);
+
+
+            EarlyUpdateProcessTime = times[EarlyUpdateTimeIndex];
+            FixedUpdateProcessTime = times[FixedTimeIndex];
+            PreUpdateProcessTime = times[PreUpdateTimeIndex];
+            UpdateProcessTime = times[UpdateTimeIndex];
+            LateUpdateProcessTime = times[LateTimeIndex];
+            RenderTextureProcessTime = times[RenderTextureTimeIndex];
+            RenderProcessTime = times[RenderTimeIndex];
         }
 
 
