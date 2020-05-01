@@ -1831,8 +1831,9 @@ namespace IceMilkTea.UI
             }
 
 
-            // 頂点キャッシュの確保をする
+            // 頂点キャッシュの確保をしてクリアする
             EnsureVerticesCache(gameText);
+            ClearVertices();
 
 
             // 計算に必要なデータを求める
@@ -2408,6 +2409,20 @@ namespace IceMilkTea.UI
 
             // 参照の更新をする
             verticesCache = newerCache;
+        }
+
+
+        /// <summary>
+        /// 現在の頂点キャッシュの全てをクリアします
+        /// </summary>
+        private void ClearVertices()
+        {
+            // 全キャッシュ回る
+            for (int i = 0; i < verticesCache.Length; ++i)
+            {
+                // 単純に既定値で代入
+                verticesCache[i] = default;
+            }
         }
 
 
