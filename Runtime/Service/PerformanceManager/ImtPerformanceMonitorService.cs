@@ -31,15 +31,13 @@ namespace IceMilkTea.Service
         public ImtPerformanceMonitorService(int displayWidth)
         {
             Graphics = new PerformanceGraphics(displayWidth);
+            sensorList = new List<ImtPerformanceSensor>();
+            rendererList = new List<ImtPerformanceRenderer>();
         }
 
 
         protected internal override void Startup(out GameServiceStartupInfo info)
         {
-            sensorList = new List<ImtPerformanceSensor>();
-            rendererList = new List<ImtPerformanceRenderer>();
-
-
             info = new GameServiceStartupInfo()
             {
                 UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
