@@ -15,6 +15,7 @@
 
 using System;
 using System.IO;
+using UnityEngine;
 
 namespace IceMilkTea.SubSystem
 {
@@ -354,16 +355,33 @@ namespace IceMilkTea.SubSystem
                 }
 
 
-                // 読み取りストリームとして開いて返す
-                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                // iOSの場合のみ
+                if (Application.platform == RuntimePlatform.IPhonePlayer)
+                {
+                    // 読み取りストリームとして開いて返す
+                    return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                }
+
+
+                // それ以外は通常のオープンを使用
+                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             }
             else if (access == AssetStorageAccess.Write)
             {
                 //必要に応じてDirectoryを作成する
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-                // 書き込みストリームとして開いて返す
-                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+
+                // iOSの場合のみ
+                if (Application.platform == RuntimePlatform.IPhonePlayer)
+                {
+                    // 書き込みストリームとして開いて返す
+                    return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                }
+
+
+                // それ以外は通常のオープンを使用
+                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
             }
 
 
