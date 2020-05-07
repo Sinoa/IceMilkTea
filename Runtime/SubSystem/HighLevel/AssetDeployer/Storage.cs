@@ -355,33 +355,14 @@ namespace IceMilkTea.SubSystem
                 }
 
 
-                // iOSの場合のみ
-                if (Application.platform == RuntimePlatform.IPhonePlayer)
-                {
-                    // 読み取りストリームとして開いて返す
-                    return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
-                }
-
-
-                // それ以外は通常のオープンを使用
-                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                // 読み取りストリームとして開いて返す
+                return CreateFileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
             else if (access == AssetStorageAccess.Write)
             {
-                //必要に応じてDirectoryを作成する
+                // 必要に応じてDirectoryを作成して書き込みストリームを開いて返す
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-
-
-                // iOSの場合のみ
-                if (Application.platform == RuntimePlatform.IPhonePlayer)
-                {
-                    // 書き込みストリームとして開いて返す
-                    return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
-                }
-
-
-                // それ以外は通常のオープンを使用
-                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                return CreateFileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
 
 
@@ -413,12 +394,12 @@ namespace IceMilkTea.SubSystem
 
 
                 // 読み取りストリームとして開いて返す
-                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                return CreateFileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
             else if (access == AssetStorageAccess.Write)
             {
                 // 書き込みストリームとして開いて返す
-                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                return CreateFileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
 
 
@@ -459,17 +440,42 @@ namespace IceMilkTea.SubSystem
 
 
                 // 読み取りストリームとして開いて返す
-                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                return CreateFileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
             else if (access == AssetStorageAccess.Write)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
                 // 書き込みストリームとして開いて返す
-                return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                return CreateFileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, DefaultFileBufferSize, true);
             }
 
             // ここには到達することはないはずだが、万が一来てしまった場合は null を返す
             return null;
+        }
+
+
+        /// <summary>
+        /// FileStream クラスのインスタンスを生成します
+        /// </summary>
+        /// <param name="path">FileStreamコンストラクタの path 引数</param>
+        /// <param name="mode">FileStreamコンストラクタの mode 引数</param>
+        /// <param name="access">FileStreamコンストラクタの access 引数</param>
+        /// <param name="share">FileStreamコンストラクタの share 引数</param>
+        /// <param name="bufferSize">FileStreamコンストラクタの bufferSize 引数</param>
+        /// <param name="useAsync">FileStreamコンストラクタの useAsync 引数</param>
+        /// <returns>生成したインスタンスへの参照を返します</returns>
+        private static FileStream CreateFileStream(string path, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync)
+        {
+            // iOSの場合のみ
+            if (Application.platform == RuntimePlatform.IPhonePlayer)
+            {
+                // 書き込みストリームとして開いて返す
+                return new FileStream(path, mode, access, share, bufferSize, useAsync);
+            }
+
+
+            // それ以外は通常のオープンを使用
+            return new FileStream(path, mode, access, share);
         }
         #endregion
 
