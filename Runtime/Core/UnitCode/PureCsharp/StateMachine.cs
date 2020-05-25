@@ -49,7 +49,7 @@ namespace IceMilkTea.Core
     /// コンテキストを持つことのできるステートマシンクラスです
     /// </summary>
     /// <typeparam name="TContext">このステートマシンが持つコンテキストの型</typeparam>
-    public class ImtStateMachine<TContext>
+    public class ImtStateMachine<TContext, E>
     {
         #region ステートクラス本体と特別ステートクラスの定義
         /// <summary>
@@ -58,15 +58,15 @@ namespace IceMilkTea.Core
         public abstract class State
         {
             // メンバ変数定義
-            internal Dictionary<int, State> transitionTable;
-            internal ImtStateMachine<TContext> stateMachine;
+            internal Dictionary<E, State> transitionTable;
+            internal ImtStateMachine<TContext, E> stateMachine;
 
 
 
             /// <summary>
             /// このステートが所属するステートマシン
             /// </summary>
-            protected ImtStateMachine<TContext> StateMachine => stateMachine;
+            protected ImtStateMachine<TContext, E> StateMachine => stateMachine;
 
 
             /// <summary>
@@ -122,7 +122,7 @@ namespace IceMilkTea.Core
             /// </summary>
             /// <param name="eventId">渡されたイベントID</param>
             /// <returns>イベントの受付をガードする場合は true を、ガードせずイベントを受け付ける場合は false を返します</returns>
-            protected internal virtual bool GuardEvent(int eventId)
+            protected internal virtual bool GuardEvent(E eventId)
             {
                 // 通常はガードしない
                 return false;
@@ -252,7 +252,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// このステートマシンが最後に受け付けたイベントID
         /// </summary>
-        public int LastAcceptedEventID { get; private set; }
+        public E LastAcceptedEventID { get; private set; }
 
 
 
@@ -298,7 +298,7 @@ namespace IceMilkTea.Core
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void AddAnyTransition<TNextState>(int eventId) where TNextState : State, new()
+        public void AddAnyTransition<TNextState>(E eventId) where TNextState : State, new()
         {
             // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
             AddTransition<AnyState, TNextState>(eventId);
@@ -319,7 +319,7 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentException">nextStateType が State を継承したクラスではありません</exception>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void AddAnyTransition(Type nextStateType, int eventId)
+        public void AddAnyTransition(Type nextStateType, E eventId)
         {
             // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
             AddTransition(typeof(AnyState), nextStateType, eventId);
@@ -335,7 +335,7 @@ namespace IceMilkTea.Core
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void AddTransition<TPrevState, TNextState>(int eventId) where TPrevState : State, new() where TNextState : State, new()
+        public void AddTransition<TPrevState, TNextState>(E eventId) where TPrevState : State, new() where TNextState : State, new()
         {
             // 型引数を取るバージョンで呼び出す
             AddTransition(typeof(TPrevState), typeof(TNextState), eventId);
@@ -353,7 +353,7 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentException">prevStateType または nextStateType が State を継承したクラスではありません</exception>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void AddTransition(Type prevStateType, Type nextStateType, int eventId)
+        public void AddTransition(Type prevStateType, Type nextStateType, E eventId)
         {
             // ステートマシンが起動してしまっている場合は
             if (Running)
@@ -415,7 +415,7 @@ namespace IceMilkTea.Core
 
 
                 // 型で引数を取るAddTransitionを呼び続ける
-                AddTransition(fromType, toType, (int)eventId);
+                AddTransition(fromType, toType, (E)eventId);
             }
         }
 
@@ -593,7 +593,7 @@ namespace IceMilkTea.Core
         /// <returns>ステートマシンが送信されたイベントを受け付けた場合は true を、イベントを拒否または、イベントの受付ができない場合は false を返します</returns>
         /// <exception cref="InvalidOperationException">ステートマシンは、まだ起動していません</exception>
         /// <exception cref="InvalidOperationException">ステートが Exit 処理中のためイベントを受け付けることが出来ません</exception>
-        public virtual bool SendEvent(int eventId)
+        public virtual bool SendEvent(E eventId)
         {
             // そもそもまだ現在実行中のステートが存在していないなら例外を投げる
             IfNotRunningThrowException();
@@ -882,7 +882,7 @@ namespace IceMilkTea.Core
 
             // 新しいステートに、自身の参照と遷移テーブルのインスタンスの初期化も行って返す
             newState.stateMachine = this;
-            newState.transitionTable = new Dictionary<int, State>();
+            newState.transitionTable = new Dictionary<E, State>();
             return newState;
         }
         #endregion
