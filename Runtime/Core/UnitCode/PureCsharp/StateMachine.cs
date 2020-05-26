@@ -258,7 +258,7 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ImtStateMachineBase のインスタンスを初期化します
+        /// ImtStateMachineEx のインスタンスを初期化します
         /// </summary>
         /// <param name="context">このステートマシンが持つコンテキスト</param>
         /// <exception cref="ArgumentNullException">context が null です</exception>
