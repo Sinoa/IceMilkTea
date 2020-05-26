@@ -50,7 +50,7 @@ namespace IceMilkTea.Core
     /// </summary>
     /// <typeparam name="TContext">このステートマシンが持つコンテキストの型</typeparam>
     /// <typeparam name="TEvent">ステートマシンへ送信するイベントの型</typeparam>
-    public class ImtStateMachineEx<TContext, TEvent>
+    public class ImtStateMachine<TContext, TEvent>
     {
         #region ステートクラス本体と特別ステートクラスの定義
         /// <summary>
@@ -60,14 +60,14 @@ namespace IceMilkTea.Core
         {
             // メンバ変数定義
             internal Dictionary<TEvent, State> transitionTable;
-            internal ImtStateMachineEx<TContext, TEvent> stateMachine;
+            internal ImtStateMachine<TContext, TEvent> stateMachine;
 
 
 
             /// <summary>
             /// このステートが所属するステートマシン
             /// </summary>
-            protected ImtStateMachineEx<TContext, TEvent> StateMachine => stateMachine;
+            protected ImtStateMachine<TContext, TEvent> StateMachine => stateMachine;
 
 
             /// <summary>
@@ -262,7 +262,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="context">このステートマシンが持つコンテキスト</param>
         /// <exception cref="ArgumentNullException">context が null です</exception>
-        public ImtStateMachineEx(TContext context)
+        public ImtStateMachine(TContext context)
         {
             // 渡されたコンテキストがnullなら
             if (context == null)
@@ -897,7 +897,7 @@ namespace IceMilkTea.Core
     /// コンテキストを持つことのできるステートマシンクラスです
     /// </summary>
     /// <typeparam name="TContext">このステートマシンが持つコンテキストの型</typeparam>
-    public class ImtStateMachine<TContext> : ImtStateMachineEx<TContext, int>
+    public class ImtStateMachine<TContext> : ImtStateMachine<TContext, int>
     {
         /// <summary>
         /// ImtStateMachine のインスタンスを初期化します
