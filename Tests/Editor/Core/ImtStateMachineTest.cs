@@ -28,7 +28,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// 各種テスト確認用ステートの基本ステートクラスです
         /// </summary>
-        private abstract class SampleBaseState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private abstract class SampleBaseState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステート開始時のSampleValue値
@@ -140,7 +140,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// Exit 時に SendEvent する許されざるステートクラスです
         /// </summary>
-        private class ExitSendEventState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ExitSendEventState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートの終了処理を行います
@@ -157,7 +157,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// このステートに遷移したら直ちに SendEvent を行うステートクラスです
         /// </summary>
-        private class ImmediateTransitionState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ImmediateTransitionState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             // 定数定義
             public const int EventId = 12345;
@@ -199,7 +199,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// このステートに遷移して更新処理された時に SendEvent を行うステートクラスです
         /// </summary>
-        private class UpdateTransitionState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class UpdateTransitionState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             // 定数定義
             public const int EvnetId = 123456;
@@ -241,7 +241,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// コンテキストのガード有効値に基づいて、ガード制御を行うステートクラスです
         /// </summary>
-        private class ProGuardState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ProGuardState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートマシンのイベントをガードします
@@ -272,7 +272,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// ステート開始時にアップデートプロパティをキャプチャするステートクラスです
         /// </summary>
-        private class EnterUpdateCaptureState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class EnterUpdateCaptureState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートの開始処理を行います
@@ -289,7 +289,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// ステート更新時にアップデートプロパティをキャプチャするステートクラスです
         /// </summary>
-        private class UpdateUpdateCaptureState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class UpdateUpdateCaptureState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートの更新処理を行います
@@ -306,7 +306,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// ステート終了時にアップデートプロパティをキャプチャするステートクラスです
         /// </summary>
-        private class ExitUpdateCaptureState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ExitUpdateCaptureState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートの終了処理を行います
@@ -322,7 +322,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// Enter時に sampleValue が 0 の場合は、例外を発生させるステートクラスです。
         /// </summary>
-        private class ForceEnterExceptionState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ForceEnterExceptionState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートの開始処理を行います
@@ -343,7 +343,7 @@ namespace IceMilkTeaTestStatic.Core
         /// Update時に sampleValue が 0 の場合は、例外を発生させるステートクラスです
         /// また例外モードが CatchStateException の場合は MyEventId の遷移イベントを送出します
         /// </summary>
-        private class ForceUpdateExceptionState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ForceUpdateExceptionState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// CatchStateException 時に送出するイベントID
@@ -383,7 +383,7 @@ namespace IceMilkTeaTestStatic.Core
         /// <summary>
         /// Exit時に sampleValue が 0 の場合は、例外を発生させるステートクラスです
         /// </summary>
-        private class ForceExitExceptionState : ImtStateMachine<ImtStateMachineTest, int>.State
+        private class ForceExitExceptionState : ImtStateMachineEx<ImtStateMachineTest, int>.State
         {
             /// <summary>
             /// ステートの終了処理を行います
@@ -423,8 +423,8 @@ namespace IceMilkTeaTestStatic.Core
         public void ConstructorTest()
         {
             // null渡しによるインスタンスの生成は許されていないのでテスト
-            Assert.Throws<ArgumentNullException>(() => new ImtStateMachine<ImtStateMachineTest, int>(null));
-            Assert.DoesNotThrow(() => new ImtStateMachine<ImtStateMachineTest, int>(this));
+            Assert.Throws<ArgumentNullException>(() => new ImtStateMachineEx<ImtStateMachineTest, int>(null));
+            Assert.DoesNotThrow(() => new ImtStateMachineEx<ImtStateMachineTest, int>(this));
         }
 
 
@@ -435,7 +435,7 @@ namespace IceMilkTeaTestStatic.Core
         public void StateTransitionTableBuildTest()
         {
             // ステートマシンのインスタンスを生成する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
 
 
             // イベントIDの重複しないステート遷移なら問題ない事を確認する
@@ -488,7 +488,7 @@ namespace IceMilkTeaTestStatic.Core
         public void SendEventTest()
         {
             // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<SampleAState, SampleBState>(1);
             stateMachine.AddTransition<SampleBState, SampleAState>(1);
             stateMachine.AddTransition<SampleBState, ExitSendEventState>(2);
@@ -541,7 +541,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
             // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<SampleAState, SampleBState>(1);
             stateMachine.AddTransition<SampleBState, SampleAState>(1);
             stateMachine.AddTransition<SampleCState, ImmediateTransitionState>(1);
@@ -620,7 +620,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
             // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<SampleAState, ProGuardState>(1);
             stateMachine.AddTransition<SampleBState, ProGuardState>(1);
             stateMachine.AddTransition<ProGuardState, SampleAState>(1);
@@ -681,7 +681,7 @@ namespace IceMilkTeaTestStatic.Core
         public void CurrentStateCheckTest()
         {
             // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<SampleAState, SampleBState>(1);
             stateMachine.AddTransition<SampleBState, SampleAState>(1);
             stateMachine.SetStartState<SampleAState>();
@@ -713,7 +713,7 @@ namespace IceMilkTeaTestStatic.Core
         public void StateStackTest()
         {
             // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<SampleAState, SampleBState>(1);
             stateMachine.AddTransition<SampleBState, SampleCState>(1);
             stateMachine.SetStartState<SampleAState>();
@@ -842,7 +842,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
             // ステートマシンのインスタンスを生成してサクッと遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<EnterUpdateCaptureState, UpdateUpdateCaptureState>(1);
             stateMachine.AddTransition<UpdateUpdateCaptureState, ExitUpdateCaptureState>(1);
             stateMachine.AddTransition<ExitUpdateCaptureState, UpdateUpdateCaptureState>(1);
@@ -983,7 +983,7 @@ namespace IceMilkTeaTestStatic.Core
 
 
             // ステートマシンのインスタンスを生成して、この救いようのない例外発生しまくり遷移テーブルを構築する
-            var stateMachine = new ImtStateMachine<ImtStateMachineTest, int>(this);
+            var stateMachine = new ImtStateMachineEx<ImtStateMachineTest, int>(this);
             stateMachine.AddTransition<ForceEnterExceptionState, ForceUpdateExceptionState>(1);
             stateMachine.AddTransition<ForceUpdateExceptionState, ForceExitExceptionState>(1);
             stateMachine.AddTransition<ForceUpdateExceptionState, ForceExitExceptionState>(ForceUpdateExceptionState.MyEventId);
