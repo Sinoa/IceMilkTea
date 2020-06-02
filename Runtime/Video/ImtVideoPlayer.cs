@@ -15,6 +15,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using IceMilkTea.Core;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Video;
@@ -58,6 +59,19 @@ namespace IceMilkTea.Video
 
 
             return videoPlayer;
+        }
+
+
+        public IAwaitable PrepareAsync()
+        {
+            var prepareTask = new ImtAwaitableFromEvent<VideoPlayer.EventHandler, bool>(
+                null, false, x => vp => x(vp.isPrepared),
+                x => unityVideoPlayer.prepareCompleted += x,
+                x => unityVideoPlayer.prepareCompleted -= x);
+
+
+            unityVideoPlayer.Prepare();
+            return prepareTask;
         }
 
 
