@@ -62,7 +62,7 @@ namespace IceMilkTea.Video
         }
 
 
-        public IAwaitable PrepareAsync()
+        public IAwaitable<bool> PrepareAsync()
         {
             var prepareTask = new ImtAwaitableFromEvent<VideoPlayer.EventHandler, bool>(
                 null, false, x => vp => x(vp.isPrepared),
