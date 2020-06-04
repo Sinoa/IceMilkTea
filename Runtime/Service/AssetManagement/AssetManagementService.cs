@@ -21,6 +21,7 @@ using System.Threading.Tasks;
 using IceMilkTea.Core;
 using IceMilkTea.SubSystem;
 using UnityEngine;
+using UnityEngine.Video;
 
 namespace IceMilkTea.Service
 {
@@ -421,8 +422,8 @@ namespace IceMilkTea.Service
             var catalog = this.assetDatabase.GetCatalog(storageName);
             var itemName = assetUrl.Uri.LocalPath.TrimStart('/');
             var item = catalog.GetItem(itemName);
-            
-            if(item == null)
+
+            if (item == null)
             {
                 throw new InvalidOperationException($"カタログ {storageName} に {itemName} が存在しません");
             }
@@ -455,6 +456,11 @@ namespace IceMilkTea.Service
                     multiSprite.SetSprites(spriteArray);
                     result = (T)(UnityEngine.Object)multiSprite;
                 }
+            }
+            else if (typeof(T) == typeof(VideoClip))
+            {
+                // もしビデオクリップ型のロード要求ならアセットバンドル内のアセットすべてをロードするように振る舞う
+                result = (T)await assetBundle.LoadAllAssetsAsync<VideoClip>();
             }
             else if (typeof(T) == typeof(SceneAsset))
             {
@@ -577,12 +583,12 @@ namespace IceMilkTea.Service
             public Task SaveNewManifestAsync()
             {
                 //これはSimulateAssetBundle時の動作なので空更新とする
-                if(this.NewManifest.ContentGroups is null)
+                if (this.NewManifest.ContentGroups is null)
                 {
                     return Task.CompletedTask;
                 }
 
-                if(this.UpdatableAssetBundles.Count > 0)
+                if (this.UpdatableAssetBundles.Count > 0)
                 {
                     return this.Service.manifestManager.UpdateManifestAsync(NewManifest);
                 }
