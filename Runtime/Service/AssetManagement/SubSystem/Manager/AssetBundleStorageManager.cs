@@ -434,9 +434,9 @@ namespace IceMilkTea.Service
 
         private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(ImtCatalogItem item)
         {
-            var stream = storage.OpenAsset(item.LocalUri, AssetStorageAccess.Read);
+            //var stream = storage.OpenAsset(item.LocalUri, AssetStorageAccess.Read);
             // 指定されたパスのアセットバンドルを非同期で開くが開けなかったら
-            var assetBundle = await AssetBundle.LoadFromStreamAsync(stream);
+            var assetBundle = await AssetBundle.LoadFromFileAsync(item.LocalUri.LocalPath);
             if (assetBundle == null)
             {
                 // アセットバンドルが開けなかったことを例外で吐く
