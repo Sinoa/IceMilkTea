@@ -436,7 +436,7 @@ namespace IceMilkTea.Service
         {
             //var stream = storage.OpenAsset(item.LocalUri, AssetStorageAccess.Read);
             // 指定されたパスのアセットバンドルを非同期で開くが開けなかったら
-            var assetBundle = await AssetBundle.LoadFromFileAsync(item.LocalUri.LocalPath);
+            var assetBundle = await AssetBundle.LoadFromFileAsync(storage.ToAssetFilePath(item.LocalUri));
             if (assetBundle == null)
             {
                 // アセットバンドルが開けなかったことを例外で吐く
