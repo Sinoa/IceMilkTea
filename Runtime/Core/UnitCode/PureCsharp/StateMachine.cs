@@ -307,27 +307,6 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ステートの任意遷移構造を追加します。
-        /// </summary>
-        /// <remarks>
-        /// この関数は、遷移元が任意の状態からの遷移を希望する場合に利用してください。
-        /// 任意の遷移は、通常の遷移（Any以外の遷移元）より優先度が低いことにも、注意をしてください。
-        /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
-        /// </remarks>
-        /// <param name="nextStateType">任意状態から遷移する先になるステートの型</param>
-        /// <param name="eventId">遷移する条件となるイベントID</param>
-        /// <exception cref="ArgumentNullException">nextStateType が null です</exception>
-        /// <exception cref="ArgumentException">nextStateType が State を継承したクラスではありません</exception>
-        /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
-        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void AddAnyTransition(Type nextStateType, TEvent eventId)
-        {
-            // 単純に遷移元がAnyStateなだけの単純な遷移追加関数を呼ぶ
-            AddTransition(typeof(AnyState), nextStateType, eventId);
-        }
-
-
-        /// <summary>
         /// ステートの遷移構造を追加します。
         /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
         /// </summary>
@@ -338,24 +317,6 @@ namespace IceMilkTea.Core
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
         public void AddTransition<TPrevState, TNextState>(TEvent eventId) where TPrevState : State, new() where TNextState : State, new()
         {
-            // 型引数を取るバージョンで呼び出す
-            AddTransition(typeof(TPrevState), typeof(TNextState), eventId);
-        }
-
-
-        /// <summary>
-        /// ステートの遷移構造を追加します。
-        /// また、ステートの遷移テーブル設定はステートマシンが起動する前に完了しなければなりません。
-        /// </summary>
-        /// <param name="prevStateType">遷移する元になるステートの型</param>
-        /// <param name="nextStateType">遷移する先になるステートの型</param>
-        /// <param name="eventId">遷移する条件となるイベントID</param>
-        /// <exception cref="ArgumentNullException">prevStateType または nextStateType が null です</exception>
-        /// <exception cref="ArgumentException">prevStateType または nextStateType が State を継承したクラスではありません</exception>
-        /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
-        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        public void AddTransition(Type prevStateType, Type nextStateType, TEvent eventId)
-        {
             // ステートマシンが起動してしまっている場合は
             if (Running)
             {
@@ -365,8 +326,8 @@ namespace IceMilkTea.Core
 
 
             // 遷移元と遷移先のステートインスタンスを取得
-            var prevState = GetOrCreateState(prevStateType);
-            var nextState = GetOrCreateState(nextStateType);
+            var prevState = GetOrCreateState<TPrevState>();
+            var nextState = GetOrCreateState<TNextState>();
 
 
             // 遷移元ステートの遷移テーブルに既に同じイベントIDが存在していたら
@@ -383,64 +344,11 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ステートの遷移構造を、可変長引数式に一気に追加します。
-        /// 追加構造は（Type from, Type to, int event, Type from, Type to, int event,,,）となるような配列で指定して下さい
-        /// </summary>
-        /// <param name="transitionArray">一気に追加する遷移構造</param>
-        /// <exception cref="ArgumentException">遷移構造パラメータは最低でも3つ以上か、3の倍数の長さで作って下さい</exception>
-        /// <exception cref="InvalidOperationException">遷移テーブル構築配列に不正な型、または扱えない値や null などが含まれていました</exception>
-        public void AddTransitionRange(params object[] transitionArray)
-        {
-            // 引数の長さが 0 または 3の倍数以外なら
-            if (transitionArray.Length == 0 || (transitionArray.Length % 3) != 0)
-            {
-                // 引数が想定外の長さである
-                throw new ArgumentException("遷移構造パラメータは最低でも3つ以上か、3の倍数の長さで作って下さい");
-            }
-
-
-            // データを突っ込む回数を求めて一気に追加
-            var stateBaseType = typeof(State);
-            var dataCount = transitionArray.Length / 3;
-            for (int i = 0; i < dataCount; ++i)
-            {
-                // ちゃんと StateType, StateType, int の順番で格納されているかチェックして、ダメなら
-                var fromType = transitionArray[i * 3 + 0] as Type;
-                var toType = transitionArray[i * 3 + 1] as Type;
-                var eventId = transitionArray[i * 3 + 2];
-                if (!(stateBaseType.IsAssignableFrom(fromType) && stateBaseType.IsAssignableFrom(toType) && eventId is int))
-                {
-                    // 不正なデータ構造として例外を吐く
-                    throw new InvalidOperationException("遷移テーブル構築配列に不正な型、または扱えない値や null などが含まれていました");
-                }
-
-
-                // 型で引数を取るAddTransitionを呼び続ける
-                AddTransition(fromType, toType, (TEvent)eventId);
-            }
-        }
-
-
-        /// <summary>
         /// ステートマシンが起動する時に、最初に開始するステートを設定します。
         /// </summary>
         /// <typeparam name="TStartState">ステートマシンが起動時に開始するステートの型</typeparam>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
         public void SetStartState<TStartState>() where TStartState : State, new()
-        {
-            // 型引数を取るバージョンで呼ぶ
-            SetStartState(typeof(TStartState));
-        }
-
-
-        /// <summary>
-        /// ステートマシンが起動する時に、最初に開始するステートを設定します。
-        /// </summary>
-        /// <param name="startStateType">ステートマシンが起動時に開始するステートの型</param>
-        /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
-        /// <exception cref="ArgumentNullException">startStateType が null です</exception>
-        /// <exception cref="ArgumentException">startStateType が State を継承したクラスではありません</exception>
-        public void SetStartState(Type startStateType)
         {
             // 既にステートマシンが起動してしまっている場合は
             if (Running)
@@ -451,7 +359,7 @@ namespace IceMilkTea.Core
 
 
             // 次に処理するステートの設定をする
-            nextState = GetOrCreateState(startStateType);
+            nextState = GetOrCreateState<TStartState>();
         }
         #endregion
 
@@ -833,51 +741,21 @@ namespace IceMilkTea.Core
         /// <returns>取得、または生成されたステートのインスタンスを返します</returns>
         private TState GetOrCreateState<TState>() where TState : State, new()
         {
-            // 型の引数を取る関数を叩いて返す
-            return (TState)GetOrCreateState(typeof(TState));
-        }
-
-
-        /// <summary>
-        /// 指定されたステートの型のインスタンスを取得しますが、存在しない場合は生成してから取得します。
-        /// 生成されたインスタンスは、次回から取得されるようになります。
-        /// </summary>
-        /// <param name="stateType">取得、または生成するステートの型</param>
-        /// <returns>取得、または生成されたステートのインスタンスを返します</returns>
-        /// <exception cref="ArgumentNullException">stateType が null です</exception>
-        /// <exception cref="ArgumentException">'{stateType}'は、ステートの型ではありません</exception>
-        private State GetOrCreateState(Type stateType)
-        {
-            // nullが渡されたら
-            if (stateType == null)
-            {
-                // 何を取得すればよいのか
-                throw new ArgumentNullException(nameof(stateType));
-            }
-
-
-            // 要求ステートの型が State を継承していないなら
-            if (!typeof(State).IsAssignableFrom(stateType))
-            {
-                // Stateを継承していないとダメです
-                throw new ArgumentException($"'{stateType.ToString()}'は、ステートの型ではありません");
-            }
-
-
             // ステートの数分回る
+            var stateType = typeof(TState);
             foreach (var state in stateList)
             {
                 // もし該当のステートの型と一致するインスタンスなら
                 if (state.GetType() == stateType)
                 {
                     // そのインスタンスを返す
-                    return state;
+                    return (TState)state;
                 }
             }
 
 
             // ループから抜けたのなら、型一致するインスタンスが無いという事なのでインスタンスを生成してキャッシュする
-            var newState = (State)Activator.CreateInstance(stateType);
+            var newState = new TState();
             stateList.Add(newState);
 
 
