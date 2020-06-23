@@ -14,6 +14,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using System.CodeDom;
 using IceMilkTea.Core;
 using NUnit.Framework;
 
@@ -396,6 +397,34 @@ namespace IceMilkTeaTestStatic.Core
                     // 例外を即座に発生
                     throw new InvalidOperationException("この Exit エラーを拾ってください");
                 }
+            }
+        }
+
+
+
+        /// <summary>
+        /// ステートクラスのインスタンス生成に失敗するテスト用クラスです
+        /// </summary>
+        private class CreateStateInstanceMissStateMachine : ImtStateMachine<ImtStateMachineTest>
+        {
+            /// <summary>
+            /// CreateStateInstanceMissStateMachine クラスのインスタンスを初期化します
+            /// </summary>
+            /// <param name="context">このステートマシンが持つべきコンテキスト</param>
+            public CreateStateInstanceMissStateMachine(ImtStateMachineTest context) : base(context)
+            {
+            }
+
+
+            /// <summary>
+            /// 必ずインスタンスの生成に失敗します
+            /// </summary>
+            /// <typeparam name="TState">生成するべきステートの型</typeparam>
+            /// <returns>必ず null を返します</returns>
+            protected override TState CreateStateInstance<TState>()
+            {
+                // 無条件で失敗する
+                return null;
             }
         }
         #endregion
@@ -1056,6 +1085,41 @@ namespace IceMilkTeaTestStatic.Core
             Assert.DoesNotThrow(() => stateMachine.Update()); // ステート側でエラーハンドリングしているためココでは例外は発生しない
             stateMachine.Update();
             Assert.IsTrue(stateMachine.IsCurrentState<ForceExitExceptionState>());
+        }
+
+
+        /// <summary>
+        /// ステートのインスタンス生成ロジックが正しく動作するかのテスト
+        /// </summary>
+        [Test]
+        public void CreateStateInstanceTest()
+        {
+            // ステートマシンを生成して簡単にステートの生成に失敗するか試みる
+            var stateMachine = new CreateStateInstanceMissStateMachine(this);
+            Assert.Throws<InvalidOperationException>(() => stateMachine.AddAnyTransition<SampleAState>(0));
+
+
+            // レジスタとアンレジスタ関数の失敗を確認する
+            Assert.Throws<ArgumentNullException>(() => stateMachine.RegisterStateFactory(null));
+            Assert.Throws<ArgumentNullException>(() => stateMachine.UnregisterStateFactory(null));
+
+
+            // ステート生成関数を登録して今度は問題なく生成されるか確認をする
+            stateMachine.RegisterStateFactory(type =>
+            {
+                if (typeof(CreateStateInstanceMissStateMachine.AnyState) == type)
+                {
+                    return new CreateStateInstanceMissStateMachine.AnyState();
+                }
+                else if (typeof(SampleAState) == type)
+                {
+                    return new SampleAState();
+                }
+
+
+                return null;
+            });
+            Assert.DoesNotThrow(() => stateMachine.AddAnyTransition<SampleAState>(0));
         }
     }
 }

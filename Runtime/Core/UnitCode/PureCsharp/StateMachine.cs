@@ -146,7 +146,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// ステートマシンで "任意" を表現する特別なステートクラスです
         /// </summary>
-        private sealed class AnyState : State { }
+        public sealed class AnyState : State { }
         #endregion
 
 
@@ -187,6 +187,7 @@ namespace IceMilkTea.Core
         private State currentState;
         private State nextState;
         private Stack<State> stateStack;
+        private HashSet<Func<Type, State>> stateFactorySet;
 
 
 
@@ -262,6 +263,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <param name="context">このステートマシンが持つコンテキスト</param>
         /// <exception cref="ArgumentNullException">context が null です</exception>
+        /// <exception cref="InvalidOperationException">ステートクラスのインスタンスの生成に失敗しました</exception>
         public ImtStateMachine(TContext context)
         {
             // 渡されたコンテキストがnullなら
@@ -279,11 +281,34 @@ namespace IceMilkTea.Core
             updateState = UpdateState.Idle;
             AllowRetransition = false;
             UnhandledExceptionMode = ImtStateMachineUnhandledExceptionMode.ThrowException;
-
-
-            // この時点で任意ステートのインスタンスを作ってしまう
-            GetOrCreateState<AnyState>();
+            stateFactorySet = new HashSet<Func<Type, State>>();
         }
+
+
+        #region 汎用ロジック系
+        /// <summary>
+        /// 型からステートインスタンスを生成するファクトリ関数を登録します
+        /// </summary>
+        /// <param name="stateFactory">登録するファクトリ関数</param>
+        /// <exception cref="ArgumentNullException">stateFactory が null です</exception>
+        public void RegisterStateFactory(Func<Type, State> stateFactory)
+        {
+            // ハッシュセットに登録する
+            stateFactorySet.Add(stateFactory ?? throw new ArgumentNullException(nameof(stateFactory)));
+        }
+
+
+        /// <summary>
+        /// 登録したファクトリ関数の解除をします
+        /// </summary>
+        /// <param name="stateFactory">解除するファクトリ関数</param>
+        /// <exception cref="ArgumentNullException">stateFactory が null です</exception>
+        public void UnregisterStateFactory(Func<Type, State> stateFactory)
+        {
+            // ハッシュセットから登録を解除する
+            stateFactorySet.Remove(stateFactory ?? throw new ArgumentNullException(nameof(stateFactory)));
+        }
+        #endregion
 
 
         #region ステート遷移テーブル構築系
@@ -315,6 +340,7 @@ namespace IceMilkTea.Core
         /// <param name="eventId">遷移する条件となるイベントID</param>
         /// <exception cref="ArgumentException">既に同じ eventId が設定された遷移先ステートが存在します</exception>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        /// <exception cref="InvalidOperationException">ステートクラスのインスタンスの生成に失敗しました</exception>
         public void AddTransition<TPrevState, TNextState>(TEvent eventId) where TPrevState : State, new() where TNextState : State, new()
         {
             // ステートマシンが起動してしまっている場合は
@@ -348,6 +374,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="TStartState">ステートマシンが起動時に開始するステートの型</typeparam>
         /// <exception cref="InvalidOperationException">ステートマシンは、既に起動中です</exception>
+        /// <exception cref="InvalidOperationException">ステートクラスのインスタンスの生成に失敗しました</exception>
         public void SetStartState<TStartState>() where TStartState : State, new()
         {
             // 既にステートマシンが起動してしまっている場合は
@@ -739,6 +766,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="TState">取得、または生成するステートの型</typeparam>
         /// <returns>取得、または生成されたステートのインスタンスを返します</returns>
+        /// <exception cref="InvalidOperationException">ステートクラスのインスタンスの生成に失敗しました</exception>
         private TState GetOrCreateState<TState>() where TState : State, new()
         {
             // ステートの数分回る
@@ -755,7 +783,7 @@ namespace IceMilkTea.Core
 
 
             // ループから抜けたのなら、型一致するインスタンスが無いという事なのでインスタンスを生成してキャッシュする
-            var newState = new TState();
+            var newState = CreateStateInstanceCore<TState>() ?? throw new InvalidOperationException("ステートクラスのインスタンスの生成に失敗しました");
             stateList.Add(newState);
 
 
@@ -763,6 +791,48 @@ namespace IceMilkTea.Core
             newState.stateMachine = this;
             newState.transitionTable = new Dictionary<TEvent, State>();
             return newState;
+        }
+
+
+        /// <summary>
+        /// 指定されたステートの型のインスタンスを生成します。
+        /// </summary>
+        /// <typeparam name="TState">生成するべきステータスの型</typeparam>
+        /// <returns>生成したインスタンスを返します</returns>
+        private TState CreateStateInstanceCore<TState>() where TState : State, new()
+        {
+            // 結果を受け取る変数を宣言
+            TState result;
+
+
+            // 登録されているファクトリ関数分回る
+            var stateType = typeof(TState);
+            foreach (var factory in stateFactorySet)
+            {
+                // 生成を試みてインスタンスが生成されたのなら
+                result = (TState)factory(stateType);
+                if (result != null)
+                {
+                    // このインスタンスを返す
+                    return result;
+                }
+            }
+
+
+            // ファクトリ関数でも駄目なら実装側生成関数に頼る
+            return CreateStateInstance<TState>();
+        }
+
+
+        /// <summary>
+        /// 指定されたステートの型のインスタンスを生成します。
+        /// </summary>
+        /// <typeparam name="TState">生成するべきステータスの型</typeparam>
+        /// <returns>生成したインスタンスを返します</returns>
+        protected virtual TState CreateStateInstance<TState>() where TState : State, new()
+        {
+            // 既定動作はジェネリックのnewをするのみで返す
+            return new TState();
         }
         #endregion
     }
