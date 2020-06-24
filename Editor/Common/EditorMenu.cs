@@ -66,6 +66,17 @@ namespace IceMilkTeaEditor.Common
 
 
         /// <summary>
+        /// StateCollectorウィンドウを開きます
+        /// </summary>
+        [MenuItem(WindowMenuName + "/ImtStateGenerator")]
+        public static void OpenStateCollectorWindow()
+        {
+            // StateCollectorWindowsを開く
+            StateCollectorWindow.OpenWindow();
+        }
+
+
+        /// <summary>
         /// エディタシーン上に存在する、空のゲームオブジェクトを再帰的に削除します
         /// </summary>
         [MenuItem(HierarchyMenuName + "/RemoveEmptyGameObject")]
