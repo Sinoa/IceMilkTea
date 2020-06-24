@@ -17,7 +17,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using IceMilkTea.Core;
-using UnityEngine;
 
 namespace IceMilkTeaEditor.Utility
 {
@@ -35,9 +34,8 @@ namespace IceMilkTeaEditor.Utility
             // ステートマシンのステートを継承しているすべての型を拾い上げる列挙オブジェクトを返す
             return AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(x => x.GetTypes())
-                .Where(x => x.DeclaringType != null && x.DeclaringType.IsGenericType)
-                .Select(x => (ParentType: x.DeclaringType.GetGenericTypeDefinition(), StateType: x))
-                //.Select(x => { Debug.Log($"{x.ParentType} => {x.StateType}"); return x; })
+                .Where(x => x != null && x.BaseType != null && x.BaseType.DeclaringType != null && x.BaseType.DeclaringType.IsGenericType)
+                .Select(x => (ParentType: x.BaseType.DeclaringType.GetGenericTypeDefinition(), StateType: x))
                 .Where(x => x.ParentType.IsAssignableFrom(typeof(ImtStateMachine<,>)))
                 .Select(x => x.StateType);
         }

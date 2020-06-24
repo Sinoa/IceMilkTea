@@ -53,7 +53,10 @@ namespace IceMilkTeaEditor.Window
             {
                 foreach (var state in StateClassCollector.CollectStateTypes())
                 {
-                    Debug.Log(state);
+                    if (state.Assembly.GetName().Name == "Assembly-CSharp")
+                    {
+                        Debug.Log($"{state} => {state.Assembly}");
+                    }
                 }
             }
         }
