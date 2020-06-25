@@ -13,7 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using System.Linq;
 using IceMilkTeaEditor.Utility;
 using UnityEditor;
@@ -51,12 +50,14 @@ namespace IceMilkTeaEditor.Window
         {
             if (GUILayout.Button("Test"))
             {
-                foreach (var state in StateClassCollector.CollectStateTypes())
+                var filtered = StateMachineUtility.CollectStateTypes()
+                    .FilterAssembly(new string[] { "Assembly-CSharp" })
+                    .SelectTypeFullPathName();
+
+
+                foreach (var state in filtered)
                 {
-                    if (state.Assembly.GetName().Name == "Assembly-CSharp")
-                    {
-                        Debug.Log($"{state} => {state.Assembly}");
-                    }
+                    Debug.Log(state);
                 }
             }
         }
