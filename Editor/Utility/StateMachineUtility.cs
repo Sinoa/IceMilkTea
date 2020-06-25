@@ -78,7 +78,7 @@ namespace IceMilkTeaEditor.Utility
         public static IEnumerable<string> SelectTypeFullPathName(this IEnumerable<Type> types)
         {
             // 型からネームスペース入りフルパス名を射影する
-            return types.Select(x => $"{(string.IsNullOrWhiteSpace(x.Namespace) ? string.Empty : x.Namespace + ".")}{x.FullName.Replace("+", ".")}");
+            return types.Select(x => x.FullName.Replace("+", "."));
         }
     }
 }
