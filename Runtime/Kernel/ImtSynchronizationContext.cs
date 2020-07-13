@@ -24,95 +24,20 @@ namespace IceMilkTea.Core
     /// IceMilkTea 自身が提供する同期コンテキストクラスです。
     /// 独立したスレッドの同期コンテキストとして利用したり、特定コード範囲の同期コンテキストとして利用出来ます。
     /// </summary>
-    public class ImtSynchronizationContext : SynchronizationContext, IDisposable
+    internal sealed class ImtSynchronizationContext : SynchronizationContext
     {
-        /// <summary>
-        /// 同期コンテキストに送られてきたコールバックを、メッセージとして保持する構造体です。
-        /// </summary>
-        private struct Message
-        {
-            // メンバ変数定義
-            private SendOrPostCallback callback;
-            private ManualResetEvent waitHandle;
-            private object state;
-
-
-
-            /// <summary>
-            /// Message のインスタンスを初期化します。
-            /// </summary>
-            /// <param name="callback">呼び出すべきコールバック関数</param>
-            /// <param name="state">コールバックに渡すオブジェクト</param>
-            /// <param name="waitHandle">コールバックの呼び出しを待機するために、利用する待機ハンドル</param>
-            public Message(SendOrPostCallback callback, object state, ManualResetEvent waitHandle)
-            {
-                // メンバの初期化
-                this.callback = callback;
-                this.waitHandle = waitHandle;
-                this.state = state;
-            }
-
-
-            /// <summary>
-            /// メッセージに設定されたコールバックを呼び出します。
-            /// また、待機ハンドルが設定されている場合は、待機ハンドルのシグナルを設定します。
-            /// </summary>
-            public void Invoke()
-            {
-                try
-                {
-                    // コールバックを叩く
-                    callback(state);
-                }
-                finally
-                {
-                    // もし待機ハンドルがあるなら
-                    if (waitHandle != null)
-                    {
-                        // シグナルを設定する
-                        waitHandle.Set();
-                    }
-                }
-            }
-
-
-            /// <summary>
-            /// このメッセージを管理していた同期コンテキストが、何かの理由で管理できなくなった場合
-            /// このメッセージを指定された同期コンテキストに、再ポストします。
-            /// また、送信メッセージの場合は、直ちに処理され待機ハンドルのシグナルが設定されます。
-            /// </summary>
-            /// <param name="rePostTargetContext">再ポスト先の同期コンテキスト</param>
-            public void Failover(SynchronizationContext rePostTargetContext)
-            {
-                // 待機ハンドルが存在するなら
-                if (waitHandle != null)
-                {
-                    // コールバックを叩いてシグナルを設定する
-                    callback(state);
-                    waitHandle.Set();
-                    return;
-                }
-
-
-                // 再ポスト先同期コンテキストにポストする
-                rePostTargetContext.Post(callback, state);
-            }
-        }
-
-
-
         // 定数定義
-        public const int DefaultMessageQueueCapacity = 32;
+        public const int DefaultMessageQueueCapacity = 64;
 
         // メンバ変数定義
         private SynchronizationContext previousContext;
         private Queue<Message> messageQueue;
         private List<Exception> errorList;
         private int myStartupThreadId;
-        private bool disposed;
 
 
 
+        #region コンストラクタ＆インストール・アンインストール
         /// <summary>
         /// ImtSynchronizationContext のインスタンスを初期化します。
         /// </summary>
@@ -123,73 +48,11 @@ namespace IceMilkTea.Core
         /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
         public ImtSynchronizationContext(out Action messagePumpHandler)
         {
-            // メンバの初期化と、メッセージ処理関数を伝える
             previousContext = AsyncOperationManager.SynchronizationContext;
             messageQueue = new Queue<Message>(DefaultMessageQueueCapacity);
             errorList = new List<Exception>(DefaultMessageQueueCapacity);
             myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
             messagePumpHandler = DoProcessMessage;
-        }
-
-
-        /// <summary>
-        /// ImtSynchronizationContext のファイナライザです。
-        /// </summary>
-        ~ImtSynchronizationContext()
-        {
-            // ファイナライザからのDispose呼び出し
-            Dispose(false);
-        }
-
-
-        /// <summary>
-        /// リソースを解放します。また、解放する際にメッセージが残っていた場合は
-        /// この同期コンテキストが生成される前に存在していた、同期コンテキストに再ポストされ、同期コンテキストが再設定されます。
-        /// </summary>
-        public void Dispose()
-        {
-            // DisposeからのDispose呼び出し
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-
-        /// <summary>
-        /// 実際のリソース解放を行います。
-        /// </summary>
-        /// <param name="disposing">マネージ解放の場合は true を、アンマネージ解放なら false を指定</param>
-        protected virtual void Dispose(bool disposing)
-        {
-            // 既に解放済みなら
-            if (disposed)
-            {
-                // 終了
-                return;
-            }
-
-
-            // もし現在の同期コンテキストが自身なら
-            if (AsyncOperationManager.SynchronizationContext == this)
-            {
-                // 同期コンテキストを、インスタンス生成時に覚えたコンテキストに戻す
-                AsyncOperationManager.SynchronizationContext = previousContext;
-            }
-
-
-            // メッセージキューをロック
-            lock (messageQueue)
-            {
-                // 全てのメッセージを処理するまでループ
-                while (messageQueue.Count > 0)
-                {
-                    // 一つ前の同期コンテキストにフェイルオーバーする
-                    messageQueue.Dequeue().Failover(previousContext);
-                }
-            }
-
-
-            // 解放済みマーク
-            disposed = true;
         }
 
 
@@ -205,8 +68,10 @@ namespace IceMilkTea.Core
             AsyncOperationManager.SynchronizationContext = context;
             return context;
         }
+        #endregion
 
 
+        #region メッセージ送信関数群
         /// <summary>
         /// 同期メッセージを送信します。
         /// </summary>
@@ -215,10 +80,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         public override void Send(SendOrPostCallback callback, object state)
         {
-            // 解放済み例外送出関数を叩く
-            ThrowIfDisposed();
-
-
             // 同じスレッドからの送信なら
             if (Thread.CurrentThread.ManagedThreadId == myStartupThreadId)
             {
@@ -253,10 +114,6 @@ namespace IceMilkTea.Core
         /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         public override void Post(SendOrPostCallback callback, object state)
         {
-            // 解放済み例外送出関数を叩く
-            ThrowIfDisposed();
-
-
             // メッセージキューをロック
             lock (messageQueue)
             {
@@ -264,18 +121,16 @@ namespace IceMilkTea.Core
                 messageQueue.Enqueue(new Message(callback, state, null));
             }
         }
+        #endregion
 
 
+        #region メッセージ処理関数群
         /// <summary>
         /// 同期コンテキストに、送られてきたメッセージを処理します。
         /// </summary>
         /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         private void DoProcessMessage()
         {
-            // 解放済み例外送出関数を叩く
-            ThrowIfDisposed();
-
-
             // エラーリストをクリアする
             errorList.Clear();
 
@@ -311,20 +166,53 @@ namespace IceMilkTea.Core
                 throw new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList.ToArray());
             }
         }
+        #endregion
 
 
+
+        #region 同期コンテキストのメッセージ型定義
         /// <summary>
-        /// 解放済みの場合に、例外を送出します。
+        /// 同期コンテキストに送られてきたコールバックを、メッセージとして保持する構造体です。
         /// </summary>
-        /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
-        private void ThrowIfDisposed()
+        private readonly struct Message
         {
-            // 解放済みなら
-            if (disposed)
+            // メンバ変数定義
+            private readonly SendOrPostCallback callback;
+            private readonly ManualResetEvent waitHandle;
+            private readonly object state;
+
+
+
+            /// <summary>
+            /// Message のインスタンスを初期化します。
+            /// </summary>
+            /// <param name="callback">呼び出すべきコールバック関数</param>
+            /// <param name="state">コールバックに渡すオブジェクト</param>
+            /// <param name="waitHandle">コールバックの呼び出しを待機するために、利用する待機ハンドル</param>
+            public Message(SendOrPostCallback callback, object state, ManualResetEvent waitHandle)
             {
-                // 解放済み例外を投げる
-                throw new ObjectDisposedException(null);
+                this.callback = callback;
+                this.waitHandle = waitHandle;
+                this.state = state;
+            }
+
+
+            /// <summary>
+            /// メッセージに設定されたコールバックを呼び出します。
+            /// また、待機ハンドルが設定されている場合は、待機ハンドルのシグナルを設定します。
+            /// </summary>
+            public void Invoke()
+            {
+                try
+                {
+                    callback(state);
+                }
+                finally
+                {
+                    waitHandle?.Set();
+                }
             }
         }
+        #endregion
     }
 }
