@@ -158,21 +158,16 @@ namespace IceMilkTea.Core
 
 
         #region メッセージ処理関数群
-        /// <summary>
-        /// 同期コンテキストに、送られてきたメッセージを処理します。
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         private void DoProcessMessage()
         {
             errorList.Clear();
             messageQueue.ProcessFrontMessage(errorList);
 
 
-            // エラーリストに要素が1つでも存在したら
             if (errorList.Count > 0)
             {
-                // エラーリストの内容全てを包んでまとめて例外を投げる
-                throw new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList.ToArray());
+                var exception = new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList);
+                eventHandler.DoErrorHandle(exception, errorList.Count);
             }
         }
 
