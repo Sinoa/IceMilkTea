@@ -13,7 +13,6 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System;
 using UnityEngine;
 using UnityEngine.PlayerLoop;
 
@@ -78,23 +77,9 @@ namespace IceMilkTea.Core
 
 
             // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
-            Current.ServiceManager = Current.CreateGameServiceManager();
-            if (Current.ServiceManager == null)
-            {
-                // ゲームシステムは破壊的な死亡をした
-                throw new InvalidOperationException("GameServiceManager の正しいインスタンスが生成されませんでした。");
-            }
-
-
-            // ハンドラの登録をする
+            Current.ServiceManager = new GameServiceManager();
             RegisterHandler();
-
-
-            // サービスマネージャを起動する
             Current.ServiceManager.Startup();
-
-
-            // ゲームの起動を開始する
             Current.Startup();
         }
 
@@ -118,7 +103,7 @@ namespace IceMilkTea.Core
 
             // 渡されたゲームメインを設定して初期化を実行する
             Current = gameMain;
-            Current.ServiceManager = Current.CreateGameServiceManager();
+            Current.ServiceManager = new GameServiceManager();
             RegisterHandler();
             Current.ServiceManager.Startup();
             Current.Startup();
@@ -130,15 +115,8 @@ namespace IceMilkTea.Core
         /// </summary>
         private static void InternalShutdown()
         {
-            // ハンドラの解除をする
             UnregisterHandler();
-
-
-            // サービスマネージャを停止する
             Current.ServiceManager.Shutdown();
-
-
-            // ゲームのシャットダウンをする
             Current.Shutdown();
         }
 
@@ -251,19 +229,6 @@ namespace IceMilkTea.Core
         {
             // リダイレクト先GameMainはなし
             return null;
-        }
-
-
-        /// <summary>
-        /// ゲームサービスを管理する、サービスマネージャを生成します。
-        /// ゲームサービスの管理をカスタマイズする場合は、
-        /// この関数をオーバーライドしてGameServiceManagerを継承したクラスのインスタンスを返します。
-        /// </summary>
-        /// <returns>GameServiceManager のインスタンスを返します</returns>
-        protected virtual GameServiceManager CreateGameServiceManager()
-        {
-            // 通常は、素のゲームサービスマネージャを生成して返す
-            return new GameServiceManager();
         }
         #endregion
 
