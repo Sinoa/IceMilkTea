@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace IceMilkTea.Core
@@ -27,13 +28,14 @@ namespace IceMilkTea.Core
     internal sealed class ImtSynchronizationContext : SynchronizationContext
     {
         // 定数定義
-        public const int DefaultMessageQueueCapacity = 64;
+        public const int DefaultMessageQueueCapacity = 128;
 
         // メンバ変数定義
-        private SynchronizationContext previousContext;
-        private Queue<Message> messageQueue;
-        private List<Exception> errorList;
-        private int myStartupThreadId;
+        private readonly SynchronizationContext previousContext;
+        private readonly IImtSynchronizationContextEventHandler eventHandler;
+        private readonly MessageQueueController messageQueue;
+        private readonly List<Exception> errorList;
+        private readonly int myStartupThreadId;
 
 
 
@@ -46,27 +48,74 @@ namespace IceMilkTea.Core
         /// メッセージを処理するためには、必ず messagePumpHandler を定期的に呼び出してください。
         /// </remarks>
         /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
-        public ImtSynchronizationContext(out Action messagePumpHandler)
+        /// <param name="handler">この同期コンテキストによって発生したイベントをハンドリングするオブジェクト</param>
+        /// <exception cref="ArgumentNullException">handler が null です</exception>
+        private ImtSynchronizationContext(out Action messagePumpHandler, IImtSynchronizationContextEventHandler handler)
         {
             previousContext = AsyncOperationManager.SynchronizationContext;
-            messageQueue = new Queue<Message>(DefaultMessageQueueCapacity);
+            messageQueue = new MessageQueueController(DefaultMessageQueueCapacity, ProcessMessage);
             errorList = new List<Exception>(DefaultMessageQueueCapacity);
             myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
+            eventHandler = handler ?? throw new ArgumentNullException(nameof(handler));
             messagePumpHandler = DoProcessMessage;
         }
 
 
         /// <summary>
-        /// ImtSynchronizationContext のインスタンスを生成と同時に、同期コンテキストの設定も行います。
+        /// 現在のスレッドの同期コンテキストに ImtSynchronizationContext 同期コンテキストをインストールします。
         /// </summary>
-        /// <param name="messagePumpHandler">コンストラクタの messagePumpHandler に渡す参照</param>
-        /// <returns>インスタンスの生成と設定が終わった、同期コンテキストを返します。</returns>
-        public static ImtSynchronizationContext Install(out Action messagePumpHandler)
+        /// <remarks>
+        /// 既に ImtSynchronizationContext 同期コンテキストがインストール済みの場合はインストールに失敗を返しますが、メッセージポンプハンドラは取得されます。
+        /// </remarks>
+        /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
+        /// <returns>正しくインストール出来た場合は true を、既にインストール済みによってインストールが出来なかった場合は false を返します。</returns>
+        public static bool Install(out Action messagePumpHandler)
         {
-            // 新しい同期コンテキストのインスタンスを生成して、設定した後に返す
-            var context = new ImtSynchronizationContext(out messagePumpHandler);
+            return Install(out messagePumpHandler, new ImtStandardSynchronizationContextEventHandler());
+        }
+
+
+        /// <summary>
+        /// 現在のスレッドの同期コンテキストに ImtSynchronizationContext 同期コンテキストをインストールします。
+        /// </summary>
+        /// <remarks>
+        /// 既に ImtSynchronizationContext 同期コンテキストがインストール済みの場合はインストールに失敗を返しますが、メッセージポンプハンドラは取得されます。
+        /// </remarks>
+        /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
+        /// <param name="handler">インストールした ImtSynchronizationContext 同期コンテキストのイベントを処理するハンドラオブジェクト。ただし、インストールに失敗した場合は設定されません。</param>
+        /// <returns>正しくインストール出来た場合は true を、既にインストール済みによってインストールが出来なかった場合は false を返します。</returns>
+        /// <exception cref="ArgumentNullException">handler が null です</exception>
+        public static bool Install(out Action messagePumpHandler, IImtSynchronizationContextEventHandler handler)
+        {
+            if (AsyncOperationManager.SynchronizationContext is ImtSynchronizationContext context)
+            {
+                messagePumpHandler = context.DoProcessMessage;
+                return false;
+            }
+
+
+            context = new ImtSynchronizationContext(out messagePumpHandler, handler);
+            messagePumpHandler = context.DoProcessMessage;
             AsyncOperationManager.SynchronizationContext = context;
-            return context;
+            return true;
+        }
+
+
+        /// <summary>
+        /// 現在のスレッドの同期コンテキストに ImtSynchronizationContext 同期コンテキストがインストールされている場合はアンインストールします。
+        /// </summary>
+        /// <remarks>
+        /// アンインストールが行われた場合は、インストール時に設定されていた同期コンテキストに戻します。
+        /// </remarks>
+        public static void Uninstall()
+        {
+            if (!(AsyncOperationManager.SynchronizationContext is ImtSynchronizationContext context))
+            {
+                return;
+            }
+
+
+            AsyncOperationManager.SynchronizationContext = context.previousContext;
         }
         #endregion
 
@@ -80,27 +129,16 @@ namespace IceMilkTea.Core
         /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         public override void Send(SendOrPostCallback callback, object state)
         {
-            // 同じスレッドからの送信なら
             if (Thread.CurrentThread.ManagedThreadId == myStartupThreadId)
             {
-                // 直ちにコールバックを叩いて終了
                 callback(state);
                 return;
             }
 
 
-            // メッセージ処理待ち用同期プリミティブを用意
             using (var waitHandle = new ManualResetEvent(false))
             {
-                // メッセージキューをロック
-                lock (messageQueue)
-                {
-                    // 処理して欲しいコールバックを登録
-                    messageQueue.Enqueue(new Message(callback, state, waitHandle));
-                }
-
-
-                // 登録したコールバックが処理されるまで待機
+                messageQueue.Enqueue(new Message(callback, state, waitHandle));
                 waitHandle.WaitOne();
             }
         }
@@ -114,12 +152,7 @@ namespace IceMilkTea.Core
         /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         public override void Post(SendOrPostCallback callback, object state)
         {
-            // メッセージキューをロック
-            lock (messageQueue)
-            {
-                // 処理して欲しいコールバックを登録
-                messageQueue.Enqueue(new Message(callback, state, null));
-            }
+            messageQueue.Enqueue(new Message(callback, state, null));
         }
         #endregion
 
@@ -131,32 +164,8 @@ namespace IceMilkTea.Core
         /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         private void DoProcessMessage()
         {
-            // エラーリストをクリアする
             errorList.Clear();
-
-
-            // メッセージキューをロック
-            lock (messageQueue)
-            {
-                // メッセージ処理中にポストされても次回になるよう、今回処理するべきメッセージ件数の取得
-                var processCount = messageQueue.Count;
-
-
-                // 今回処理するべきメッセージの件数分だけループ
-                for (int i = 0; i < processCount; ++i)
-                {
-                    try
-                    {
-                        // メッセージを呼ぶ
-                        messageQueue.Dequeue().Invoke();
-                    }
-                    catch (Exception exception)
-                    {
-                        // エラーが発生したらエラーリストに詰める
-                        errorList.Add(exception);
-                    }
-                }
-            }
+            messageQueue.ProcessFrontMessage(errorList);
 
 
             // エラーリストに要素が1つでも存在したら
@@ -164,6 +173,19 @@ namespace IceMilkTea.Core
             {
                 // エラーリストの内容全てを包んでまとめて例外を投げる
                 throw new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList.ToArray());
+            }
+        }
+
+
+        private void ProcessMessage(Message message, object state)
+        {
+            try
+            {
+                message.Invoke();
+            }
+            catch (Exception exception)
+            {
+                ((List<Exception>)state).Add(exception);
             }
         }
         #endregion
@@ -214,5 +236,104 @@ namespace IceMilkTea.Core
             }
         }
         #endregion
+
+
+
+        #region 同期コンテキストのメッセージキュー制御クラス定義
+        /// <summary>
+        /// メッセージキューを効率よく処理するためのキュー制御を提供します
+        /// </summary>
+        private sealed class MessageQueueController
+        {
+            // メンバ変数定義
+            private readonly object syncObject;
+            private readonly Action<Message, object> callback;
+            private Queue<Message> backQueue;
+            private Queue<Message> frontQueue;
+
+
+
+            /// <summary>
+            /// MessageQueueController クラスのインスタンスを初期化します
+            /// </summary>
+            /// <param name="bufferSize">メッセージキューバッファサイズ。内部ではダブルバッファで持つため指定されたサイズの倍のメモリ確保が行われることに注意してください。</param>
+            /// <param name="callback">メッセージを処理するコールバック関数</param>
+            /// <exception cref="ArgumentNullException">callback が null です</exception>
+            public MessageQueueController(int bufferSize, Action<Message, object> callback)
+            {
+                syncObject = new object();
+                backQueue = new Queue<Message>(bufferSize);
+                frontQueue = new Queue<Message>(bufferSize);
+                this.callback = callback ?? throw new ArgumentNullException(nameof(callback));
+            }
+
+
+            /// <summary>
+            /// 処理するべきメッセージをバックバッファに追加します
+            /// </summary>
+            /// <param name="message">追加するメッセージ</param>
+            public void Enqueue(in Message message)
+            {
+                lock (syncObject)
+                {
+                    backQueue.Enqueue(message);
+                }
+            }
+
+
+            /// <summary>
+            /// 内部のバッファをローテーションしフロントバッファのメッセージを処理します
+            /// </summary>
+            /// <param name="state">コールバック関数に渡す状態オブジェクト</param>
+            public void ProcessFrontMessage(object state)
+            {
+                lock (syncObject)
+                {
+                    var tmp = frontQueue;
+                    frontQueue = backQueue;
+                    backQueue = tmp;
+                }
+
+
+                while (frontQueue.Count > 0)
+                {
+                    callback(frontQueue.Dequeue(), state);
+                }
+            }
+        }
+        #endregion
+    }
+
+
+
+    /// <summary>
+    /// ImtSynchronizationContext クラスの内部イベントをハンドリングするためのインターフェイスです
+    /// </summary>
+    public interface IImtSynchronizationContextEventHandler
+    {
+        /// <summary>
+        /// 同期コンテキストによって処理されたメッセージのいずれかがエラーを発生した場合の処理をします
+        /// </summary>
+        /// <param name="exception">発生したエラーをまとめた例外</param>
+        /// <param name="count">発生したエラー件数</param>
+        void DoErrorHandle(AggregateException exception, int count);
+    }
+
+
+
+    /// <summary>
+    /// ImtSynchronizationContext クラスの標準イベントハンドラを提供します
+    /// </summary>
+    internal sealed class ImtStandardSynchronizationContextEventHandler : IImtSynchronizationContextEventHandler
+    {
+        /// <summary>
+        /// 同期コンテキストで発生した例外を再スローします
+        /// </summary>
+        /// <param name="exception">発生したエラーをまとめた例外</param>
+        /// <param name="count">発生したエラー件数</param>
+        public void DoErrorHandle(AggregateException exception, int count)
+        {
+            ExceptionDispatchInfo.Capture(exception).Throw();
+        }
     }
 }
