@@ -233,10 +233,6 @@ namespace IceMilkTea.Core
             stopwatch.Restart();
 
 
-            // サービスの起動情報を受け取る変数を用意
-            var serviceStartupInfo = default(GameServiceStartupInfo);
-
-
             // サービスの数分ループ
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
@@ -250,7 +246,7 @@ namespace IceMilkTea.Core
 
                 // サービスを起動状態に設定、サービスの起動処理を実行して更新関数テーブルのキャッシュをする
                 serviceManageList[i].Status = ServiceStatus.Running;
-                serviceManageList[i].Service.Startup(out serviceStartupInfo);
+                serviceManageList[i].Service.Startup(out var serviceStartupInfo);
                 serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
             }
 
@@ -720,32 +716,13 @@ namespace IceMilkTea.Core
             stopwatch.Start();
 
 
-            // サービスの数分回る
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
-                // サービス情報を取得する
                 var serviceInfo = serviceManageList[i];
-
-
-                // サービスの状態がRunning以外なら
-                if (serviceInfo.Status != ServiceStatus.Running)
+                if (serviceInfo.Status == ServiceStatus.Running && serviceInfo.UpdateFunctionTable.TryGetValue(timing, out var updateFunction))
                 {
-                    // 次のサービスへ
-                    continue;
+                    updateFunction();
                 }
-
-
-                // 該当のタイミングの更新関数を持っていないなら
-                Action updateFunction;
-                if (!serviceInfo.UpdateFunctionTable.TryGetValue(timing, out updateFunction))
-                {
-                    // 次のサービスへ
-                    continue;
-                }
-
-
-                // 該当タイミングの更新関数を持っているのなら更新関数を叩く
-                updateFunction();
             }
 
 
