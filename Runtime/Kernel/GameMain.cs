@@ -13,6 +13,8 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+using System;
+using System.Runtime.ExceptionServices;
 using UnityEngine;
 using UnityEngine.PlayerLoop;
 
@@ -25,18 +27,7 @@ namespace IceMilkTea.Core
     [HideCreateGameMainAssetMenu]
     public abstract class GameMain : ScriptableObject
     {
-        #region PlayerLoopSystem用型定義
-        /// <summary>
-        /// ゲームサービスマネージャのサービス起動ルーチンを実行する型です
-        /// </summary>
-        public struct GameServiceManagerStartup { }
-
-
-        /// <summary>
-        /// ゲームサービスマネージャのサービス終了ルーチンを実行する型です
-        /// </summary>
-        public struct GameServiceManagerCleanup { }
-        #endregion
+        private Action messagePumpHandler;
 
 
 
@@ -78,6 +69,7 @@ namespace IceMilkTea.Core
 
             // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
             Current.ServiceManager = new GameServiceManager();
+            InstallSynchronizationContext();
             RegisterHandler();
             Current.ServiceManager.Startup();
             Current.Startup();
@@ -116,6 +108,7 @@ namespace IceMilkTea.Core
         private static void InternalShutdown()
         {
             UnregisterHandler();
+            UninstallSynchronizationContext();
             Current.ServiceManager.Shutdown();
             Current.Shutdown();
         }
@@ -154,6 +147,18 @@ namespace IceMilkTea.Core
         }
 
 
+        private static void InstallSynchronizationContext()
+        {
+            ImtSynchronizationContext.Install(out Current.messagePumpHandler);
+        }
+
+
+        private static void UninstallSynchronizationContext()
+        {
+            ImtSynchronizationContext.Uninstall();
+        }
+
+
         /// <summary>
         /// GameMainの動作に必要なハンドラの登録処理を行います
         /// </summary>
@@ -163,15 +168,9 @@ namespace IceMilkTea.Core
             Application.quitting += InternalShutdown;
 
 
-            // サービスマネージャの開始と終了のループシステムを生成
-            var startupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerStartup), Current.ServiceManager.StartupServices);
-            var cleanupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerCleanup), Current.ServiceManager.CleanupServices);
-
-
-            // ゲームループの開始と終了のタイミングあたりにサービスマネージャのスタートアップとクリーンアップの処理を引っ掛ける
+            var mainUpdate = new ImtPlayerLoopSystem(typeof(GameMain), Current.Update);
             var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
-            loopSystem.Insert<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, startupGameServiceLoopSystem);
-            loopSystem.Insert<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
+            loopSystem.Insert<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, mainUpdate);
             loopSystem.BuildAndSetUnityPlayerLoop();
         }
 
@@ -184,6 +183,13 @@ namespace IceMilkTea.Core
             // アプリケーション終了イベントを外す
             // （PlayerLoopSystemはPlayerLoopSystem自身が登録解除まで担保してくれているのでそのまま）
             Application.quitting -= InternalShutdown;
+        }
+
+
+
+        private void Update()
+        {
+            messagePumpHandler();
         }
         #endregion
 
@@ -230,6 +236,17 @@ namespace IceMilkTea.Core
             // リダイレクト先GameMainはなし
             return null;
         }
+
+
+        /// <summary>
+        /// IceMilkTea のシステム内で発生した未処理の例外を処理します。
+        /// </summary>
+        /// <param name="exceptionArgs">発生した未処理の例外</param>
+        internal protected virtual void UnhandledException(ImtUnhandledExceptionArgs exceptionArgs)
+        {
+            // 通常は再スローする
+            exceptionArgs.Throw();
+        }
         #endregion
 
 
@@ -253,5 +270,44 @@ namespace IceMilkTea.Core
             }
         }
         #endregion
+    }
+
+
+
+    /// <summary>
+    /// IceMilkTea のシステム内で発生した未処理の例外をデータとして提供します
+    /// </summary>
+    public class ImtUnhandledExceptionArgs
+    {
+        // メンバ変数定義
+        private readonly ExceptionDispatchInfo dispatchInfo;
+
+
+
+        /// <summary>
+        /// 発生した例外の内容
+        /// </summary>
+        public Exception Exception { get; }
+
+
+
+        /// <summary>
+        /// ImtUnhandledExceptionArgs クラスのインスタンスを初期化します
+        /// </summary>
+        /// <param name="exception">発生した例外</param>
+        public ImtUnhandledExceptionArgs(Exception exception)
+        {
+            dispatchInfo = ExceptionDispatchInfo.Capture(exception);
+            Exception = exception;
+        }
+
+
+        /// <summary>
+        /// キャプチャ未処理の例外をスローします
+        /// </summary>
+        public void Throw()
+        {
+            dispatchInfo.Throw();
+        }
     }
 }

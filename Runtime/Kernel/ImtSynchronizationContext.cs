@@ -71,7 +71,7 @@ namespace IceMilkTea.Core
         /// <returns>正しくインストール出来た場合は true を、既にインストール済みによってインストールが出来なかった場合は false を返します。</returns>
         public static bool Install(out Action messagePumpHandler)
         {
-            return Install(out messagePumpHandler, new ImtStandardSynchronizationContextEventHandler());
+            return Install(out messagePumpHandler, new ImtNullSynchronizationContextEventHandler());
         }
 
 
@@ -329,6 +329,15 @@ namespace IceMilkTea.Core
         public void DoErrorHandle(AggregateException exception, int count)
         {
             ExceptionDispatchInfo.Capture(exception).Throw();
+        }
+    }
+
+
+
+    internal sealed class ImtNullSynchronizationContextEventHandler : IImtSynchronizationContextEventHandler
+    {
+        public void DoErrorHandle(AggregateException exception, int count)
+        {
         }
     }
 }
