@@ -168,6 +168,7 @@ namespace IceMilkTea.Core
             {
                 var exception = new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList);
                 eventHandler.DoErrorHandle(exception, errorList.Count);
+                GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
             }
         }
 
