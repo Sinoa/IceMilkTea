@@ -36,17 +36,6 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ゲームアプリケーションが終了することを許可するかどうかを判断します。
-        /// </summary>
-        /// <returns>アプリケーションが終了することを許可する場合は GameShutdownAnswer.Approve を、許可しない場合は GameShutdownAnswer.Reject を返します</returns>
-        protected internal virtual GameShutdownAnswer JudgeGameShutdown()
-        {
-            // 通常は許可をする
-            return GameShutdownAnswer.Approve;
-        }
-
-
-        /// <summary>
         /// サービスをシャットダウンします
         /// </summary>
         protected internal virtual void Shutdown()

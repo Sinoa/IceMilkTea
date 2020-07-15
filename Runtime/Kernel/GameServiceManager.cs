@@ -27,6 +27,20 @@ namespace IceMilkTea.Core
     public class GameServiceManager
     {
         /// <summary>
+        /// ゲームサービスマネージャのサービス起動ルーチンを実行する型です
+        /// </summary>
+        public struct GameServiceManagerStartup { }
+
+
+
+        /// <summary>
+        /// ゲームサービスマネージャのサービス終了ルーチンを実行する型です
+        /// </summary>
+        public struct GameServiceManagerCleanup { }
+
+
+
+        /// <summary>
         /// サービスの状態を表します
         /// </summary>
         protected enum ServiceStatus
@@ -96,9 +110,9 @@ namespace IceMilkTea.Core
 
 
         // メンバ変数定義
-        private Stopwatch stopwatch;
+        private readonly Stopwatch stopwatch;
+        private readonly List<ServiceManagementInfo> serviceManageList;
         private long serviceProcessTick;
-        protected List<ServiceManagementInfo> serviceManageList;
 
 
 
@@ -126,6 +140,11 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Startup()
         {
+            // サービスマネージャの開始と終了のループシステムを生成
+            var startupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerStartup), StartupServices);
+            var cleanupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerCleanup), CleanupServices);
+
+
             // 各種更新関数のLoopSystemを生成する
             var mainLoopHead = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopHead), () => DoUpdateService(GameServiceUpdateTiming.MainLoopHead));
             var preFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreFixedUpdate));
@@ -147,7 +166,8 @@ namespace IceMilkTea.Core
 
             // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
             var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
-            loopSystem.Insert<GameMain.GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
+            loopSystem.Insert<Initialization.DirectorSampleTime>(InsertTiming.BeforeInsert, startupGameServiceLoopSystem);
+            loopSystem.Insert<GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
             loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
             loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
             loopSystem.Insert<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
@@ -162,7 +182,8 @@ namespace IceMilkTea.Core
             loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
             loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
             loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
-            loopSystem.Insert<GameMain.GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
+            loopSystem.Insert<GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
+            loopSystem.Insert<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
             loopSystem.BuildAndSetUnityPlayerLoop();
 
 
@@ -178,10 +199,6 @@ namespace IceMilkTea.Core
             Camera.onPreCull += OnCameraPreCulling;
             Camera.onPreRender += OnCameraPreRendering;
             Camera.onPostRender += OnCameraPostRendering;
-
-
-            // アプリケーション終了要求ハンドラを登録する
-            Application.wantsToQuit += OnApplicationWantsToQuit;
         }
 
 
@@ -190,10 +207,6 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Shutdown()
         {
-            // 終了要求ハンドラを解除する
-            Application.wantsToQuit -= OnApplicationWantsToQuit;
-
-
             // カメラのハンドラを解除する
             Camera.onPreCull -= OnCameraPreCulling;
             Camera.onPreRender -= OnCameraPreRendering;
@@ -233,10 +246,6 @@ namespace IceMilkTea.Core
             stopwatch.Restart();
 
 
-            // サービスの起動情報を受け取る変数を用意
-            var serviceStartupInfo = default(GameServiceStartupInfo);
-
-
             // サービスの数分ループ
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
@@ -248,10 +257,17 @@ namespace IceMilkTea.Core
                 }
 
 
-                // サービスを起動状態に設定、サービスの起動処理を実行して更新関数テーブルのキャッシュをする
-                serviceManageList[i].Status = ServiceStatus.Running;
-                serviceManageList[i].Service.Startup(out serviceStartupInfo);
-                serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
+                try
+                {
+                    // サービスを起動状態に設定、サービスの起動処理を実行して更新関数テーブルのキャッシュをする
+                    serviceManageList[i].Status = ServiceStatus.Running;
+                    serviceManageList[i].Service.Startup(out var serviceStartupInfo);
+                    serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
+                }
+                catch (Exception exception)
+                {
+                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
+                }
             }
 
 
@@ -292,8 +308,15 @@ namespace IceMilkTea.Core
                 }
 
 
-                // サービスの停止処理を実行する（が、このタイミングでは破棄しない、破棄のタイミングは次のステップで行う）
-                serviceManageList[i].Service.Shutdown();
+                try
+                {
+                    // サービスの停止処理を実行する（が、このタイミングでは破棄しない、破棄のタイミングは次のステップで行う）
+                    serviceManageList[i].Service.Shutdown();
+                }
+                catch (Exception exception)
+                {
+                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
+                }
 
 
                 // 破棄処理を行うようにマーク
@@ -593,38 +616,6 @@ namespace IceMilkTea.Core
 
         #region Unityイベントハンドラ
         /// <summary>
-        /// アプリケーションが終了を要求してきた時の処理を行います
-        /// </summary>
-        /// <returns>サービスが終了を許可した場合は true を、拒否された場合は false を返します</returns>
-        private bool OnApplicationWantsToQuit()
-        {
-            // サービスの数分回る
-            for (int i = 0; i < serviceManageList.Count; ++i)
-            {
-                // サービスの状態が Running 以外なら
-                var service = serviceManageList[i];
-                if (service.Status != ServiceStatus.Running)
-                {
-                    // 次へ
-                    continue;
-                }
-
-
-                // サービスに終了判断をしてもらい、拒否されたら
-                if (service.Service.JudgeGameShutdown() == GameShutdownAnswer.Reject)
-                {
-                    // この段階でfalseを返す
-                    return false;
-                }
-            }
-
-
-            // 最後まで回りきったら全員が許可したとしてtrueを返す
-            return true;
-        }
-
-
-        /// <summary>
         /// Unityプレイヤーのフォーカス状態に変化があった時の処理を行います
         /// </summary>
         /// <param name="focus">フォーカスを得られたときは true を、得られなかったときは false が渡されます</param>
@@ -720,32 +711,20 @@ namespace IceMilkTea.Core
             stopwatch.Start();
 
 
-            // サービスの数分回る
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
-                // サービス情報を取得する
                 var serviceInfo = serviceManageList[i];
-
-
-                // サービスの状態がRunning以外なら
-                if (serviceInfo.Status != ServiceStatus.Running)
+                if (serviceInfo.Status == ServiceStatus.Running && serviceInfo.UpdateFunctionTable.TryGetValue(timing, out var updateFunction))
                 {
-                    // 次のサービスへ
-                    continue;
+                    try
+                    {
+                        updateFunction();
+                    }
+                    catch (Exception exception)
+                    {
+                        GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
+                    }
                 }
-
-
-                // 該当のタイミングの更新関数を持っていないなら
-                Action updateFunction;
-                if (!serviceInfo.UpdateFunctionTable.TryGetValue(timing, out updateFunction))
-                {
-                    // 次のサービスへ
-                    continue;
-                }
-
-
-                // 該当タイミングの更新関数を持っているのなら更新関数を叩く
-                updateFunction();
             }
 
 
