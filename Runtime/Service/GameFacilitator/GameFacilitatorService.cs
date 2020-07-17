@@ -426,12 +426,7 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">scene が null です</exception>
         public void ChangeScene(TSceneBase scene)
         {
-            // もし scene が null なら
-            if (scene == null)
-            {
-                // 処理の続行が出来ない
-                throw new ArgumentNullException(nameof(scene));
-            }
+            ThrowIfArgumentNullException(scene, nameof(scene));
 
 
             // 破棄要求関数呼び出し後、シーン実行要求関数を呼ぶだけ
@@ -469,12 +464,7 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">scene が null です</exception>
         public void RequestNextScene(TSceneBase scene, bool sleepTopRunningScene)
         {
-            // null を渡されたら
-            if (scene == null)
-            {
-                // nullの受付は許容しない
-                throw new ArgumentNullException(nameof(scene));
-            }
+            ThrowIfArgumentNullException(scene, nameof(scene));
 
 
             // もしトップシーンを寝かす指示が出ていて、かつシーンの数が空でないなら
@@ -588,6 +578,7 @@ namespace IceMilkTea.Service
                     continue;
                 }
 
+
                 // ステータスが Destroy系 なら
                 if (sceneContext.IsDestroy)
                 {
@@ -699,12 +690,7 @@ namespace IceMilkTea.Service
         /// <exception cref="InvalidOperationException">指定された scene は、管理対象になっていません</exception>
         public TSceneBase GetPreviousScene(TSceneBase scene)
         {
-            // nullを渡されてしまったら
-            if (scene == null)
-            {
-                // そのような確認は許されない！
-                throw new ArgumentNullException(nameof(scene));
-            }
+            ThrowIfArgumentNullException(scene, nameof(scene));
 
 
             // 管理情報の数分末尾から回る
@@ -714,7 +700,7 @@ namespace IceMilkTea.Service
                 if (sceneContextList[i].Scene == scene)
                 {
                     // さらにここから動作可能なシーンを割り出す
-                    for (i = i - 1; i >= 0; --i)
+                    for (i -= 1; i >= 0; --i)
                     {
                         // シーンの状態がまだ生きているなら
                         if (!sceneContextList[i].IsDestroy)
@@ -737,6 +723,36 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// 現在のシーン管理状態の各要素を指定の処理で実行します
+        /// </summary>
+        /// <param name="action">シーン管理状態の要素に対して実行する関数</param>
+        public void SceneContextForEach(Action<TSceneBase, SceneState> action)
+        {
+            foreach (var sceneContext in sceneContextList)
+            {
+                action(sceneContext.Scene, sceneContext.State);
+            }
+        }
+
+
+        /// <summary>
+        /// 現在の管理されているシーンのすべてを取得します
+        /// </summary>
+        /// <returns>現在の管理下にあるシーンの全てを保持した配列を返します</returns>
+        public TSceneBase[] GetSceneAll()
+        {
+            var sceneArray = new TSceneBase[sceneContextList.Count];
+            for (int i = 0; i < sceneArray.Length; ++i)
+            {
+                sceneArray[i] = sceneContextList[i].Scene;
+            }
+
+
+            return sceneArray;
+        }
+
+
+        /// <summary>
         /// 指定されたシーン状態条件判定関数に一致するシーンを取得し、指定された結果配列に設定します。
         /// </summary>
         /// <param name="results">指定された条件に一致するシーンの結果を設定する配列、一致したシーンの数が配列の長さを超えても配列の長さまでしか格納しません</param>
@@ -746,20 +762,8 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">match が null です</exception>
         public int GetSceneList(TSceneBase[] results, Func<SceneState, bool> match)
         {
-            // results に null を渡されてしまったら
-            if (results == null)
-            {
-                // どこに結果を納めればよいのだろうか
-                throw new ArgumentNullException(nameof(results));
-            }
-
-
-            // match に null を渡されてしまったら
-            if (match == null)
-            {
-                // どうやって判定すればよいのか
-                throw new ArgumentNullException(nameof(match));
-            }
+            ThrowIfArgumentNullException(results, nameof(results));
+            ThrowIfArgumentNullException(match, nameof(match));
 
 
             // もし結果格納バッファの長さが0なら
@@ -802,18 +806,11 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">results が null です</exception>
         public int GetRunningSceneList(TSceneBase[] results)
         {
-            // results に null を渡されてしまったら
-            if (results == null)
-            {
-                // どこに結果を納めればよいのだろうか
-                throw new ArgumentNullException(nameof(results));
-            }
+            ThrowIfArgumentNullException(results, nameof(results));
 
 
-            // もし結果格納バッファの長さが0なら
             if (results.Length == 0)
             {
-                // そもそも回らず直ちに0を返す
                 return 0;
             }
 
@@ -839,6 +836,17 @@ namespace IceMilkTea.Service
 
             // 回りきったら現在の結果の数を返す
             return resultCount;
+        }
+        #endregion
+
+
+        #region 例外判定関数系
+        private void ThrowIfArgumentNullException(object argument, string name)
+        {
+            if (argument == null)
+            {
+                throw new ArgumentNullException(name);
+            }
         }
         #endregion
     }
