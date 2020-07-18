@@ -182,8 +182,8 @@ namespace IceMilkTea.Core
             loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
             loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
             loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
-            loopSystem.Insert<GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
             loopSystem.Insert<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
+            loopSystem.Insert<GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
             loopSystem.BuildAndSetUnityPlayerLoop();
 
 
