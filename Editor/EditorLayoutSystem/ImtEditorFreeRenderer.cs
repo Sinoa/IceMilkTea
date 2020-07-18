@@ -23,7 +23,7 @@ namespace IceMilkTeaEditor.LayoutSystem
     public class ImtEditorFreeRenderer : ImtEditorUi
     {
         // メンバ変数定義
-        private Action render;
+        private readonly Action render;
 
 
 
@@ -34,16 +34,7 @@ namespace IceMilkTeaEditor.LayoutSystem
         /// <param name="render">Unity標準のエディタ描画関数を実行する関数</param>
         public ImtEditorFreeRenderer(ImtEditorWindow ownerWindow, Action render) : base(ownerWindow)
         {
-            // もし null を渡されたら
-            if (render == null)
-            {
-                // 何を描画するというのだ
-                throw new ArgumentNullException(nameof(render));
-            }
-
-
-            // 描画関数を覚える
-            this.render = render;
+            this.render = render ?? throw new ArgumentNullException(nameof(render));
         }
 
 
@@ -52,7 +43,6 @@ namespace IceMilkTeaEditor.LayoutSystem
         /// </summary>
         protected internal override void Render()
         {
-            // 描画関数を呼ぶ
             render();
         }
     }

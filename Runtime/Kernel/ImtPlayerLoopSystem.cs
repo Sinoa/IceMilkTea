@@ -33,11 +33,23 @@ namespace IceMilkTea.Core
         public const int LoopSystemNotFoundValue = -1;
 
         // メンバ変数定義
-        private Type type;
         private List<ImtPlayerLoopSystem> subLoopSystemList;
         private PlayerLoopSystem.UpdateFunction updateDelegate;
         private IntPtr updateFunction;
         private IntPtr loopConditionFunction;
+
+
+
+        /// <summary>
+        /// この LoopSystem を表す型
+        /// </summary>
+        public Type Type { get; private set; }
+
+
+        /// <summary>
+        /// この LoopSystem が持つ LoopSystem
+        /// </summary>
+        public IReadOnlyList<ImtPlayerLoopSystem> SubLoopSystemList { get; }
 
 
 
@@ -71,11 +83,12 @@ namespace IceMilkTea.Core
         public ImtPlayerLoopSystem(ref PlayerLoopSystem originalPlayerLoopSystem)
         {
             // 参照元から値を引っ張って初期化する
-            type = originalPlayerLoopSystem.type;
+            Type = originalPlayerLoopSystem.type;
             updateDelegate = originalPlayerLoopSystem.updateDelegate;
             updateFunction = originalPlayerLoopSystem.updateFunction;
             loopConditionFunction = originalPlayerLoopSystem.loopConditionFunction;
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
+            SubLoopSystemList = subLoopSystemList.AsReadOnly();
 
 
             // もしサブシステムが有効な数で存在するなら
@@ -97,7 +110,7 @@ namespace IceMilkTea.Core
         public ImtPlayerLoopSystem(Type type, PlayerLoopSystem.UpdateFunction updateDelegate)
         {
             // シンプルに初期化をする
-            this.type = type ?? throw new ArgumentNullException(nameof(type));
+            this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.updateDelegate = updateDelegate ?? throw new ArgumentNullException(nameof(updateDelegate));
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
@@ -111,7 +124,7 @@ namespace IceMilkTea.Core
         public ImtPlayerLoopSystem(PlayerLoopUpdater updater)
         {
             // シンプルに初期化をする
-            type = (updater ?? throw new ArgumentNullException(nameof(updater))).GetType();
+            Type = (updater ?? throw new ArgumentNullException(nameof(updater))).GetType();
             updateDelegate = updater.Update;
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
         }
@@ -267,7 +280,7 @@ namespace IceMilkTea.Core
         public ImtPlayerLoopSystem Find<T>(bool recursiveSearch)
         {
             // 自身のサブループシステムに該当の型があるか調べて、見つけたら
-            var result = subLoopSystemList.Find(loopSystem => loopSystem.type == typeof(T));
+            var result = subLoopSystemList.Find(loopSystem => loopSystem.Type == typeof(T));
             if (result != null)
             {
                 // 結果を返す
@@ -296,7 +309,7 @@ namespace IceMilkTea.Core
         public int IndexOf<T>()
         {
             // 自身のサブループシステムに該当の型があるか調べるが、見つけられなかったら
-            var result = subLoopSystemList.FindIndex(loopSystem => loopSystem.type == typeof(T));
+            var result = subLoopSystemList.FindIndex(loopSystem => loopSystem.Type == typeof(T));
             if (result == -1)
             {
                 // 見つけられなかったことを返す
@@ -344,7 +357,7 @@ namespace IceMilkTea.Core
             return new PlayerLoopSystem()
             {
                 // 各パラメータのコピー（サブループシステムも再帰的に構造体へインスタンス化）
-                type = type,
+                type = Type,
                 updateDelegate = updateDelegate,
                 updateFunction = updateFunction,
                 loopConditionFunction = loopConditionFunction,
@@ -374,7 +387,7 @@ namespace IceMilkTea.Core
         private void DumpLoopSystemTree(StringBuilder buffer, string indentSpace)
         {
             // 自分の名前からぶら下げツリー表記
-            buffer.Append($"{indentSpace}[{(type == null ? "NULL" : type.Name)}]\n");
+            buffer.Append($"{indentSpace}[{(Type == null ? "NULL" : Type.Name)}]\n");
             foreach (var subSystem in subLoopSystemList)
             {
                 // 新しいインデントスペース文字列を用意して自分の子にダンプさせる
