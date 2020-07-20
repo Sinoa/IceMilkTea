@@ -28,6 +28,7 @@ namespace IceMilkTea.Core
     public abstract class GameMain : ScriptableObject
     {
         private Action messagePumpHandler;
+        private UnityLoggerProxyLogHandler proxyLogHandler;
 
 
 
@@ -70,6 +71,7 @@ namespace IceMilkTea.Core
             // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
             Current.ServiceManager = new GameServiceManager();
             InstallSynchronizationContext();
+            Current.InstallProxyLogHandler();
             RegisterHandler();
             Current.ServiceManager.Startup();
             Current.Startup();
@@ -97,6 +99,7 @@ namespace IceMilkTea.Core
             Current = gameMain;
             Current.ServiceManager = new GameServiceManager();
             RegisterHandler();
+            Current.UninstallProxyLogHandler();
             Current.ServiceManager.Startup();
             Current.Startup();
         }
@@ -156,6 +159,19 @@ namespace IceMilkTea.Core
         private static void UninstallSynchronizationContext()
         {
             ImtSynchronizationContext.Uninstall();
+        }
+
+
+        private void InstallProxyLogHandler()
+        {
+            proxyLogHandler = new UnityLoggerProxyLogHandler();
+        }
+
+
+        private void UninstallProxyLogHandler()
+        {
+            proxyLogHandler.Dispose();
+            proxyLogHandler = null;
         }
 
 
@@ -244,8 +260,10 @@ namespace IceMilkTea.Core
         /// <param name="exceptionArgs">発生した未処理の例外</param>
         internal protected virtual void UnhandledException(ImtUnhandledExceptionArgs exceptionArgs)
         {
-            // 通常は再スローする
-            exceptionArgs.Throw();
+            if (exceptionArgs.Source != ImtUnhandledExceptionSource.UnityLogging)
+            {
+                exceptionArgs.Throw();
+            }
         }
         #endregion
 
@@ -270,6 +288,65 @@ namespace IceMilkTea.Core
             }
         }
         #endregion
+
+
+
+        #region UnityLoggerProxyクラス実装
+        private class UnityLoggerProxyLogHandler : ILogHandler, IDisposable
+        {
+            private bool disposed;
+            private readonly ILogHandler unityDefaultLogHandler;
+
+
+
+            public UnityLoggerProxyLogHandler()
+            {
+                unityDefaultLogHandler = Debug.unityLogger.logHandler;
+                Debug.unityLogger.logHandler = this;
+            }
+
+
+            ~UnityLoggerProxyLogHandler()
+            {
+                Dispose(false);
+            }
+
+
+            public void Dispose()
+            {
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
+
+            protected virtual void Dispose(bool disposing)
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+
+                if (Debug.unityLogger.logHandler is UnityLoggerProxyLogHandler)
+                {
+                    Debug.unityLogger.logHandler = unityDefaultLogHandler;
+                }
+
+
+                disposed = true;
+            }
+
+
+            public void LogException(Exception exception, UnityEngine.Object context)
+            {
+                Current?.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.UnityLogging, context));
+            }
+
+            public void LogFormat(LogType logType, UnityEngine.Object context, string format, params object[] args)
+            {
+                unityDefaultLogHandler.LogFormat(logType, context, format, args);
+            }
+        }
+        #endregion
     }
 
 
@@ -290,15 +367,33 @@ namespace IceMilkTea.Core
         public Exception Exception { get; }
 
 
+        public ImtUnhandledExceptionSource Source { get; }
+
+
+        public object SourceObject { get; }
+
+
 
         /// <summary>
         /// ImtUnhandledExceptionArgs クラスのインスタンスを初期化します
         /// </summary>
         /// <param name="exception">発生した例外</param>
-        public ImtUnhandledExceptionArgs(Exception exception)
+        public ImtUnhandledExceptionArgs(Exception exception) : this(exception, ImtUnhandledExceptionSource.Unknown, null)
+        {
+        }
+
+
+        public ImtUnhandledExceptionArgs(Exception exception, ImtUnhandledExceptionSource source) : this(exception, source, null)
+        {
+        }
+
+
+        public ImtUnhandledExceptionArgs(Exception exception, ImtUnhandledExceptionSource source, object sourceObject)
         {
             dispatchInfo = ExceptionDispatchInfo.Capture(exception);
             Exception = exception;
+            Source = source;
+            SourceObject = sourceObject;
         }
 
 
@@ -309,5 +404,15 @@ namespace IceMilkTea.Core
         {
             dispatchInfo.Throw();
         }
+    }
+
+
+
+    public enum ImtUnhandledExceptionSource
+    {
+        Unknown,
+        IceMilkTeaService,
+        SynchronizationContext,
+        UnityLogging,
     }
 }
