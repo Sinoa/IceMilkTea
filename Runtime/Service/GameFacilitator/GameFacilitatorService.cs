@@ -1,6 +1,6 @@
 ﻿// zlib/libpng License
 //
-// Copyright (c) 2018 - 2019 Sinoa
+// Copyright (c) 2018 Sinoa
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -76,11 +76,39 @@ namespace IceMilkTea.Service
 
 
 
+    #region インターフェイス定義
+    /// <summary>
+    /// GameFacilitatorService が実装するべきインターフェイスを定義しています
+    /// </summary>
+    public interface IGameFacilitatorService
+    {
+        int RunningSceneCount { get; }
+        GameScene RunningTopScene { get; }
+        int SceneCount { get; }
+
+        void ChangeScene(GameScene scene);
+        GameScene GetPreviousScene(GameScene scene);
+        int GetRunningSceneList(GameScene[] results);
+        GameScene[] GetSceneAll();
+        int GetSceneList(GameScene[] results, Func<GameFacilitatorService<GameScene>.SceneState, bool> match);
+        void RequestDropAllScene();
+        void RequestDropScene();
+        void RequestDropScene(GameScene scene);
+        void RequestNextScene(GameScene scene);
+        void RequestNextScene(GameScene scene, bool sleepTopRunningScene);
+        void RequestSleepScene(GameScene scene);
+        void RequestWakeUpScene(GameScene scene);
+        void SceneContextForEach(Action<GameScene, GameFacilitatorService<GameScene>.SceneState> action);
+    }
+    #endregion
+
+
+
     /// <summary>
     /// ゲーム進行を行うサービスクラスです。
     /// シーンという単位でゲーム進行管理を行い、シーンはまるでスタックのように管理します。
     /// </summary>
-    public class GameFacilitatorService<TSceneBase> : GameService where TSceneBase : GameScene
+    public class GameFacilitatorService<TSceneBase> : GameService, IGameFacilitatorService where TSceneBase : GameScene
     {
         #region シーン管理情報の型定義
         /// <summary>
@@ -847,6 +875,78 @@ namespace IceMilkTea.Service
             {
                 throw new ArgumentNullException(name);
             }
+        }
+        #endregion
+
+
+        #region IGameFacilitatorService実装
+        GameScene IGameFacilitatorService.RunningTopScene => RunningTopScene;
+
+        void IGameFacilitatorService.ChangeScene(GameScene scene)
+        {
+            ChangeScene((TSceneBase)scene);
+        }
+
+        GameScene IGameFacilitatorService.GetPreviousScene(GameScene scene)
+        {
+            return GetPreviousScene((TSceneBase)scene);
+        }
+
+        int IGameFacilitatorService.GetRunningSceneList(GameScene[] results)
+        {
+            var genericResults = new TSceneBase[results.Length];
+            var result = GetRunningSceneList(genericResults);
+            for (int i = 0; i < results.Length; ++i)
+            {
+                results[i] = genericResults[i];
+            }
+            return result;
+        }
+
+        GameScene[] IGameFacilitatorService.GetSceneAll()
+        {
+            return Array.ConvertAll(GetSceneAll(), x => (GameScene)x);
+        }
+
+        int IGameFacilitatorService.GetSceneList(GameScene[] results, Func<GameFacilitatorService<GameScene>.SceneState, bool> match)
+        {
+            var genericResults = new TSceneBase[results.Length];
+            var result = GetSceneList(genericResults, x => match((GameFacilitatorService<GameScene>.SceneState)(int)x));
+            for (int i = 0; i < results.Length; ++i)
+            {
+                results[i] = genericResults[i];
+            }
+            return result;
+        }
+
+        void IGameFacilitatorService.RequestDropScene(GameScene scene)
+        {
+            RequestDropScene((TSceneBase)scene);
+        }
+
+        void IGameFacilitatorService.RequestNextScene(GameScene scene)
+        {
+            RequestNextScene((TSceneBase)scene);
+        }
+
+        void IGameFacilitatorService.RequestNextScene(GameScene scene, bool sleepTopRunningScene)
+        {
+            RequestNextScene((TSceneBase)scene, sleepTopRunningScene);
+        }
+
+        void IGameFacilitatorService.RequestSleepScene(GameScene scene)
+        {
+            RequestSleepScene((TSceneBase)scene);
+        }
+
+        void IGameFacilitatorService.RequestWakeUpScene(GameScene scene)
+        {
+            RequestWakeUpScene((TSceneBase)scene);
+        }
+
+        void IGameFacilitatorService.SceneContextForEach(Action<GameScene, GameFacilitatorService<GameScene>.SceneState> action)
+        {
+            SceneContextForEach((scene, state) => action(scene, (GameFacilitatorService<GameScene>.SceneState)(int)state));
         }
         #endregion
     }
