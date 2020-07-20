@@ -611,6 +611,26 @@ namespace IceMilkTea.Core
             // 見つけたサービスを見つけられたことを返す
             return true;
         }
+
+
+        /// <summary>
+        /// 現在管理しているサービスの反復処理を実行します
+        /// </summary>
+        /// <param name="action">サービスに対して処理する関数</param>
+        /// <exception cref="ArgumentNullException">action が null です</exception>
+        public void ServiceForEach(Action<GameService> action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+
+            foreach (var serviceInfo in serviceManageList)
+            {
+                action(serviceInfo.Service);
+            }
+        }
         #endregion
 
 
