@@ -84,6 +84,13 @@ namespace IceMilkTeaEditor.Common
         }
 
 
+        [MenuItem(DebugMenuName + "/DumpSceneStack")]
+        public static void OpenSceneStackDumpWindow()
+        {
+            SceneStackDumpWindow.OpenWindow();
+        }
+
+
         /// <summary>
         /// エディタシーン上に存在する、空のゲームオブジェクトを再帰的に削除します
         /// </summary>

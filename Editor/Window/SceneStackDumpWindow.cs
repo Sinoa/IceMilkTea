@@ -31,7 +31,6 @@ namespace IceMilkTeaEditor.Window
     {
         private Action<object> internalUpdate;
         private List<SceneInfo> sceneInfoList;
-        private int previousSceneCount;
 
 
         protected IGameFacilitatorService GameFacilitatorService { get; private set; }
@@ -62,7 +61,7 @@ namespace IceMilkTeaEditor.Window
         }
 
 
-        private void InitializeUI()
+        protected virtual void InitializeUI()
         {
             var playerLoopTree = new ImtEditorFreeRenderer(this, RenderSceneStack);
             RootUi.AddUi(playerLoopTree);
@@ -73,7 +72,6 @@ namespace IceMilkTeaEditor.Window
         {
             InitializeGameFacilitatorService();
             UpdateSceneStack();
-            Update(state);
             PostMessage(internalUpdate ?? (internalUpdate = Internal_Update), state);
         }
 
@@ -127,11 +125,6 @@ namespace IceMilkTeaEditor.Window
                     SceneState = state,
                 });
             });
-        }
-
-
-        protected virtual void Update(object state)
-        {
         }
 
 
