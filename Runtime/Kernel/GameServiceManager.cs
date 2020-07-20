@@ -266,7 +266,7 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception exception)
                 {
-                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
+                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
                 }
             }
 
@@ -315,7 +315,7 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception exception)
                 {
-                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
+                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
                 }
 
 
@@ -742,7 +742,7 @@ namespace IceMilkTea.Core
                     }
                     catch (Exception exception)
                     {
-                        GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception));
+                        GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
                     }
                 }
             }
