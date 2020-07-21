@@ -112,6 +112,7 @@ namespace IceMilkTea.Core
         // メンバ変数定義
         private readonly Stopwatch stopwatch;
         private readonly List<ServiceManagementInfo> serviceManageList;
+        private readonly List<Exception> errorList;
         private long serviceProcessTick;
 
 
@@ -130,6 +131,7 @@ namespace IceMilkTea.Core
         {
             // サービス管理用リストのインスタンスを生成
             serviceManageList = new List<ServiceManagementInfo>();
+            errorList = new List<Exception>();
             stopwatch = new Stopwatch();
         }
 
@@ -247,6 +249,7 @@ namespace IceMilkTea.Core
 
 
             // サービスの数分ループ
+            ClearError();
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
                 // サービスの状態がReady以外なら
@@ -266,13 +269,14 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception exception)
                 {
-                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
+                    AddError(exception);
                 }
             }
 
 
             // 処理時間計測用ストップウォッチの一時停止
             stopwatch.Stop();
+            ProcessError();
         }
 
 
@@ -290,6 +294,7 @@ namespace IceMilkTea.Core
 
 
             // サービスの数分ループ
+            ClearError();
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
                 // サービスの状態がShutdownでないなら
@@ -315,7 +320,7 @@ namespace IceMilkTea.Core
                 }
                 catch (Exception exception)
                 {
-                    GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
+                    AddError(exception);
                 }
 
 
@@ -330,6 +335,7 @@ namespace IceMilkTea.Core
                 // 処理時間計測用ストップウォッチの一時停止ここで終了
                 stopwatch.Stop();
                 serviceProcessTick = stopwatch.ElapsedTicks;
+                ProcessError();
                 return;
             }
 
@@ -351,6 +357,7 @@ namespace IceMilkTea.Core
             // 処理時間計測用ストップウォッチの一時停止
             stopwatch.Stop();
             serviceProcessTick = stopwatch.ElapsedTicks;
+            ProcessError();
         }
         #endregion
 
@@ -720,6 +727,29 @@ namespace IceMilkTea.Core
 
 
         #region 共通ロジック系
+        private void ClearError()
+        {
+            errorList.Clear();
+        }
+
+
+        private void AddError(Exception exception)
+        {
+            errorList.Add(exception ?? throw new ArgumentNullException(nameof(exception)));
+        }
+
+
+        private void ProcessError()
+        {
+            if (errorList.Count > 0)
+            {
+                errorList.Clear();
+                var exception = new AggregateException($"サービス処理中に {errorList.Count} 件のエラーが発生しました", errorList);
+                GameMain.Current.UnhandledExceptionCore(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
+            }
+        }
+
+
         /// <summary>
         /// 指定されたタイミングのサービス更新関数を実行します。
         /// また、実行する対象はステータスに応じた呼び出しを行います。
@@ -731,6 +761,7 @@ namespace IceMilkTea.Core
             stopwatch.Start();
 
 
+            ClearError();
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
                 var serviceInfo = serviceManageList[i];
@@ -742,7 +773,7 @@ namespace IceMilkTea.Core
                     }
                     catch (Exception exception)
                     {
-                        GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
+                        AddError(exception);
                     }
                 }
             }
@@ -750,6 +781,7 @@ namespace IceMilkTea.Core
 
             // 処理負荷計測用ストップウォッチを一時停止する
             stopwatch.Stop();
+            ProcessError();
         }
 
 
