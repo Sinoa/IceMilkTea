@@ -207,6 +207,19 @@ namespace IceMilkTea.Core
         {
             messagePumpHandler();
         }
+
+
+        internal void UnhandledExceptionCore(ImtUnhandledExceptionArgs exceptionArgs)
+        {
+            UnhandledException(exceptionArgs);
+            if (exceptionArgs.Handled)
+            {
+                return;
+            }
+
+
+            exceptionArgs.Throw();
+        }
         #endregion
 
 
@@ -338,7 +351,7 @@ namespace IceMilkTea.Core
 
             public void LogException(Exception exception, UnityEngine.Object context)
             {
-                Current?.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.UnityLogging, context));
+                Current?.UnhandledExceptionCore(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.UnityLogging, context));
             }
 
             public void LogFormat(LogType logType, UnityEngine.Object context, string format, params object[] args)
@@ -373,6 +386,9 @@ namespace IceMilkTea.Core
         public object SourceObject { get; }
 
 
+        public bool Handled { get; set; }
+
+
 
         /// <summary>
         /// ImtUnhandledExceptionArgs クラスのインスタンスを初期化します
@@ -394,13 +410,14 @@ namespace IceMilkTea.Core
             Exception = exception;
             Source = source;
             SourceObject = sourceObject;
+            Handled = false;
         }
 
 
         /// <summary>
         /// キャプチャ未処理の例外をスローします
         /// </summary>
-        public void Throw()
+        internal void Throw()
         {
             dispatchInfo.Throw();
         }
