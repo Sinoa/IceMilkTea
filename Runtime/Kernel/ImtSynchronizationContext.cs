@@ -32,7 +32,6 @@ namespace IceMilkTea.Core
 
         // メンバ変数定義
         private readonly SynchronizationContext previousContext;
-        private readonly IImtSynchronizationContextEventHandler eventHandler;
         private readonly MessageQueueController messageQueue;
         private readonly List<Exception> errorList;
         private readonly int myStartupThreadId;
@@ -50,13 +49,12 @@ namespace IceMilkTea.Core
         /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
         /// <param name="handler">この同期コンテキストによって発生したイベントをハンドリングするオブジェクト</param>
         /// <exception cref="ArgumentNullException">handler が null です</exception>
-        private ImtSynchronizationContext(out Action messagePumpHandler, IImtSynchronizationContextEventHandler handler)
+        private ImtSynchronizationContext(out Action messagePumpHandler)
         {
             previousContext = AsyncOperationManager.SynchronizationContext;
             messageQueue = new MessageQueueController(DefaultMessageQueueCapacity, ProcessMessage);
             errorList = new List<Exception>(DefaultMessageQueueCapacity);
             myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
-            eventHandler = handler ?? throw new ArgumentNullException(nameof(handler));
             messagePumpHandler = DoProcessMessage;
         }
 
@@ -69,23 +67,8 @@ namespace IceMilkTea.Core
         /// </remarks>
         /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
         /// <returns>正しくインストール出来た場合は true を、既にインストール済みによってインストールが出来なかった場合は false を返します。</returns>
-        public static bool Install(out Action messagePumpHandler)
-        {
-            return Install(out messagePumpHandler, new ImtNullSynchronizationContextEventHandler());
-        }
-
-
-        /// <summary>
-        /// 現在のスレッドの同期コンテキストに ImtSynchronizationContext 同期コンテキストをインストールします。
-        /// </summary>
-        /// <remarks>
-        /// 既に ImtSynchronizationContext 同期コンテキストがインストール済みの場合はインストールに失敗を返しますが、メッセージポンプハンドラは取得されます。
-        /// </remarks>
-        /// <param name="messagePumpHandler">この同期コンテキストに送られてきたメッセージを処理するための、メッセージポンプハンドラを受け取ります</param>
-        /// <param name="handler">インストールした ImtSynchronizationContext 同期コンテキストのイベントを処理するハンドラオブジェクト。ただし、インストールに失敗した場合は設定されません。</param>
-        /// <returns>正しくインストール出来た場合は true を、既にインストール済みによってインストールが出来なかった場合は false を返します。</returns>
         /// <exception cref="ArgumentNullException">handler が null です</exception>
-        public static bool Install(out Action messagePumpHandler, IImtSynchronizationContextEventHandler handler)
+        public static bool Install(out Action messagePumpHandler)
         {
             if (AsyncOperationManager.SynchronizationContext is ImtSynchronizationContext context)
             {
@@ -94,7 +77,7 @@ namespace IceMilkTea.Core
             }
 
 
-            context = new ImtSynchronizationContext(out messagePumpHandler, handler);
+            context = new ImtSynchronizationContext(out messagePumpHandler);
             messagePumpHandler = context.DoProcessMessage;
             AsyncOperationManager.SynchronizationContext = context;
             return true;
@@ -167,8 +150,7 @@ namespace IceMilkTea.Core
             if (errorList.Count > 0)
             {
                 var exception = new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList);
-                eventHandler.DoErrorHandle(exception, errorList.Count);
-                GameMain.Current.UnhandledException(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.SynchronizationContext));
+                GameMain.Current.UnhandledExceptionCore(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.SynchronizationContext));
             }
         }
 
@@ -298,47 +280,5 @@ namespace IceMilkTea.Core
             }
         }
         #endregion
-    }
-
-
-
-    /// <summary>
-    /// ImtSynchronizationContext クラスの内部イベントをハンドリングするためのインターフェイスです
-    /// </summary>
-    public interface IImtSynchronizationContextEventHandler
-    {
-        /// <summary>
-        /// 同期コンテキストによって処理されたメッセージのいずれかがエラーを発生した場合の処理をします
-        /// </summary>
-        /// <param name="exception">発生したエラーをまとめた例外</param>
-        /// <param name="count">発生したエラー件数</param>
-        void DoErrorHandle(AggregateException exception, int count);
-    }
-
-
-
-    /// <summary>
-    /// ImtSynchronizationContext クラスの標準イベントハンドラを提供します
-    /// </summary>
-    internal sealed class ImtStandardSynchronizationContextEventHandler : IImtSynchronizationContextEventHandler
-    {
-        /// <summary>
-        /// 同期コンテキストで発生した例外を再スローします
-        /// </summary>
-        /// <param name="exception">発生したエラーをまとめた例外</param>
-        /// <param name="count">発生したエラー件数</param>
-        public void DoErrorHandle(AggregateException exception, int count)
-        {
-            ExceptionDispatchInfo.Capture(exception).Throw();
-        }
-    }
-
-
-
-    internal sealed class ImtNullSynchronizationContextEventHandler : IImtSynchronizationContextEventHandler
-    {
-        public void DoErrorHandle(AggregateException exception, int count)
-        {
-        }
     }
 }
