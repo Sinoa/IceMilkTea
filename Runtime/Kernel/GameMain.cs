@@ -218,6 +218,7 @@ namespace IceMilkTea.Core
             }
 
 
+            proxyLogHandler.PassExceptionOnce = true;
             exceptionArgs.Throw();
         }
         #endregion
@@ -273,10 +274,6 @@ namespace IceMilkTea.Core
         /// <param name="exceptionArgs">発生した未処理の例外</param>
         internal protected virtual void UnhandledException(ImtUnhandledExceptionArgs exceptionArgs)
         {
-            if (exceptionArgs.Source != ImtUnhandledExceptionSource.UnityLogging)
-            {
-                exceptionArgs.Throw();
-            }
         }
         #endregion
 
@@ -309,6 +306,10 @@ namespace IceMilkTea.Core
         {
             private bool disposed;
             private readonly ILogHandler unityDefaultLogHandler;
+
+
+
+            internal bool PassExceptionOnce { get; set; }
 
 
 
@@ -351,6 +352,19 @@ namespace IceMilkTea.Core
 
             public void LogException(Exception exception, UnityEngine.Object context)
             {
+                if (PassExceptionOnce)
+                {
+                    if (context != null)
+                    {
+                        unityDefaultLogHandler.LogException(exception, context);
+                    }
+
+
+                    PassExceptionOnce = false;
+                    return;
+                }
+
+
                 Current?.UnhandledExceptionCore(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.UnityLogging, context));
             }
 
