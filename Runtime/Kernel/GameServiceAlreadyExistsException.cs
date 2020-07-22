@@ -20,7 +20,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// サービスが既に存在している場合にスローされる例外クラスです
     /// </summary>
-    public class GameServiceAlreadyExistsException : Exception
+    public class GameServiceAlreadyExistsException : ImtException
     {
         /// <summary>
         /// GameServiceAlreadyExistsException インスタンスの初期化をします

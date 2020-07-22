@@ -20,7 +20,7 @@ namespace IceMilkTea.Core
     /// <summary>
     /// サービスが見つからなかった場合にスローされる例外クラスです
     /// </summary>
-    public class GameServiceNotFoundException : Exception
+    public class GameServiceNotFoundException : ImtException
     {
         /// <summary>
         /// GameServiceNotFoundException インスタンスの初期化をします
