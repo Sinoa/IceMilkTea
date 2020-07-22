@@ -218,6 +218,12 @@ namespace IceMilkTea.Core
             }
 
 
+            if (exceptionArgs.Source == ImtUnhandledExceptionSource.UnityLogging)
+            {
+                return;
+            }
+
+
             proxyLogHandler.PassExceptionOnce = true;
             exceptionArgs.Throw();
         }

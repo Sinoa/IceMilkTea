@@ -743,8 +743,8 @@ namespace IceMilkTea.Core
         {
             if (errorList.Count > 0)
             {
-                errorList.Clear();
                 var exception = new AggregateException($"サービス処理中に {errorList.Count} 件のエラーが発生しました", errorList);
+                errorList.Clear();
                 GameMain.Current.UnhandledExceptionCore(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.IceMilkTeaService));
             }
         }
