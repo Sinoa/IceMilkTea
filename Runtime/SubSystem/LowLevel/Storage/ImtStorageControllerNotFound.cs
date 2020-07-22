@@ -15,6 +15,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using IceMilkTea.Core;
 
 namespace IceMilkTea.SubSystem
 {
@@ -22,7 +23,7 @@ namespace IceMilkTea.SubSystem
     /// ストレージコントローラを見つけられなかった場合の例外です
     /// </summary>
     [Serializable]
-    public class ImtStorageControllerNotFoundException : Exception
+    public class ImtStorageControllerNotFoundException : ImtException
     {
         /// <summary>
         /// 見つけられなかったストレージ名
