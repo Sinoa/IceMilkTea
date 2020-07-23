@@ -153,50 +153,50 @@ namespace IceMilkTea.Core
                 throw new ArgumentNullException(nameof(progress));
             }
 
-			var webRequest = UnityWebRequest.Get(remoteUri);
-			webRequest.downloadHandler = new DownloadHandlerStream(outStream, new byte[bufferSize]);
-			var ao = webRequest.SendWebRequest();
+            var webRequest = UnityWebRequest.Get(remoteUri);
+            webRequest.downloadHandler = new DownloadHandlerStream(outStream, new byte[bufferSize]);
+            var ao = webRequest.SendWebRequest();
 
-			// ContentLength取得ヘルパ
-			long GetContentLength()
-			{
-				var header = webRequest.GetResponseHeader("Content-Length");
-				if( header == null ) { return 0; }
+            // ContentLength取得ヘルパ
+            long GetContentLength()
+            {
+                var header = webRequest.GetResponseHeader("Content-Length");
+                if( header == null ) { return 0; }
 
-				var contentLength = ulong.Parse(header);
-				return (long)contentLength;
-			};
+                var contentLength = ulong.Parse(header);
+                return (long)contentLength;
+            };
 
-			var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
+            var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
 
-			// Content-Lengthを取るまで
-			while( !ao.isDone )
-			{
-				ContentLength = GetContentLength();
-				if( ContentLength != 0 ) { break; }
+            // Content-Lengthを取るまで
+            while( !ao.isDone )
+            {
+                ContentLength = GetContentLength();
+                if( ContentLength != 0 ) { break; }
 
-				if( timeoutTask.IsCompleted ) {
+                if( timeoutTask.IsCompleted ) {
                     // 要求の中断を行いタイムアウト例外を投げる
-					webRequest.Abort();
+                    webRequest.Abort();
                     throw new TimeoutException("HTTPの応答より先にタイムアウトしました");				
-				}
-				await Task.Yield();
-			}
+                }
+                await Task.Yield();
+            }
 
-			// Content-Length取った後のデータ取得完了まで
-			await ao.ToAwaitable(
-				new Progress<float>(x =>  
-					{
-						FetchedLength = (long)webRequest.downloadedBytes;
-						progress.Report(new FetcherReport(ContentLength, FetchedLength));
-					}
-				)
-			);
+            // Content-Length取った後のデータ取得完了まで
+            await ao.ToAwaitable(
+                new Progress<float>(x =>  
+                    {
+                        FetchedLength = (long)webRequest.downloadedBytes;
+                        progress.Report(new FetcherReport(ContentLength, FetchedLength));
+                    }
+                )
+            );
 
-			//すぐに終わるとProgressがキックされないため確実にここでキックする
-			ContentLength = GetContentLength();
-			FetchedLength = (long)webRequest.downloadedBytes;
-			progress.Report(new FetcherReport(ContentLength, FetchedLength));
+            //すぐに終わるとProgressがキックされないため確実にここでキックする
+            ContentLength = GetContentLength();
+            FetchedLength = (long)webRequest.downloadedBytes;
+            progress.Report(new FetcherReport(ContentLength, FetchedLength));
         }
     }
     #endregion

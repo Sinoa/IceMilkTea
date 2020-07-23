@@ -218,14 +218,17 @@ namespace IceMilkTea.Core
             }
 
 
+            proxyLogHandler.PassExceptionOnce = true;
+
+
             if (exceptionArgs.Source == ImtUnhandledExceptionSource.UnityLogging)
             {
-                return;
+                proxyLogHandler.LogException(exceptionArgs.Exception, exceptionArgs.SourceObject as UnityEngine.Object);
             }
-
-
-            proxyLogHandler.PassExceptionOnce = true;
-            exceptionArgs.Throw();
+            else
+            {
+                exceptionArgs.Throw();
+            }
         }
         #endregion
 
@@ -360,12 +363,9 @@ namespace IceMilkTea.Core
             {
                 if (PassExceptionOnce)
                 {
-                    if (context != null)
-                    {
-                        unityDefaultLogHandler.LogException(exception, context);
-                    }
-
-
+                    // MEMO:[2020-07-23]LogExceptionを使うとExceptionのMessageではなくInnnerExceptionの方が出力されるので別の方法で出す
+                    //unityDefaultLogHandler.LogException(exception, context);
+                    unityDefaultLogHandler.LogFormat(LogType.Error, context, exception.ToString());
                     PassExceptionOnce = false;
                     return;
                 }
