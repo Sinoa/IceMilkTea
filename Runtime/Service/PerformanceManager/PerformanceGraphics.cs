@@ -34,6 +34,9 @@ namespace IceMilkTea.Service
         public Vector2 VirtualResolution { get; private set; }
 
 
+        public bool Enable { get; set; }
+
+
 
         public PerformanceGraphics() : this(720)
         {
@@ -50,6 +53,7 @@ namespace IceMilkTea.Service
             needString = string.Empty;
             stringBuffer = new StringBuilder();
             VirtualResolution = new Vector2(displayWidth, Screen.height * ((float)displayWidth / Screen.width));
+            Enable = true;
         }
 
 
@@ -99,6 +103,12 @@ namespace IceMilkTea.Service
 
         public void Render()
         {
+            if (!Enable)
+            {
+                return;
+            }
+
+
             VirtualResolution = new Vector2(VirtualResolution.x, Screen.height * (VirtualResolution.x / Screen.width));
 
             GL.PushMatrix();
