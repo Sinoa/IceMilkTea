@@ -14,12 +14,10 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
-using IceMilkTea.SubSystem;
 using UnityEngine;
 
 namespace IceMilkTea.Service
@@ -70,8 +68,6 @@ namespace IceMilkTea.Service
         private int initializedThreadId;
 
 
-        private readonly IAssetStorage storage;
-        private readonly ImtAssetDatabase assetDatabase;
 
         /// <summary>
         /// AssetManagementService のインスタンスを初期化します。
@@ -85,15 +81,7 @@ namespace IceMilkTea.Service
         /// <exception cref="ArgumentNullException">installer が null です</exception>
         /// <exception cref="ArgumentNullException">manifestFetcher が null です</exception>
         /// <exception cref="ArgumentNullException">storageDirectoryInfo が null です</exception>
-        public AssetManagementService(
-            AssetBundleStorageController storageController,
-            AssetBundleInstaller installer,
-            AssetBundleManifestFetcher manifestFetcher,
-            DirectoryInfo storageDirectoryInfo,
-            AssetBundleLoadMode loadMode,
-            IAssetStorage storage,
-            ImtAssetDatabase assetDatabase,
-            IAssetManagementEventListener listener)
+        public AssetManagementService(AssetBundleStorageController storageController, AssetBundleInstaller installer, AssetBundleManifestFetcher manifestFetcher, DirectoryInfo storageDirectoryInfo, AssetBundleLoadMode loadMode)
         {
             // storageがnullなら
             if (storageController == null)
@@ -127,47 +115,19 @@ namespace IceMilkTea.Service
             }
 
 
+
+
             // サブシステムなどの初期化をする
             uriCache = new UriInfoCache();
             assetCache = new UnityAssetCache();
             manifestManager = new AssetBundleManifestManager(manifestFetcher, storageDirectoryInfo);
-            storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer, storage, assetDatabase);
+            storageManager = new AssetBundleStorageManager(manifestManager, storageController, installer);
             this.loadMode = loadMode;
 
-            this.storage = storage;
-            this.assetDatabase = assetDatabase;
 
             // 初期化済みスレッドIDを覚える
             initializedThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
         }
-
-
-        #region ServiceEvent
-        /// <summary>
-        /// サービスの起動をします
-        /// </summary>
-        /// <param name="info">サービス起動時の情報を設定します</param>
-        protected internal override void Startup(out GameServiceStartupInfo info)
-        {
-            // サービスの起動情報を設定する
-            info = new GameServiceStartupInfo();
-            info.UpdateFunctionTable = new Dictionary<GameServiceUpdateTiming, Action>()
-            {
-                // サービスの更新タイミングを登録する
-                { GameServiceUpdateTiming.MainLoopTail, MainLoopTail },
-            };
-        }
-
-
-        /// <summary>
-        /// ゲームメインループの最後のタイミングを処理します
-        /// </summary>
-        private void MainLoopTail()
-        {
-            // 未参照となったキャッシュのクリーンアップ
-            assetCache.CleanupUnreferencedCache();
-        }
-        #endregion
 
 
         #region LoadAsync
@@ -388,17 +348,13 @@ namespace IceMilkTea.Service
                 throw new InvalidOperationException($"アセットバンドルからロードするべきアセット名を取得出来ませんでした。クエリに '{AssetNameQueryName}' パラメータがあることを確認してください。");
             }
 
-            // ローカルパスを取得してアセットバンドルを開く
-            var catalog = this.assetDatabase.GetCatalog(storageName);
-            var itemName = assetUrl.Uri.LocalPath.TrimStart('/');
-            var item = catalog.GetItem(itemName);
-            
-            if(item == null)
-            {
-                throw new InvalidOperationException($"カタログ {storageName} に {itemName} が存在しません");
-            }
 
-            var assetBundle = await storageManager.OpenAsync(catalog, item);
+            // ローカルパスを取得してアセットバンドルを開く
+            var localPath = assetUrl.Uri.LocalPath.TrimStart('/');
+            AssetBundleInfo assetBundleInfo;
+            manifestManager.GetAssetBundleInfo(localPath, out assetBundleInfo);
+            var assetBundle = await storageManager.OpenAsync(assetBundleInfo);
+
 
             // 結果を納める変数宣言
             T result = default(T);
@@ -529,55 +485,25 @@ namespace IceMilkTea.Service
 
 
         #region Manifest
-
-        public class ManifestUpdater
-        {
-            private readonly AssetManagementService Service;
-            private readonly ImtAssetBundleManifest NewManifest;
-            public readonly IReadOnlyList<UpdatableAssetBundleInfo> UpdatableAssetBundles;
-
-            public bool ExistUpdates => UpdatableAssetBundles.Count > 0;
-
-            public ManifestUpdater(AssetManagementService service, ImtAssetBundleManifest newManifest, IReadOnlyList<UpdatableAssetBundleInfo> updatables)
-            {
-                this.Service = service;
-                this.NewManifest = newManifest;
-                this.UpdatableAssetBundles = updatables;
-            }
-
-            public Task SaveNewManifestAsync()
-            {
-                //これはSimulateAssetBundle時の動作なので空更新とする
-                if(this.NewManifest.ContentGroups is null)
-                {
-                    return Task.CompletedTask;
-                }
-
-                if(this.UpdatableAssetBundles.Count > 0)
-                {
-                    return this.Service.manifestManager.UpdateManifestAsync(NewManifest);
-                }
-                else
-                {
-                    return Task.CompletedTask;
-                }
-            }
-        }
-
         // TODO : 今はフル更新というひどい実装
-        public async Task<ManifestUpdater> UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
+        public async Task<bool> UpdateManifestAsync(IProgress<AssetBundleCheckProgress> progress)
         {
             // シミュレートモードなら何もせず終了
-            if (loadMode == AssetBundleLoadMode.Simulate)
-            {
-                return new ManifestUpdater(this, new ImtAssetBundleManifest(), Array.Empty<UpdatableAssetBundleInfo>());
-            }
+            if (loadMode == AssetBundleLoadMode.Simulate) return false;
+
 
             // マニフェストの更新を行う
             await manifestManager.LoadManifestAsync();
             var manifest = await manifestManager.FetchManifestAsync();
             var updatableList = await manifestManager.GetUpdatableAssetBundlesAsync(manifest, progress);
-            return new ManifestUpdater(this, manifest, updatableList);
+            if (updatableList.Length > 0)
+            {
+                await manifestManager.UpdateManifestAsync(manifest);
+                return true;
+            }
+
+
+            return false;
         }
 
 
@@ -587,15 +513,6 @@ namespace IceMilkTea.Service
             // シミュレートモードなら何もせず終了
             if (loadMode == AssetBundleLoadMode.Simulate) return;
             await storageManager.InstallAllAsync(progress);
-        }
-
-        public Task InstallAssetBundleAsync(IReadOnlyList<UpdatableAssetBundleInfo> updates, IProgress<AssetBundleInstallProgress> progress)
-        {
-            // シミュレートモードなら何もせず終了
-            if (loadMode == AssetBundleLoadMode.Simulate)
-                return Task.CompletedTask;
-
-            return storageManager.InstallUpdatedAsync(updates, progress);
         }
         #endregion
 
@@ -612,33 +529,6 @@ namespace IceMilkTea.Service
             {
                 // 必ず初期化スレッドと同じスレッドじゃないと駄目
                 throw new InvalidOperationException("初期化スレッド以外からのスレッドでアクセスすることは許可されていません");
-            }
-        }
-        #endregion
-
-
-
-        #region NullAssetManagementEventListener
-        /// <summary>
-        /// 全く何もしないイベントリスナクラスです
-        /// </summary>
-        private sealed class NullAssetManagementEventListener : IAssetManagementEventListener
-        {
-            /// <summary>
-            /// この関数は何もしません
-            /// </summary>
-            /// <param name="assetUri"></param>
-            public void OnNewAssetCached(Uri assetUri)
-            {
-            }
-
-
-            /// <summary>
-            /// この関数は何もしません
-            /// </summary>
-            /// <param name="assetUri"></param>
-            public void OnPurgeAssetCache(Uri assetUri)
-            {
             }
         }
         #endregion
