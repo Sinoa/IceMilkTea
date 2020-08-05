@@ -62,7 +62,7 @@ namespace IceMilkTea.UI
         private bool forceProportional;
         [Header("AnimationSetting")]
         [SerializeField]
-        private ImtTextAnimator textAnimator;
+        private ImtTextAnimator textAnimator = null;
         [Header("GameText")]
         [SerializeField]
         [TextArea(5, 10)]
