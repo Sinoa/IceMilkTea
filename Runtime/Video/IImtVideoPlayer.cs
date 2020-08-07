@@ -14,12 +14,22 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using IceMilkTea.Core;
+using UnityEngine;
 
 namespace IceMilkTea.Video
 {
     public interface IImtVideoPlayer
     {
+        RenderTexture RenderTarget { get; }
+
+
         bool IsPlaying { get; }
+
+
+        bool IsPaused { get; }
+
+
+        double CurrentTime { get; }
 
 
 
