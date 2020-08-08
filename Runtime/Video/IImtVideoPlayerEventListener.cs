@@ -17,10 +17,10 @@ namespace IceMilkTea.Video
 {
     public interface IImtVideoPlayerEventListener
     {
-        void OnPlayVideo(ImtVideoPlayer videoPlayer);
-        void OnPauseVideo(ImtVideoPlayer videoPlayer);
-        void OnStopVideo(ImtVideoPlayer videoPlayer);
-        void OnComplete(ImtVideoPlayer videoPlayer);
-        void OnVideoTimeMarkerTriggered(ImtVideoPlayer videoPlayer, ImtVideoTimeMarker marker);
+        void OnPlayVideo(IImtVideoPlayer videoPlayer);
+        void OnPauseVideo(IImtVideoPlayer videoPlayer);
+        void OnStopVideo(IImtVideoPlayer videoPlayer);
+        void OnComplete(IImtVideoPlayer videoPlayer);
+        void OnVideoTimeMarkerTriggered(IImtVideoPlayer videoPlayer, ImtVideoTimeMarker marker);
     }
 }
