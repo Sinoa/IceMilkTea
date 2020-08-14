@@ -60,49 +60,55 @@ namespace IceMilkTea.Service
         /// <returns>アセットバンドルを非同期で開くタスクを返します</returns>
         /// <exception cref="InvalidOperationException">アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした</exception>
         /// <exception cref="InvalidOperationException">アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません</exception>
-        public async Task<AssetBundle> OpenAsync(AssetBundleInfo info)
+        //public async Task<AssetBundle> OpenAsync(AssetBundleInfo info)
+        //{
+        //    // このアセットバンドルが依存するアセットバンドル分回る
+        //    foreach (var dependenceAssetBundleName in info.DependenceAssetBundleNames)
+        //    {
+        //        // アセットバンドル名からアセットバンドル情報を取得するが情報の取得が出来ないなら
+        //        if (!manifestManager.TryGetAssetBundleInfo(dependenceAssetBundleName, out var dependenceAssetBundleInfo))
+        //        {
+        //            // 依存解決に失敗したことを例外で吐く
+        //            throw new InvalidOperationException($"アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
+        //        }
+
+
+        //        // 依存するアセットバンドルを再帰的に開くが開いたアセットバンドルの参照はそのまま
+        //        await OpenAsync(dependenceAssetBundleInfo);
+        //    }
+
+
+        //    // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
+        //    if (assetBundleTable.TryGetValue(info.Name, out var context))
+        //    {
+        //        // コンテキストからアセットバンドルを取得して返す
+        //        return (await context).GetAssetBundle();
+        //    }
+
+
+        //    // 開こうとしているアセットバンドルがまだストレージに存在しないなら
+        //    if (!storageController.Exists(info))
+        //    {
+        //        // 未インストールアセットバンドルが存在することを例外で吐く
+        //        throw new InvalidOperationException($"アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません");
+        //    }
+
+        //    // 新しくコントローラからアセットバンドルを開くことを要求する
+        //    var createContextTask = CreateAssetBundleManagementContextAsync(info);
+        //    assetBundleTable[info.Name] = createContextTask;
+        //    return (await createContextTask).GetAssetBundle();
+        //}
+
+
+        public async Task<AssetBundle> OpenAsync(ImtCatalog catalog, ImtCatalogItem item, Stack<string> assetBundleOpenStack)
         {
-            // このアセットバンドルが依存するアセットバンドル分回る
-            foreach (var dependenceAssetBundleName in info.DependenceAssetBundleNames)
+            if (assetBundleOpenStack == null)
             {
-                // アセットバンドル名からアセットバンドル情報を取得するが情報の取得が出来ないなら
-                AssetBundleInfo dependenceAssetBundleInfo;
-                if (!manifestManager.TryGetAssetBundleInfo(dependenceAssetBundleName, out dependenceAssetBundleInfo))
-                {
-                    // 依存解決に失敗したことを例外で吐く
-                    throw new InvalidOperationException($"アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
-                }
-
-
-                // 依存するアセットバンドルを再帰的に開くが開いたアセットバンドルの参照はそのまま
-                await OpenAsync(dependenceAssetBundleInfo);
-            }
-
-            // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
-            Task<AssetBundleManagementContext> context;
-            if (assetBundleTable.TryGetValue(info.Name, out context))
-            {
-                // コンテキストからアセットバンドルを取得して返す
-                return (await context).GetAssetBundle();
+                throw new ArgumentNullException(nameof(assetBundleOpenStack));
             }
 
 
-            // 開こうとしているアセットバンドルがまだストレージに存在しないなら
-            if (!storageController.Exists(info))
-            {
-                // 未インストールアセットバンドルが存在することを例外で吐く
-                throw new InvalidOperationException($"アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません");
-            }
-
-            // 新しくコントローラからアセットバンドルを開くことを要求する
-            var createContextTask = CreateAssetBundleManagementContextAsync(info);
-            assetBundleTable[info.Name] = createContextTask;
-            return (await createContextTask).GetAssetBundle();
-        }
-
-
-        public async Task<AssetBundle> OpenAsync(ImtCatalog catalog, ImtCatalogItem item)
-        {
+            assetBundleOpenStack.Push(item.Name);
             foreach (var dependenceAssetBundleName in item.DependentItemNames)
             {
                 var dependentItem = catalog.GetItem(dependenceAssetBundleName);
@@ -111,14 +117,21 @@ namespace IceMilkTea.Service
                     throw new InvalidOperationException($"アセットバンドル '{item.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
                 }
 
-                await OpenAsync(catalog, dependentItem);
+
+                if (assetBundleOpenStack.Contains(dependenceAssetBundleName))
+                {
+                    throw new InvalidOperationException($"アセットバンドル '{item.Name}' が '{dependenceAssetBundleName}' に依存していますが、循環参照を起こしています。");
+                }
+
+
+                await OpenAsync(catalog, dependentItem, assetBundleOpenStack);
             }
 
             // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
-            Task<AssetBundleManagementContext> context;
-            if (assetBundleTable.TryGetValue(item.Name, out context))
+            if (assetBundleTable.TryGetValue(item.Name, out var context))
             {
                 // コンテキストからアセットバンドルを取得して返す
+                assetBundleOpenStack.Pop();
                 return (await context).GetAssetBundle();
             }
 
@@ -133,14 +146,15 @@ namespace IceMilkTea.Service
             // 新しくコントローラからアセットバンドルを開くことを要求する
             var createContextTask = CreateAssetBundleManagementContextAsync(item);
             assetBundleTable[item.Name] = createContextTask;
+            assetBundleOpenStack.Pop();
             return (await createContextTask).GetAssetBundle();
         }
 
-        private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(AssetBundleInfo info)
-        {
-            var assetBundle = await storageController.OpenAsync(info);
-            return new AssetBundleManagementContext(assetBundle);
-        }
+        //private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(AssetBundleInfo info)
+        //{
+        //    var assetBundle = await storageController.OpenAsync(info);
+        //    return new AssetBundleManagementContext(assetBundle);
+        //}
 
         private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(ImtCatalogItem item)
         {
