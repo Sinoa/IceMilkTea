@@ -53,53 +53,15 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
-        /// 指定されたアセットバンドル情報のアセットバンドルを非同期で開きます。
-        /// また、アセットバンドルの依存解決も同時に行い、依存するアセットバンドルも非同期で開きます。
+        /// 
         /// </summary>
-        /// <param name="info">アセットバンドルとして開くアセットバンドル情報</param>
-        /// <returns>アセットバンドルを非同期で開くタスクを返します</returns>
-        /// <exception cref="InvalidOperationException">アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした</exception>
-        /// <exception cref="InvalidOperationException">アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません</exception>
-        //public async Task<AssetBundle> OpenAsync(AssetBundleInfo info)
-        //{
-        //    // このアセットバンドルが依存するアセットバンドル分回る
-        //    foreach (var dependenceAssetBundleName in info.DependenceAssetBundleNames)
-        //    {
-        //        // アセットバンドル名からアセットバンドル情報を取得するが情報の取得が出来ないなら
-        //        if (!manifestManager.TryGetAssetBundleInfo(dependenceAssetBundleName, out var dependenceAssetBundleInfo))
-        //        {
-        //            // 依存解決に失敗したことを例外で吐く
-        //            throw new InvalidOperationException($"アセットバンドル '{info.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
-        //        }
-
-
-        //        // 依存するアセットバンドルを再帰的に開くが開いたアセットバンドルの参照はそのまま
-        //        await OpenAsync(dependenceAssetBundleInfo);
-        //    }
-
-
-        //    // アセットバンドル情報から名前を取得して既にコンテキストが存在するなら
-        //    if (assetBundleTable.TryGetValue(info.Name, out var context))
-        //    {
-        //        // コンテキストからアセットバンドルを取得して返す
-        //        return (await context).GetAssetBundle();
-        //    }
-
-
-        //    // 開こうとしているアセットバンドルがまだストレージに存在しないなら
-        //    if (!storageController.Exists(info))
-        //    {
-        //        // 未インストールアセットバンドルが存在することを例外で吐く
-        //        throw new InvalidOperationException($"アセットバンドル '{info.Name}' がストレージにインストールされていないため開くことが出来ません");
-        //    }
-
-        //    // 新しくコントローラからアセットバンドルを開くことを要求する
-        //    var createContextTask = CreateAssetBundleManagementContextAsync(info);
-        //    assetBundleTable[info.Name] = createContextTask;
-        //    return (await createContextTask).GetAssetBundle();
-        //}
-
-
+        /// <param name="catalog"></param>
+        /// <param name="item"></param>
+        /// <param name="assetBundleOpenStack"></param>
+        /// <exception cref="InvalidAssetBundleException">アセットバンドル '{item.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした。</exception>
+        /// <exception cref="InvalidAssetBundleException">アセットバンドル '{item.Name}' が '{dependenceAssetBundleName}' に依存していますが、循環参照を起こしています。</exception>
+        /// <exception cref="AssetBundleNotFoundException">アセットバンドル '{item.Name}' がストレージにインストールされていないため開くことが出来ません</exception>
+        /// <returns></returns>
         public async Task<AssetBundle> OpenAsync(ImtCatalog catalog, ImtCatalogItem item, Stack<string> assetBundleOpenStack)
         {
             if (assetBundleOpenStack == null)
@@ -114,13 +76,13 @@ namespace IceMilkTea.Service
                 var dependentItem = catalog.GetItem(dependenceAssetBundleName);
                 if (dependentItem == null)
                 {
-                    throw new InvalidOperationException($"アセットバンドル '{item.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした");
+                    throw new InvalidAssetBundleException($"アセットバンドル '{item.Name}' が依存する、アセットバンドル '{dependenceAssetBundleName}' の情報が見つかりませんでした。", item.Name, null);
                 }
 
 
                 if (assetBundleOpenStack.Contains(dependenceAssetBundleName))
                 {
-                    throw new InvalidOperationException($"アセットバンドル '{item.Name}' が '{dependenceAssetBundleName}' に依存していますが、循環参照を起こしています。");
+                    throw new InvalidAssetBundleException($"アセットバンドル '{item.Name}' が '{dependenceAssetBundleName}' に依存していますが、循環参照を起こしています。", item.Name, assetBundleOpenStack);
                 }
 
 
@@ -140,7 +102,7 @@ namespace IceMilkTea.Service
             if (!storage.ExistsAsset(item.LocalUri))
             {
                 // 未インストールアセットバンドルが存在することを例外で吐く
-                throw new InvalidOperationException($"アセットバンドル '{item.Name}' がストレージにインストールされていないため開くことが出来ません");
+                throw new AssetBundleNotFoundException($"アセットバンドル '{item.Name}' がストレージにインストールされていないため開くことが出来ません", item.LocalUri.ToString());
             }
 
             // 新しくコントローラからアセットバンドルを開くことを要求する
@@ -150,11 +112,6 @@ namespace IceMilkTea.Service
             return (await createContextTask).GetAssetBundle();
         }
 
-        //private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(AssetBundleInfo info)
-        //{
-        //    var assetBundle = await storageController.OpenAsync(info);
-        //    return new AssetBundleManagementContext(assetBundle);
-        //}
 
         private async Task<AssetBundleManagementContext> CreateAssetBundleManagementContextAsync(ImtCatalogItem item)
         {
@@ -164,12 +121,13 @@ namespace IceMilkTea.Service
             if (assetBundle == null)
             {
                 // アセットバンドルが開けなかったことを例外で吐く
-                throw new InvalidOperationException($"アセットバンドル '{item.Name}' を開くことが出来ませんでした");
+                throw new InvalidAssetBundleException($"アセットバンドル '{item.Name}' を開くことが出来ませんでした", item.Name, null);
             }
 
             // 開いたアセットバンドルを返す
             return new AssetBundleManagementContext(assetBundle);
         }
+
 
         /// <summary>
         /// 指定されたアセットバンドルの利用を破棄します。
@@ -209,8 +167,7 @@ namespace IceMilkTea.Service
             foreach (var dependenceAssetBundleName in assetBundleInfo.DependenceAssetBundleNames)
             {
                 // 依存先アセットバンドル名からアセットバンドル管理コンテキストを取得するが、管理テーブルに無いなら
-                var dependenceContextTask = default(Task<AssetBundleManagementContext>);
-                if (!assetBundleTable.TryGetValue(dependenceAssetBundleName, out dependenceContextTask))
+                if (!assetBundleTable.TryGetValue(dependenceAssetBundleName, out var dependenceContextTask))
                 {
                     // 次の依存アセットバンドルへ
                     continue;
@@ -235,8 +192,7 @@ namespace IceMilkTea.Service
 
 
             // 自身のアセットバンドル管理コンテキストを取得して存在しないなら
-            var contextTask = default(Task<AssetBundleManagementContext>);
-            if (!assetBundleTable.TryGetValue(assetBundleInfo.Name, out contextTask))
+            if (!assetBundleTable.TryGetValue(assetBundleInfo.Name, out var contextTask))
             {
                 // 何もせず終了
                 return;
