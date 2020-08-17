@@ -378,10 +378,12 @@ namespace IceMilkTea.Service
 
             if (item == null)
             {
-                throw new InvalidOperationException($"カタログ {storageName} に {itemName} が存在しません");
+                throw new InvalidOperationException($"カタログ {storageName} に {itemName}[{assetUrl}] が存在しません");
             }
 
+
             var assetBundle = await storageManager.OpenAsync(catalog, item, new Stack<string>());
+
 
             // 結果を納める変数宣言
             T result = default(T);
