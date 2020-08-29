@@ -376,7 +376,7 @@ namespace IceMilkTea.SubSystem
                         try
                         {
                             var fetcher = CreateFetcher(diff.Asset.RemoteUri);
-                            await fetcher.FetchAsync(stream, fetchProgress, cancellationToken);
+                            await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
                         }
                         catch (Exception error)
                         {
