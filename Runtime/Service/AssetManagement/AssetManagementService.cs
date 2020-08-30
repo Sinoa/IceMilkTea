@@ -558,6 +558,16 @@ namespace IceMilkTea.Service
 
         #region CommonLogic
         /// <summary>
+        /// 内部アセットキャッシュの解放及びGCとUnityアセット解放を非同期で実行します
+        /// </summary>
+        /// <returns>解放処理を実行しているタスクを返します</returns>
+        public Task FullCleanAsync()
+        {
+            return assetCache.CleanupAndUnloadCacheAsync();
+        }
+
+
+        /// <summary>
         /// 異なるスレッドからアクセスしてきた場合は例外をスローします
         /// </summary>
         /// <exception cref="InvalidOperationException">初期化スレッド以外からのスレッドでアクセスすることは許可されていません</exception>

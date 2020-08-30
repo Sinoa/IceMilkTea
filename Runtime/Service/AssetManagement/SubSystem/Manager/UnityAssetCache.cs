@@ -15,6 +15,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using IceMilkTea.Core;
+using UnityEngine;
 
 namespace IceMilkTea.Service
 {
@@ -166,8 +169,20 @@ namespace IceMilkTea.Service
         /// </summary>
         public void CleanupAllCache()
         {
-            // キャッシュテーブルをクリアする
+            // キャッシュテーブルをクリア
             assetCacheTable.Clear();
+        }
+
+
+        /// <summary>
+        /// 内部キャッシュテーブルに登録されたキャッシュ情報のすべてを無条件クリーンアップしてからアンロードも行います
+        /// </summary>
+        public async Task CleanupAndUnloadCacheAsync()
+        {
+            // キャッシュテーブルをクリアしてGC解放後アンロードを実行
+            assetCacheTable.Clear();
+            GC.Collect();
+            await Resources.UnloadUnusedAssets();
         }
     }
 }
