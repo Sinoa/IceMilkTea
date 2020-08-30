@@ -118,6 +118,12 @@ namespace IceMilkTea.SubSystem
         /// </summary>
         void DeleteAll();
 
+
+        /// <summary>
+        /// URIからアセットファイルパスへ変換します
+        /// </summary>
+        /// <param name="uri">変換するURI</param>
+        /// <returns>変換されたアセットファイルパスを返します</returns>
         string ToAssetFilePath(Uri uri);
     }
     #endregion
