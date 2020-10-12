@@ -1,9 +1,8 @@
-# IceMilkTea（Unity Project）
+# IceMilkTea
 
 ## 説明(Description)
 
-リポジトリルートに配置されたディレクトリ構造は Unity3D ゲームエンジン向け構造のため  
-本体へのアクセスをする場合は、 "Packages/IceMilkTea/" へアクセスしてください。
+未記入
 
 ## 始め方(Getting Started)
 
@@ -30,4 +29,9 @@
 
 ## 開発貢献者(Development Contributor)
 
-IceMilkTea（Unity Project）の、開発の協力や貢献をしてくれた方々のリストになります。
+IceMilkTeaの、開発の協力や貢献をしてくれた方々のリストになります。
+
+* mitchydeath
+* enrike3
+* y2-tada
+* ksatoudeveloper
