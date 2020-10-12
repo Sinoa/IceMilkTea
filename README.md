@@ -3,7 +3,9 @@
 ## 説明(Description)
 
 リポジトリルートに配置されたディレクトリ構造は Unity3D ゲームエンジン向け構造のため  
-本体へのアクセスをする場合は、 [IceMilkTea（Packages/IceMilkTea/）](Packages/IceMilkTea/README.md) へアクセスしてください。
+本体へのアクセスをする場合は、 [IceMilkTea（Packages/IceMilkTea/）](Packages/IceMilkTea/README.md) へアクセスしてください。  
+もともと、Unityプロジェクトと IceMilkTea のリポジトリを分けていましたが、今後の IceMilkTea はパッケージ配信が主体になるため  
+これを機にリポジトリ構成も変更という形になりました。
 
 ## 始め方(Getting Started)
 
