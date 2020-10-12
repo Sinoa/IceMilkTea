@@ -1,0 +1,12 @@
+{
+    "name": "IceMilkTeaEditor",
+    "references": [
+        "IceMilkTea"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
+}
