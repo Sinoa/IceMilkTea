@@ -16,3 +16,6 @@
 /*.csproj
 /*.sln
 /*.user
+
+# IceMilkTea Directories and Files
+/Packages/IceMilkTea/Documentation~/.apireference/
