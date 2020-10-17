@@ -13,20 +13,7 @@
 // 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-
-[assembly: AssemblyTitle("IceMilkTea")]
-[assembly: AssemblyProduct("IceMilkTea")]
-[assembly: AssemblyDescription("Unity Game Framework")]
-[assembly: AssemblyCompany("Sinoa")]
-[assembly: AssemblyTrademark("Sinoa")]
-[assembly: AssemblyCopyright("Copyright © 2018 - 2019 Sinoa")]
-[assembly: ComVisible(false)]
-[assembly: Guid("6B94121C-5255-4DA7-94B6-34FC3C377178")]
-[assembly: AssemblyVersion("0.0.2.*")]
-[assembly: AssemblyFileVersion("0.0.2.0")]
 
 #if DEBUG
 [assembly: InternalsVisibleTo("IceMilkTeaEditor")]
