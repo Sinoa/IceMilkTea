@@ -153,6 +153,12 @@ namespace IceMilkTea.UI
         /// 装飾エントリ情報カウントを取得します
         /// </summary>
         public int DecorationEntryCount => gameText.DecorationEntryCount;
+
+
+        /// <summary>
+        /// テキストグラデーションの下側カラー
+        /// </summary>
+        public Color BottomColor { get => bottomColor; set { bottomColor = value; needRebuild = true; SetAllDirty(); } }
         #endregion
 
 
@@ -1983,11 +1989,20 @@ namespace IceMilkTea.UI
         {
             // 構築するべき文字情報を取得する
             var character = context.GameText.MainTextCharacters[context.TypographyContext.CurrentMainCharacterIndex];
-            var info = default(CharacterInfo);
-            if (!context.FontData.GetMainCharacterInfo(character, out info))
+            if (!context.FontData.GetMainCharacterInfo(character, out var info))
             {
-                // 取得に失敗したら何事もなく終了
-                return;
+                // 取得に失敗したら半角スペースで代用出来るか検討する
+                if (!context.FontData.GetMainCharacterInfo(' ', out info))
+                {
+                    var tBuffer = context.VertexBufferContext.Vertices;
+                    var tIndex = context.TypographyContext.CurrentMainCharacterIndex * 4;
+                    tBuffer[tIndex + 0] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    tBuffer[tIndex + 1] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    tBuffer[tIndex + 2] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    tBuffer[tIndex + 3] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    context.TypographyContext.CurrentMainCharacterIndex += 1;
+                    return;
+                }
             }
 
 
@@ -2032,11 +2047,21 @@ namespace IceMilkTea.UI
         {
             // 構築するべき文字情報を取得する
             var character = context.GameText.RubyTextCharacters[context.TypographyContext.CurrentRubyCharacterIndex];
-            var info = default(CharacterInfo);
-            if (!context.FontData.GetRubyCharacterInfo(character, out info))
+            if (!context.FontData.GetRubyCharacterInfo(character, out var info))
             {
-                // 取得に失敗したら何事もなく終了
-                return;
+                // 取得に失敗したら半角スペースで代用出来るか検討する
+                if (!context.FontData.GetRubyCharacterInfo(' ', out info))
+                {
+                    // 取得に失敗したら何事もなく終了
+                    var tBuffer = context.VertexBufferContext.Vertices;
+                    var tIndex = (context.GameText.MainTextCharacters.Count + context.TypographyContext.CurrentRubyCharacterIndex) * 4;
+                    tBuffer[tIndex + 0] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    tBuffer[tIndex + 1] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    tBuffer[tIndex + 2] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    tBuffer[tIndex + 3] = new UIVertex() { position = Vector3.zero, color = Color.black, uv0 = Vector2.zero };
+                    context.TypographyContext.CurrentRubyCharacterIndex += 1;
+                    return;
+                }
             }
 
 
