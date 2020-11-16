@@ -72,6 +72,13 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// ロード済みアセットバンドル数
+        /// </summary>
+        public int LoadedAssetBundleCount => storageManager.LoadedAssetBundleCount;
+
+
+
+        /// <summary>
         /// AssetManagementService のインスタンスを初期化します。
         /// </summary>
         /// <param name="storageController">アセットバンドルの貯蔵物を制御するストレージコントローラ</param>
@@ -372,7 +379,7 @@ namespace IceMilkTea.Service
             }
 
             // ローカルパスを取得してアセットバンドルを開く
-            var catalog = this.assetDatabase.GetCatalog(storageName);
+            var catalog = assetDatabase.GetCatalog(storageName);
             var itemName = assetUrl.Uri.LocalPath.TrimStart('/');
             var item = catalog.GetItem(itemName);
 
@@ -386,7 +393,7 @@ namespace IceMilkTea.Service
 
 
             // 結果を納める変数宣言
-            T result = default(T);
+            T result;
 
 
             // もしマルチスプライト型のロード要求なら
@@ -557,6 +564,17 @@ namespace IceMilkTea.Service
 
 
         #region CommonLogic
+        /// <summary>
+        /// ロード済みアセットバンドルの情報を渡します
+        /// </summary>
+        /// <param name="result">ロード済みアセットバンドルを受け取る配列への参照。配列の長さが不十分の場合にすべての参照を渡せない可能性があります。</param>
+        /// <returns>情報を渡した数を返します</returns>
+        public int GetLoadedAssetBundles(AssetBundle[] result)
+        {
+            return storageManager.GetLoadedAssetBundles(result);
+        }
+
+
         /// <summary>
         /// 内部アセットキャッシュの解放及びGCとUnityアセット解放を非同期で実行します
         /// </summary>

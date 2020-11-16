@@ -38,6 +38,13 @@ namespace IceMilkTea.Service
 
 
         /// <summary>
+        /// ロード済みアセットバンドルの数
+        /// </summary>
+        public int LoadedAssetBundleCount => GetLoadedAssetBundleCount();
+
+
+
+        /// <summary>
         /// AssetBundleStorageManager のインスタンスを初期化します
         /// </summary>
         /// <param name="manifestManager">パス解決などに利用するマニフェストマネージャ</param>
@@ -209,6 +216,54 @@ namespace IceMilkTea.Service
                 storageController.Close(assetBundle);
                 assetBundleTable.Remove(assetBundleInfo.Name);
             }
+        }
+
+
+        private int GetLoadedAssetBundleCount()
+        {
+            var count = 0;
+            foreach (var task in assetBundleTable.Values)
+            {
+                if (task.IsCompleted)
+                {
+                    count++;
+                }
+            }
+
+
+            return count;
+        }
+
+
+        /// <summary>
+        /// ロード済みアセットバンドルの情報を渡します
+        /// </summary>
+        /// <param name="result">ロード済みアセットバンドルを受け取る配列への参照。配列の長さが不十分の場合にすべての参照を渡せない可能性があります。</param>
+        /// <returns>情報を渡した数を返します</returns>
+        public int GetLoadedAssetBundles(AssetBundle[] result)
+        {
+            if (result == null) throw new ArgumentNullException();
+            if (result != null && result.Length == 0)
+            {
+                return 0;
+            }
+
+
+            var targetIndex = 0;
+            foreach (var task in assetBundleTable.Values)
+            {
+                if (task.IsCompleted)
+                {
+                    result[targetIndex++] = task.Result.GetAssetBundle();
+                    if (targetIndex == result.Length)
+                    {
+                        return targetIndex;
+                    }
+                }
+            }
+
+
+            return targetIndex;
         }
 
 
