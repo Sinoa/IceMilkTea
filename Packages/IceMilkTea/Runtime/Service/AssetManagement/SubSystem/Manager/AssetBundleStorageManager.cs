@@ -242,8 +242,7 @@ namespace IceMilkTea.Service
         /// <returns>情報を渡した数を返します</returns>
         public int GetLoadedAssetBundles(AssetBundle[] result)
         {
-            if (result == null) throw new ArgumentNullException();
-            if (result != null && result.Length == 0)
+            if ((result ?? throw new ArgumentException(nameof(result))).Length == 0)
             {
                 return 0;
             }
