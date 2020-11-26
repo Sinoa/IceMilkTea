@@ -34,6 +34,9 @@ namespace IceMilkTea.Video
         public RenderTexture RenderTarget => unityVideoPlayer.targetTexture;
 
 
+        public bool IsLooping { get => unityVideoPlayer.isLooping; set => unityVideoPlayer.isLooping = value; }
+
+
         public bool IsPlaying => unityVideoPlayer.isPlaying;
 
 
@@ -41,7 +44,6 @@ namespace IceMilkTea.Video
 
 
         public double CurrentTime => unityVideoPlayer.time;
-
 
 
         public static ImtVideoPlayer Create(VideoClip videoClip)
@@ -97,7 +99,14 @@ namespace IceMilkTea.Video
         {
             foreach (var listener in eventListenerList)
             {
-                listener.OnComplete(this);
+                if (IsLooping)
+                {
+                    listener.OnLoopPointReached(this);
+                }
+                else
+                {
+                    listener.OnComplete(this);
+                }
             }
         }
 

@@ -23,6 +23,9 @@ namespace IceMilkTea.Video
         RenderTexture RenderTarget { get; }
 
 
+        bool IsLooping { get; set; }
+
+
         bool IsPlaying { get; }
 
 

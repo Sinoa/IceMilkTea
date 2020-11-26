@@ -21,6 +21,7 @@ namespace IceMilkTea.Video
         void OnPauseVideo(IImtVideoPlayer videoPlayer);
         void OnStopVideo(IImtVideoPlayer videoPlayer);
         void OnComplete(IImtVideoPlayer videoPlayer);
+        void OnLoopPointReached(IImtVideoPlayer videoPlayer);
         void OnVideoTimeMarkerTriggered(IImtVideoPlayer videoPlayer, ImtVideoTimeMarker marker);
     }
 }
