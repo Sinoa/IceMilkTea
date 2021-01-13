@@ -21,7 +21,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using IceMilkTea.Core;
-using UnityEngine.PlayerLoop;
 
 namespace IceMilkTea.SubSystem
 {
@@ -32,7 +31,7 @@ namespace IceMilkTea.SubSystem
     public class AssetDeployer<TStorage> where TStorage : class, IAssetStorage
     {
         // メンバ変数定義
-        private readonly Dictionary<string, CatalogInfo> catalogInfoTable;
+        private Dictionary<string, CatalogInfo> catalogInfoTable;
 
 
 
@@ -361,106 +360,34 @@ namespace IceMilkTea.SubSystem
                 }
                 else if (diff.Status == AssetDifferenceStatus.Update || diff.Status == AssetDifferenceStatus.New)
                 {
-                    var needDownload = await CheckNeedDownloadAssetAsync(diff.Asset, progress, downloadedCount, totalCount);
-                    if (!needDownload)
+                    using (var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
+                    using (var outStream = new MonitorableStream(stream))
                     {
+                        // フェッチ用進捗通知オブジェクトとレポートオブジェクトを生成
                         var report = new FetchReport();
-                        report.Update(diff.CatalogName, diff.Asset.Name, diff.Asset.ContentLength, diff.Asset.ContentLength, 0, downloadedCount, totalCount);
-                        progress.Report(report);
-                    }
-                    else
-                    {
-                        using (var stream = this.AssetStorage.OpenAsset(diff.Asset.LocalUri, AssetStorageAccess.Write))
-                        using (var outStream = new MonitorableStream(stream))
+                        var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
                         {
-                            // 計算更新間隔を高速化
-                            outStream.MeasureUpdateIntervalTime = 2;
+                            // 転送レートを含む監視情報を更新する
+                            report.Update(null, diff.Asset.Name, x.ContentLength, x.FetchedLength, outStream.WriteBitRate, downloadedCount, totalCount);
+                            progress.Report(report);
+                        });
 
 
-                            // フェッチ用進捗通知オブジェクトとレポートオブジェクトを生成
-                            var report = new FetchReport();
-                            var fetchProgress = new ThrottleableProgress<FetcherReport>(x =>
-                            {
-                                // 転送レートを含む監視情報を更新する
-                                report.Update(null, diff.Asset.Name, x.ContentLength, x.FetchedLength, outStream.WriteBitRate, downloadedCount, totalCount);
-                                progress.Report(report);
-                            });
-
-
-                            try
-                            {
-                                var fetcher = CreateFetcher(diff.Asset.RemoteUri);
-                                await fetcher.FetchAsync(outStream, fetchProgress, cancellationToken);
-                            }
-                            catch (Exception error)
-                            {
-                                throw new Exception($"アセット '{diff.Asset.RemoteUri}' のフェッチに失敗しました。", error);
-                            }
+                        try
+                        {
+                            var fetcher = CreateFetcher(diff.Asset.RemoteUri);
+                            await fetcher.FetchAsync(stream, fetchProgress, cancellationToken);
+                        }
+                        catch (Exception error)
+                        {
+                            throw new Exception($"アセット '{diff.Asset.RemoteUri}' のフェッチに失敗しました。", error);
                         }
                     }
-
-
                     downloadedCount++;
                 }
             }
 
             this.AssetDatabase.UpdateCatalog(catalogName, newCatalog);
-        }
-
-
-        private Task<bool> CheckNeedDownloadAssetAsync(ICatalogItem catalogItem, IProgress<FetchReport> progress, int downloadedCount, int totalCount)
-        {
-            if (!AssetStorage.ExistsAsset(catalogItem.LocalUri))
-            {
-                return Task.FromResult(true);
-            }
-
-
-            var fileInfo = new FileInfo(AssetStorage.ToAssetFilePath(catalogItem.LocalUri));
-            if (catalogItem.ContentLength != fileInfo.Length)
-            {
-                return Task.FromResult(true);
-            }
-
-
-            return Task.FromResult(false);
-
-
-            //var hashResult = default(byte[]);
-            //var tempBuffer = new byte[1 << 10];
-            //using (var stream = AssetStorage.OpenAsset(catalogItem.LocalUri, AssetStorageAccess.Read))
-            //using (var monitorStream = new MonitorableStream(stream))
-            //using (var hashStream = new HashStream(monitorStream, HashAlgorithm.Create(catalogItem.HashName)))
-            //{
-            //    var report = new FetchReport();
-            //    int readSize;
-            //    while ((readSize = hashStream.Read(tempBuffer, 0, tempBuffer.Length)) > 0)
-            //    {
-            //        report.Update(null, catalogItem.Name, stream.Length, hashStream.Position, monitorStream.ReadBitRate, downloadedCount, totalCount);
-            //        progress.Report(report);
-            //    }
-
-
-            //    hashStream.GetHashData(out hashResult);
-            //}
-
-
-            //if (hashResult.Length != catalogItem.HashData.Length)
-            //{
-            //    return Task.FromResult(true);
-            //}
-
-
-            //for (int i = 0; i < hashResult.Length; ++i)
-            //{
-            //    if (hashResult[i] != catalogItem.HashData[i])
-            //    {
-            //        return Task.FromResult(true);
-            //    }
-            //}
-
-
-            //return Task.FromResult(false);
         }
         #endregion
 
