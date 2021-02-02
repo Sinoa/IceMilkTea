@@ -47,7 +47,7 @@ namespace IceMilkTea.Graphics
         /// サービスの起動をします
         /// </summary>
         /// <param name="info">起動時情報を設定するオブジェクトへの参照</param>
-        protected internal override void Startup(out GameServiceStartupInfo info)
+        protected override void Startup(out GameServiceStartupInfo info)
         {
             // 起動情報の生成
             info = new GameServiceStartupInfo()
