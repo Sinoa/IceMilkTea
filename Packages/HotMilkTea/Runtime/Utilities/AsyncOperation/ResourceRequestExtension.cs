@@ -175,7 +175,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 動作を開始します
         /// </summary>
-        protected internal override void Start()
+        protected override void Start()
         {
             // 完了イベントを登録する
             request.completed += OnCompleted;
@@ -186,7 +186,7 @@ namespace IceMilkTea.Core
         /// 進捗監視をするための状態を更新します
         /// </summary>
         /// <returns></returns>
-        protected internal override bool Update()
+        protected override bool Update()
         {
             // タスクが完了しているなら
             if (IsCompleted)

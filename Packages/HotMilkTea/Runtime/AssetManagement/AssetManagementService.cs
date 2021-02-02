@@ -138,7 +138,7 @@ namespace IceMilkTea.Service
         /// サービスの起動をします
         /// </summary>
         /// <param name="info">サービス起動時の情報を設定します</param>
-        protected internal override void Startup(out GameServiceStartupInfo info)
+        protected override void Startup(out GameServiceStartupInfo info)
         {
             // サービスの起動情報を設定する
             info = new GameServiceStartupInfo();
