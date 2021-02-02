@@ -36,7 +36,7 @@ namespace IceMilkTea.Service
         }
 
 
-        protected internal override void Startup(out GameServiceStartupInfo info)
+        protected override void Startup(out GameServiceStartupInfo info)
         {
             info = new GameServiceStartupInfo()
             {
