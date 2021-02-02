@@ -27,6 +27,14 @@
         "com.unity.modules.imgui": "1.0.0"
       }
     },
+    "jp.sinoa.hotmilktea": {
+      "version": "file:HotMilkTea",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "jp.sinoa.icemilktea": "0.0.3"
+      }
+    },
     "jp.sinoa.icemilktea": {
       "version": "file:IceMilkTea",
       "depth": 0,
