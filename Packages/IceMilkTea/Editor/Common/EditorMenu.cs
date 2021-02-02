@@ -67,17 +67,6 @@ namespace IceMilkTeaEditor.Common
 
 
         /// <summary>
-        /// エディタシーン上に存在する、空のゲームオブジェクトを再帰的に削除します
-        /// </summary>
-        [MenuItem(HierarchyMenuName + "/RemoveEmptyGameObject")]
-        public static void DoRemoveEmptyGameObjectOnEditorScene()
-        {
-            // 空のゲームオブジェクトを削除する
-            ImtGameObjectUtility.DestoryEmptyGameObjectOnEditorScene(null);
-        }
-
-
-        /// <summary>
         /// 選択されたアセットを再シリアライズします
         /// </summary>
         [MenuItem(RightClickRootMenuName + "/Reserialize/Selected")]
