@@ -79,7 +79,7 @@ namespace IceMilkTea.GameLogic
         /// 待機状態の更新を行います
         /// </summary>
         /// <returns>継続動作する場合は true を、停止する場合は false を返します</returns>
-        protected internal override bool Update()
+        protected override bool Update()
         {
             // 待機フレーム数をデクリメントして、0以下になったのなら
             if (--waitFrame <= 0)
