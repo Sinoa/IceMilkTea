@@ -293,7 +293,7 @@ namespace IceMilkTea.Service
         /// サービスの起動処理を行います
         /// </summary>
         /// <param name="info">起動情報を設定します</param>
-        protected internal override void Startup(out GameServiceStartupInfo info)
+        protected override void Startup(out GameServiceStartupInfo info)
         {
             // 起動情報の設定をする
             info = new GameServiceStartupInfo()
@@ -311,7 +311,7 @@ namespace IceMilkTea.Service
         /// <summary>
         /// サービスの停止処理を行います
         /// </summary>
-        protected internal override void Shutdown()
+        protected override void Shutdown()
         {
             // 管理情報の数分末尾から回る
             for (int i = sceneContextList.Count - 1; i >= 0; --i)

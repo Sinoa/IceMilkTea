@@ -42,5 +42,12 @@ namespace IceMilkTeaEditor.Common
             // ImtArchiveMakerWindowを開く
             ImtArchiveMakerWindow.OpenWindow();
         }
+
+
+        [MenuItem(DebugMenuName + "/DumpSceneStack")]
+        public static void OpenSceneStackDumpWindow()
+        {
+            SceneStackDumpWindow.OpenWindow();
+        }
     }
 }
