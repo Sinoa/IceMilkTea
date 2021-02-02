@@ -45,28 +45,6 @@ namespace IceMilkTeaEditor.Common
 
 
         /// <summary>
-        /// AssetBundleBuildウィンドウを開きます
-        /// </summary>
-        [MenuItem(WindowMenuName + "/AssetBundleBuild")]
-        public static void OpenAssetBundleBuildWindow()
-        {
-            // AssetBundleWindowを開く
-            AssetBundleBuildWindow.OpenWindow();
-        }
-
-
-        /// <summary>
-        /// StateCollectorウィンドウを開きます
-        /// </summary>
-        [MenuItem(WindowMenuName + "/ImtStateGenerator")]
-        public static void OpenStateCollectorWindow()
-        {
-            // StateCollectorWindowsを開く
-            StateCollectorWindow.OpenWindow();
-        }
-
-
-        /// <summary>
         /// 選択されたアセットを再シリアライズします
         /// </summary>
         [MenuItem(RightClickRootMenuName + "/Reserialize/Selected")]
