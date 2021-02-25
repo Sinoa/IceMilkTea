@@ -16,7 +16,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace IceMilkTea.Core
@@ -32,9 +31,9 @@ namespace IceMilkTea.Core
 
         // メンバ変数定義
         private readonly SynchronizationContext previousContext;
-        private readonly MessageQueueController messageQueue;
-        private readonly List<Exception> errorList;
-        private readonly int myStartupThreadId;
+        private readonly Queue<Message> waitQueue;
+        private readonly Queue<Message> processQueue;
+        private readonly int myThreadId;
 
 
 
@@ -52,9 +51,9 @@ namespace IceMilkTea.Core
         private ImtSynchronizationContext(out Action messagePumpHandler)
         {
             previousContext = AsyncOperationManager.SynchronizationContext;
-            messageQueue = new MessageQueueController(DefaultMessageQueueCapacity, ProcessMessage);
-            errorList = new List<Exception>(DefaultMessageQueueCapacity);
-            myStartupThreadId = Thread.CurrentThread.ManagedThreadId;
+            waitQueue = new Queue<Message>();
+            processQueue = new Queue<Message>();
+            myThreadId = Thread.CurrentThread.ManagedThreadId;
             messagePumpHandler = DoProcessMessage;
         }
 
@@ -103,16 +102,10 @@ namespace IceMilkTea.Core
         #endregion
 
 
-        #region メッセージ送信関数群
-        /// <summary>
-        /// 同期メッセージを送信します。
-        /// </summary>
-        /// <param name="callback">呼び出すべきメッセージのコールバック</param>
-        /// <param name="state">コールバックに渡してほしいオブジェクト</param>
-        /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
+        #region メッセージ処理関数群
         public override void Send(SendOrPostCallback callback, object state)
         {
-            if (Thread.CurrentThread.ManagedThreadId == myStartupThreadId)
+            if (Thread.CurrentThread.ManagedThreadId == myThreadId)
             {
                 callback(state);
                 return;
@@ -121,49 +114,45 @@ namespace IceMilkTea.Core
 
             using (var waitHandle = new ManualResetEvent(false))
             {
-                messageQueue.Enqueue(new Message(callback, state, waitHandle));
+                EnqueueMessage(new Message(callback, state, waitHandle));
                 waitHandle.WaitOne();
             }
         }
 
 
-        /// <summary>
-        /// 非同期メッセージをポストします。
-        /// </summary>
-        /// <param name="callback">呼び出すべきメッセージのコールバック</param>
-        /// <param name="state">コールバックに渡してほしいオブジェクト</param>
-        /// <exception cref="ObjectDisposedException">既にオブジェクトが解放済みです</exception>
         public override void Post(SendOrPostCallback callback, object state)
         {
-            messageQueue.Enqueue(new Message(callback, state, null));
+            EnqueueMessage(new Message(callback, state, null));
         }
-        #endregion
 
 
-        #region メッセージ処理関数群
+        private void EnqueueMessage(in Message message)
+        {
+            lock (waitQueue)
+            {
+                waitQueue.Enqueue(message);
+            }
+        }
+
+
+        private void AcceptMessage()
+        {
+            lock (waitQueue)
+            {
+                while (waitQueue.Count > 0)
+                {
+                    processQueue.Enqueue(waitQueue.Dequeue());
+                }
+            }
+        }
+
+
         private void DoProcessMessage()
         {
-            errorList.Clear();
-            messageQueue.ProcessFrontMessage(errorList);
-
-
-            if (errorList.Count > 0)
+            AcceptMessage();
+            while (processQueue.Count > 0)
             {
-                var exception = new AggregateException($"メッセージ処理中に {errorList.Count} 件のエラーが発生しました", errorList);
-                GameMain.Current.UnhandledExceptionCore(new ImtUnhandledExceptionArgs(exception, ImtUnhandledExceptionSource.SynchronizationContext));
-            }
-        }
-
-
-        private void ProcessMessage(Message message, object state)
-        {
-            try
-            {
-                message.Invoke();
-            }
-            catch (Exception exception)
-            {
-                ((List<Exception>)state).Add(exception);
+                processQueue.Dequeue().Invoke();
             }
         }
         #endregion
@@ -210,72 +199,6 @@ namespace IceMilkTea.Core
                 finally
                 {
                     waitHandle?.Set();
-                }
-            }
-        }
-        #endregion
-
-
-
-        #region 同期コンテキストのメッセージキュー制御クラス定義
-        /// <summary>
-        /// メッセージキューを効率よく処理するためのキュー制御を提供します
-        /// </summary>
-        private sealed class MessageQueueController
-        {
-            // メンバ変数定義
-            private readonly object syncObject;
-            private readonly Action<Message, object> callback;
-            private Queue<Message> backQueue;
-            private Queue<Message> frontQueue;
-
-
-
-            /// <summary>
-            /// MessageQueueController クラスのインスタンスを初期化します
-            /// </summary>
-            /// <param name="bufferSize">メッセージキューバッファサイズ。内部ではダブルバッファで持つため指定されたサイズの倍のメモリ確保が行われることに注意してください。</param>
-            /// <param name="callback">メッセージを処理するコールバック関数</param>
-            /// <exception cref="ArgumentNullException">callback が null です</exception>
-            public MessageQueueController(int bufferSize, Action<Message, object> callback)
-            {
-                syncObject = new object();
-                backQueue = new Queue<Message>(bufferSize);
-                frontQueue = new Queue<Message>(bufferSize);
-                this.callback = callback ?? throw new ArgumentNullException(nameof(callback));
-            }
-
-
-            /// <summary>
-            /// 処理するべきメッセージをバックバッファに追加します
-            /// </summary>
-            /// <param name="message">追加するメッセージ</param>
-            public void Enqueue(in Message message)
-            {
-                lock (syncObject)
-                {
-                    backQueue.Enqueue(message);
-                }
-            }
-
-
-            /// <summary>
-            /// 内部のバッファをローテーションしフロントバッファのメッセージを処理します
-            /// </summary>
-            /// <param name="state">コールバック関数に渡す状態オブジェクト</param>
-            public void ProcessFrontMessage(object state)
-            {
-                lock (syncObject)
-                {
-                    var tmp = frontQueue;
-                    frontQueue = backQueue;
-                    backQueue = tmp;
-                }
-
-
-                while (frontQueue.Count > 0)
-                {
-                    callback(frontQueue.Dequeue(), state);
                 }
             }
         }
