@@ -33,9 +33,11 @@ namespace IceMilkTea.Core
         public const int DefaultTimeOutInterval = 10 * 1000;
 
         // メンバ変数定義
-        private Uri remoteUri;
-        private int bufferSize;
-        private int timeoutInterval;
+        private readonly Uri remoteUri;
+        private readonly int bufferSize;
+        private readonly int timeoutInterval;
+
+        private long prevFetchedLength;
 
 
 
@@ -161,7 +163,7 @@ namespace IceMilkTea.Core
             long GetContentLength()
             {
                 var header = webRequest.GetResponseHeader("Content-Length");
-                if( header == null ) { return 0; }
+                if (header == null) { return 0; }
 
                 var contentLength = ulong.Parse(header);
                 return (long)contentLength;
@@ -170,33 +172,36 @@ namespace IceMilkTea.Core
             var timeoutTask = Task.Delay(timeoutInterval < 0 ? -1 : timeoutInterval, cancellationToken);
 
             // Content-Lengthを取るまで
-            while( !ao.isDone )
+            while (!ao.isDone)
             {
                 ContentLength = GetContentLength();
-                if( ContentLength != 0 ) { break; }
+                if (ContentLength != 0) { break; }
 
-                if( timeoutTask.IsCompleted ) {
+                if (timeoutTask.IsCompleted)
+                {
                     // 要求の中断を行いタイムアウト例外を投げる
                     webRequest.Abort();
-                    throw new TimeoutException("HTTPの応答より先にタイムアウトしました");				
+                    throw new TimeoutException("HTTPの応答より先にタイムアウトしました");
                 }
                 await Task.Yield();
             }
 
             // Content-Length取った後のデータ取得完了まで
-            await ao.ToAwaitable(
-                new Progress<float>(x =>  
-                    {
-                        FetchedLength = (long)webRequest.downloadedBytes;
-                        progress.Report(new FetcherReport(ContentLength, FetchedLength));
-                    }
-                )
-            );
+            await ao.ToAwaitable(new Progress<float>(x => ReportProgress(progress, ContentLength, FetchedLength)));
 
             //すぐに終わるとProgressがキックされないため確実にここでキックする
             ContentLength = GetContentLength();
             FetchedLength = (long)webRequest.downloadedBytes;
-            progress.Report(new FetcherReport(ContentLength, FetchedLength));
+            progress.Report(new FetcherReport(ContentLength, FetchedLength, FetchedLength));
+            prevFetchedLength = 0;
+        }
+
+
+        private void ReportProgress(IProgress<FetcherReport> progress, long contentLength, long fetchedLength)
+        {
+            var delta = fetchedLength - prevFetchedLength;
+            prevFetchedLength = fetchedLength;
+            progress.Report(new FetcherReport(contentLength, fetchedLength, delta));
         }
     }
     #endregion

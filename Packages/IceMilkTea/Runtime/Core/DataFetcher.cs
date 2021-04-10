@@ -39,17 +39,24 @@ namespace IceMilkTea.Core
         public readonly long FetchedLength;
 
 
+        /// <summary>
+        /// フェッチした長さの増分
+        /// </summary>
+        public readonly long FetchedLengthDelta;
+
+
 
         /// <summary>
         /// FetcherReport 構造体のインスタンスを初期化します
         /// </summary>
         /// <param name="contentLength">フェッチするコンテンツの長さ</param>
         /// <param name="fetchedLength">フェッチ済みの長さ</param>
-        public FetcherReport(long contentLength, long fetchedLength)
+        public FetcherReport(long contentLength, long fetchedLength, long delta)
         {
             // メンバの初期化
             ContentLength = contentLength;
             FetchedLength = fetchedLength;
+            FetchedLengthDelta = delta;
         }
     }
     #endregion
@@ -249,12 +256,13 @@ namespace IceMilkTea.Core
 
                     // 全てのストリームを読みきるまでループ
                     int readSize = 0;
-                    while ((readSize = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                    while ((readSize = stream.Read(buffer, 0, buffer.Length)) > 0)
                     {
                         // 読み取ったデータを出力先ストリームに書き込んで合計読み込みサイズと進捗を求めて進捗通知をする
-                        await outStream.WriteAsync(buffer, 0, readSize, cancellationToken).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        outStream.Write(buffer, 0, readSize);
                         FetchedLength += readSize;
-                        progress.Report(new FetcherReport(ContentLength, FetchedLength));
+                        progress.Report(new FetcherReport(ContentLength, FetchedLength, readSize));
                     }
                 }
             });
@@ -342,7 +350,7 @@ namespace IceMilkTea.Core
         /// <exception cref="ArgumentNullException">progress が null です</exception>
         /// <exception cref="ArgumentNullException">outStream が null です</exception>
         /// <exception cref="FileNotFoundException">コピー元となるファイル '{assetFilePath}' が見つかりません</exception>
-        public async Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
+        public Task FetchAsync(Stream outStream, IProgress<FetcherReport> progress, CancellationToken cancellationToken)
         {
             // この時点でのキャンセルリクエストを判定してさらに出力先ストリームが無いなら
             cancellationToken.ThrowIfCancellationRequested();
@@ -385,14 +393,18 @@ namespace IceMilkTea.Core
 
 
                 // 読み切るまでループ
-                while ((readSize = await fileStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                while ((readSize = fileStream.Read(buffer, 0, buffer.Length)) > 0)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // 出力先ストリームに書き込んで合計読み込みサイズに加算して進捗通知
-                    await outStream.WriteAsync(buffer, 0, readSize);
+                    outStream.Write(buffer, 0, readSize);
                     FetchedLength += readSize;
-                    progress.Report(new FetcherReport(ContentLength, FetchedLength));
+                    progress.Report(new FetcherReport(ContentLength, FetchedLength, readSize));
                 }
             }
+
+
+            return Task.CompletedTask;
         }
     }
     #endregion
