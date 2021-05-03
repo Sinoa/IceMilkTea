@@ -572,7 +572,11 @@ namespace IceMilkTea.Core
                 return;
             }
 
+            RemoveService(serviceInfo);
+        }
 
+        private void RemoveService(ServiceManagementInfo serviceInfo)
+        {
             // サービスの状態がまだReady系なら静かに死ぬようにマークする
             var readyStatus = (serviceInfo.Status == ServiceStatus.Ready || serviceInfo.Status == ServiceStatus.ReadyButSleeping);
             if (readyStatus)
@@ -587,6 +591,14 @@ namespace IceMilkTea.Core
             serviceInfo.Status = ServiceStatus.Shutdown;
         }
 
+        public virtual void RemoveAllServices()
+        {
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                var serviceInfo = serviceManageList[i];
+                RemoveService(serviceInfo);
+            }
+        }
 
         /// <summary>
         /// 指定された型のサービスが、単純に存在するか確認します。
