@@ -246,6 +246,7 @@ namespace IceMilkTea.Core
 
 
             // サービスの数分ループ
+            List<Exception> errors = null;
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
                 // サービスの状態がReady以外なら
@@ -263,15 +264,23 @@ namespace IceMilkTea.Core
                     serviceManageList[i].Service.Startup(out var serviceStartupInfo);
                     serviceManageList[i].UpdateFunctionTable = serviceStartupInfo.UpdateFunctionTable ?? new Dictionary<GameServiceUpdateTiming, Action>();
                 }
-                catch
+                catch (Exception error)
                 {
-                    stopwatch.Stop();
-                    throw;
+                    serviceManageList[i].Status = ServiceStatus.SilentShutdown;
+
+                    errors = errors ?? new List<Exception>();
+                    errors.Add(error);
                 }
             }
 
 
             stopwatch.Stop();
+
+
+            if (errors != null)
+            {
+                throw new AggregateException("サービスの起動に問題が発生しました", errors);
+            }
         }
 
 
