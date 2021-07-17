@@ -17,6 +17,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+#if ENABLE_IL2CPP
+using UnityEngine.Scripting;
+#endif
 
 namespace IceMilkTea.Core
 {
@@ -146,6 +149,9 @@ namespace IceMilkTea.Core
         /// <summary>
         /// ステートマシンで "任意" を表現する特別なステートクラスです
         /// </summary>
+#if ENABLE_IL2CPP
+        [Preserve]
+#endif
         public sealed class AnyState : State { }
         #endregion
 
