@@ -169,7 +169,7 @@ namespace IceMilkTea.Core
 
             var mainUpdate = new ImtPlayerLoopSystem(typeof(GameMain), Current.UpdateCore);
             var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
-            loopSystem.Insert<Initialization.PlayerUpdateTime>(InsertTiming.AfterInsert, mainUpdate);
+            loopSystem.Insert<TimeUpdate.WaitForLastPresentationAndUpdateTime>(InsertTiming.AfterInsert, mainUpdate);
             loopSystem.BuildAndSetUnityPlayerLoop();
         }
 
