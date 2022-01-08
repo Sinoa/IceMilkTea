@@ -37,7 +37,7 @@ IceMilkTeaは今後「ゲーム基板を構築するためのカーネルフレ�
 
 ### 作者(Author)
 
-* Sinoa <sinoa.dev@gmail.com>
+* Sinoa <sinoans@gmail.com>
 
 ### ライセンス(License)
 
