@@ -17,6 +17,7 @@
 /*.csproj
 /*.sln
 /*.user
+/.vsconfig
 
 # IceMilkTea Directories and Files
 /Packages/IceMilkTea/Documentation~/.apireference/
