@@ -1,4 +1,4 @@
-﻿// zlib/libpng License
+// zlib/libpng License
 //
 // Copyright (c) 2020 Sinoa
 //
