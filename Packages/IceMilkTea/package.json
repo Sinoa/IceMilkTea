@@ -1,22 +1,12 @@
 {
-  "name": "jp.sinoa.icemilktea",
+  "name": "jp.foxoval.icemilktea",
   "version": "1.0.0",
   "displayName": "IceMilkTea",
   "description": "This package provides Game develop support.",
   "unity": "2022.3",
   "category": "GameFramework",
-  "keywords": [
-    "support",
-    "framework",
-    "ice",
-    "milk",
-    "tea",
-    "icemilktea"
-  ],
   "author": "Sinoa <sinoans@gmail.com> (https://github.com/Sinoa/IceMilkTea)",
-  "type": "library",
+  "license": "Zlib",
   "dependencies": {
-    "com.unity.ext.nunit": "1.0.0",
-    "com.unity.test-framework": "1.1.11"
   }
 }
