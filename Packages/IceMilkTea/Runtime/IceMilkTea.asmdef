@@ -1,10 +1,10 @@
 {
     "name": "IceMilkTea",
-    "rootNamespace": "Sinoalmond",
+    "rootNamespace": "FoxOval",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
