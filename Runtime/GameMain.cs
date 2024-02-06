@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2024 Sinoa
 //
-// This software is provided eas-isf, without any express or implied
+// This software is provided â€˜as-isâ€™, without any express or implied
 // warranty. In no event will the authors be held liable for any damages
 // arising from the use of this software.
 //
