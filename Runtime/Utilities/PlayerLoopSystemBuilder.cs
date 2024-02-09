@@ -38,7 +38,7 @@ namespace FoxOval.IceMilkTea.Utilities
         /// <summary>
         /// 指定された PlayerLoopSystem をルートとしてインスタンスの初期化を行います
         /// </summary>
-        /// <param name="rootPlayerLoopSystem">ルートとなる PlayerLoopsystem のインスタンス</param>
+        /// <param name="rootPlayerLoopSystem">ルートとなる PlayerLoopSystem のインスタンス</param>
         public PlayerLoopSystemBuilder(PlayerLoopSystem rootPlayerLoopSystem)
         {
             _rootPlayerLoopSystem = rootPlayerLoopSystem;
@@ -101,12 +101,10 @@ namespace FoxOval.IceMilkTea.Utilities
                 updateDelegate = function,
             };
 
-            var forwardElementCount = injectIndex;
             var backwardElementCount = oldArray.Length - injectIndex;
-            var sourceIndex = injectIndex;
             var destinationIndex = injectIndex + 1;
-            Array.Copy(oldArray, newPlayerLoopSystemArray, forwardElementCount);
-            Array.Copy(oldArray, sourceIndex, newPlayerLoopSystemArray, destinationIndex, backwardElementCount);
+            Array.Copy(oldArray, newPlayerLoopSystemArray, injectIndex);
+            Array.Copy(oldArray, injectIndex, newPlayerLoopSystemArray, destinationIndex, backwardElementCount);
 
             return newPlayerLoopSystemArray;
         }
