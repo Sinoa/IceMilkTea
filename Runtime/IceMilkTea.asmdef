@@ -1,6 +1,6 @@
 {
     "name": "IceMilkTea",
-    "rootNamespace": "FoxOval.IceMilkTea",
+    "rootNamespace": "Foxtamp.IceMilkTea",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

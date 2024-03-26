@@ -26,7 +26,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine.LowLevel;
 
-namespace FoxOval.IceMilkTea.Utilities
+namespace Foxtamp.IceMilkTea.Utilities
 {
     /// <summary>
     /// PlayerLoopSystem の構造を構築する機能を提供します
