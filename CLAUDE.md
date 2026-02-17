@@ -1,44 +1,86 @@
 ## プロジェクト概要
 
-IceMilkTea は Unity 6 (6000.3.x) 向けのカーネルフレームワーク。ゲーム基板を構築するための基盤ライブラリで、Service Locator パターンと PlayerLoopSystem によるカスタムアップデートを提供する。UPM パッケージ (`jp.foxtamp.icemilktea`) として配布される。
+IceMilkTea は Unity 6 (6000.3.x) 向けのカーネルフレームワーク。ゲーム基板を構築するための基盤ライブラリで、Service Locator パターンと PlayerLoopSystem によるカスタムアップデートを提供する。UPM パッケージ (`jp.sinoa.icemilktea`) として配布される。
 
 ## 技術スタック
 
 - **Unity**: 6000.3.8f1
 - **言語**: C# 9.0 (厳密準拠)
 - **外部依存**: なし（`UnityEngine.*`, `Unity.*`, `System.*` のみ使用可。UniTask, UniRx, VContainer 等は禁止）
+- **unsafe コード**: 許可（asmdef で `allowUnsafeCode: true`）
 
 ## テスト
 
-- **フレームワーク**: NUnit 3 (Unity Test Framework 1.6.0)
-- **テスト場所**: `Packages/IceMilkTea/Tests/Editor/`
+- **フレームワーク**: NUnit 3 (Unity Test Framework)
+- **テスト場所**: `Packages/IceMilkTea/Tests/Editor/`（現在テストファイルは未作成）
 - **実行方法**: Unity Editor の Test Runner ウィンドウから実行（Editor テストのみ）
-- **名前空間**: `Foxtamp.IceMilkTea.Tests`
+- **InternalsVisibleTo**: DEBUG ビルド時に `IceMilkTeaEditor`, `IceMilkTeaTestDynamic`, `IceMilkTeaTestStatic` へ内部公開
 
 ## アーキテクチャ
 
 パッケージのルートは `Packages/IceMilkTea/`
 
+### ディレクトリ構成
+```
+Packages/IceMilkTea/
+├── Runtime/
+│   ├── Core/           # ユーティリティ・汎用機能
+│   ├── Kernel/         # ゲームフレームワーク中核
+│   ├── AssemblyInfo.cs
+│   └── Unity.IceMilkTea.asmdef
+├── package.json
+└── LICENSE.md
+```
+
 ### アセンブリ構成
-- **Runtime**: `Foxtamp.IceMilkTea` — `Packages/IceMilkTea/Runtime/`
-- **Tests**: `Foxtamp.IceMilkTea.Tests.Editor` — `Packages/IceMilkTea/Tests/Editor/`
+- **Runtime**: `IceMilkTea` — `Packages/IceMilkTea/Runtime/`
+- **名前空間**: `IceMilkTea.Core`（全ソースファイル共通）
 
 ### コア設計
 
-**サービス駆動アーキテクチャ**: ゲームロジックは `MonoBehaviour` を継承しない純粋な C# クラス（サービス）として定義する。サービスは `GameMain` が管理する中央レジストリに登録され、`IGameServiceProvider` 経由で取得される。
+**サービス駆動アーキテクチャ**: ゲームロジックは `MonoBehaviour` を継承しない純粋な C# クラス（サービス）として定義する。サービスは `GameMain` が保持する `GameServiceManager` に登録され、`GameServiceManager` 経由で取得・制御される。
 
-**PlayerLoop 注入**: サービスの定期実行は `MonoBehaviour.Update` を使わず、`PlayerLoopSystemBuilder` を通じて Unity の `PlayerLoopSystem` ツリーに直接注入する。`GameServiceUpdateTiming` enum で24種類のタイミングポイント（MainLoopHead, PreFixedUpdate, PostUpdate 等）を定義。
+**PlayerLoop 注入**: サービスの定期実行は `MonoBehaviour.Update` を使わず、`ImtPlayerLoopSystem` を通じて Unity の `PlayerLoopSystem` ツリーに直接注入する。`GameServiceUpdateTiming` enum（`[Flags] UInt32`）で24種類のタイミングポイントを定義。
 
 **主要クラスの関係**:
-- `GameMain` — アプリケーションのエントリポイント。`GameMain.Current` でシングルトンアクセス。`IGameServiceProvider` を保持
-- `GameService` — サービスの基底クラス。virtual な Startup/Shutdown を持つ
-- `PlayerLoopSystemBuilder` — PlayerLoop ツリーの操作（注入・検索・可視化）を行うビルダー
-- `GameMainEntryPointAttribute` — RuntimeInitializeOnLoadMethod 相当の自動起動用属性
+- `GameMain` — `ScriptableObject` 継承の抽象クラス。アプリケーションのエントリポイント。`[RuntimeInitializeOnLoadMethod]` で自動起動し、`Resources.Load<GameMain>("GameMain")` でロード。`GameMain.Current` でシングルトンアクセス。`ServiceManager` プロパティで `GameServiceManager` を保持。virtual フック: `Continue()`, `Startup()`, `Shutdown()`, `RedirectGameMain()`, `Update()`
+- `GameService` — サービスの抽象基底クラス。`Startup(out GameServiceStartupInfo info)` で更新関数テーブルを登録、`Shutdown()` で終了処理
+- `GameServiceManager` — サービスのライフサイクル管理。`AddService()`, `TryAddService()`, `GetService<T>()`, `TryGetService<T>()`, `RemoveService<T>()`, `RemoveAllServices()`, `Exists<T>()`, `SetActiveService<T>()`, `IsActiveService<T>()`, `ServiceForEach()`
+- `GameServiceStartupInfo` — サービス起動時に `UpdateFunctionTable`（`Dictionary<GameServiceUpdateTiming, Action>`）を設定する構造体
+- `ImtPlayerLoopSystem` — `PlayerLoopSystem` 構造体をクラスとしてラップ。`Insert<T>()`, `Remove<T>()`, `Find<T>()`, `IndexOf<T>()`, `BuildAndSetUnityPlayerLoop()` で PlayerLoop ツリーを操作。`PlayerLoopSystem` との相互明示キャスト対応
+- `PlayerLoopUpdater` — PlayerLoop で動作するアップデータの抽象基底クラス
+- `ImtSynchronizationContext` — カスタム SynchronizationContext。`Install()` / `Uninstall()` で着脱
+- `MonoBehaviourEventBridge` — MonoBehaviour ライフサイクルイベント（Focus, Pause, EndOfFrame）をコールバックへ中継
+- `ImtGameServiceReferenceCache<T>` — サービス参照の遅延キャッシュ構造体
+- `InsertTiming` — `BeforeInsert`, `AfterInsert` を持つ enum
+
+**ユーティリティ (Core/)**:
+- `ImtStateMachine<TContext, TEvent>` — ジェネリックステートマシン
+- `ImtAwaiter` — カスタム awaiter（`INotifyCompletion` 実装）
+- `ObjectPool<T>` — オブジェクトプール
+- `Crc` — CRC チェックサム計算
+- `DataFetcher` — データ取得ユーティリティ
+- `EasingFunction` — イージング関数ライブラリ
+- `RetryableWorker` — リトライロジック
+- `WebDownloader` — Web コンテンツダウンロード
+- `Progress<T>` — 進捗追跡
+- `TaskStateMachine` — タスクベースステートマシン
+
+**例外クラス**:
+- `ImtException` — 基底例外クラス
+- `GameServiceAlreadyExistsException` — サービス重複登録時
+- `GameServiceNotFoundException` — サービス未発見時
+
+**その他**:
+- `GameServiceUpdate` — PlayerLoop タイミング用の16個のネストマーカー構造体を持つ
+- `GameShutdownAnswer` — `Approve`, `Reject`
+- `HideCreateGameMainAssetMenuAttribute` — GameMain のアセット作成メニューを非表示にする属性
+- `ImtUnityUtility` — `CreatePersistentGameObject()` 等の静的ユーティリティ
 
 ## コーディング規約
 
 - **名前空間**: ブロック形式 (`namespace X { }`) 必須。ファイルスコープ名前空間は禁止
-- **Nullable**: 全ファイルで `#nullable enable` 有効（`csc.rsp` で設定済み）
+- **Nullable**: 現在未有効（`csc.rsp` なし、`#nullable enable` 未使用）
 - **レコード**: `record class` のみ可。`record struct` (C# 10) は禁止
 - **非同期**: Unity 6 標準の `Awaitable` を使用。UniTask 禁止
 - **XML ドキュメント**: 全 public/protected メンバーに必須。private メソッドは分岐処理を含むか5行以上の場合に必須
