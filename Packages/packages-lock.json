@@ -193,7 +193,7 @@
       },
       "url": "https://packages.unity.com"
     },
-    "jp.foxtamp.icemilktea": {
+    "jp.sinoa.icemilktea": {
       "version": "file:IceMilkTea",
       "depth": 0,
       "source": "embedded",
