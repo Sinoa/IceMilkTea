@@ -61,7 +61,7 @@ namespace IceMilkTea.Core
         /// <param name="work">実行する同期関数</param>
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
-        public Task DoWork(Task work)
+        public Task DoWork(Func<Task> work)
         {
             // 空進捗オブジェクトでキャンセルなしで同じ関数を呼ぶ
             return DoWork(work, EmptyProgress, CancellationToken.None);
@@ -89,7 +89,7 @@ namespace IceMilkTea.Core
         /// <param name="work">実行する非同期関数</param>
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
-        public Task<TResult> DoWork<TResult>(Task<TResult> work)
+        public Task<TResult> DoWork<TResult>(Func<Task<TResult>> work)
         {
             // 空進捗オブジェクトでキャンセルなしで同じ関数を呼ぶ
             return DoWork(work, EmptyProgress, CancellationToken.None);
@@ -119,7 +119,7 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public Task DoWork(Task work, IProgress<int> progress)
+        public Task DoWork(Func<Task> work, IProgress<int> progress)
         {
             // キャンセルなしで同じ関数を呼ぶ
             return DoWork(work, progress, CancellationToken.None);
@@ -152,7 +152,7 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public Task<TResult> DoWork<TResult>(Task<TResult> work, IProgress<int> progress)
+        public Task<TResult> DoWork<TResult>(Func<Task<TResult>> work, IProgress<int> progress)
         {
             // キャンセルなしで同じ関数を呼ぶ
             return DoWork(work, progress, CancellationToken.None);
@@ -223,7 +223,7 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public async Task DoWork(Task work, IProgress<int> progress, CancellationToken cancellationToken)
+        public async Task DoWork(Func<Task> work, IProgress<int> progress, CancellationToken cancellationToken)
         {
             // 関数の実行開始を知らせる
             BeginWork();
@@ -236,7 +236,7 @@ namespace IceMilkTea.Core
                 try
                 {
                     // 結果を拾って関数の実行が終わったことを通知して終了
-                    await work;
+                    await work();
                     EndWork();
                     return;
                 }
@@ -335,7 +335,7 @@ namespace IceMilkTea.Core
         /// <returns>指定された関数を実行しているタスクを返します</returns>
         /// <exception cref="ArgumentNullException">work が null です</exception>
         /// <exception cref="ArgumentNullException">progress が null です</exception>
-        public async Task<TResult> DoWork<TResult>(Task<TResult> work, IProgress<int> progress, CancellationToken cancellationToken)
+        public async Task<TResult> DoWork<TResult>(Func<Task<TResult>> work, IProgress<int> progress, CancellationToken cancellationToken)
         {
             // 関数の実行開始を知らせる
             BeginWork();
@@ -348,7 +348,7 @@ namespace IceMilkTea.Core
                 try
                 {
                     // 結果を拾って関数の実行が終わったことを通知して終了
-                    var result = await work;
+                    var result = await work();
                     EndWork();
                     return result;
                 }
