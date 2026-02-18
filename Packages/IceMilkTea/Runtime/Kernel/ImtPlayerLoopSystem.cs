@@ -299,7 +299,18 @@ namespace IceMilkTea.Core
 
 
             // 自分のサブループシステムにも検索を問いかける
-            return subLoopSystemList.Find(loopSystem => loopSystem.Find<T>(recursiveSearch) != null);
+            foreach (var subLoopSystem in subLoopSystemList)
+            {
+                var found = subLoopSystem.Find<T>(recursiveSearch);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+
+            // 全サブループシステムを検索しても見つからなかった
+            return null;
         }
 
 
