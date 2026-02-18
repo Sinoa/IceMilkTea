@@ -1708,12 +1708,11 @@ namespace IceMilkTea.Core
         /// </summary>
         protected override void Stop()
         {
-            // もし非同期操作タスクとして動作して、かつ例外が発生していたのならのなら
+            // もし非同期操作タスクとして動作して、かつ例外が発生していたのなら
             if (asyncWorker != null && asyncWorker.Exception != null)
             {
-                // 非同期操作に例外が発生していたとしてシグナルを設定する
+                // 非同期操作に例外が発生していたとして例外を設定する
                 SetException(asyncWorker.Exception);
-                SetSignalWithCompleted();
             }
 
 
