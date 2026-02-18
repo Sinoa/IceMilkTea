@@ -113,6 +113,7 @@ namespace IceMilkTea.Core
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.updateDelegate = updateDelegate ?? throw new ArgumentNullException(nameof(updateDelegate));
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
+            SubLoopSystemList = subLoopSystemList.AsReadOnly();
         }
 
 
@@ -127,6 +128,7 @@ namespace IceMilkTea.Core
             Type = (updater ?? throw new ArgumentNullException(nameof(updater))).GetType();
             updateDelegate = updater.Update;
             subLoopSystemList = new List<ImtPlayerLoopSystem>();
+            SubLoopSystemList = subLoopSystemList.AsReadOnly();
         }
         #endregion
 
