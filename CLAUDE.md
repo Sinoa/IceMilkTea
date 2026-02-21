@@ -40,17 +40,17 @@ Packages/IceMilkTea/
 
 **サービス駆動アーキテクチャ**: ゲームロジックは `MonoBehaviour` を継承しない純粋な C# クラス（サービス）として定義する。サービスは `GameMain` が保持する `GameServiceManager` に登録され、`GameServiceManager` 経由で取得・制御される。
 
-**PlayerLoop 注入**: サービスの定期実行は `MonoBehaviour.Update` を使わず、`ImtPlayerLoopSystem` を通じて Unity の `PlayerLoopSystem` ツリーに直接注入する。`GameServiceUpdateTiming` enum（`[Flags] UInt32`）で24種類のタイミングポイントを定義。
+**PlayerLoop 注入**: サービスの定期実行は `MonoBehaviour.Update` を使わず、`ImtPlayerLoopSystem` を通じて Unity の `PlayerLoopSystem` ツリーに直接注入する。`GameServiceUpdateTiming` enum（`[Flags] UInt32`）で24種類のタイミングポイントを定義。`GameServiceManager.Startup()` は登録済みサービスが実際に使用するタイミングのみを PlayerLoop に注入する（未使用タイミングは注入しない）。
 
 **主要クラスの関係**:
-- `GameMain` — `ScriptableObject` 継承の抽象クラス。アプリケーションのエントリポイント。`[RuntimeInitializeOnLoadMethod]` で自動起動し、`Resources.Load<GameMain>("GameMain")` でロード。`GameMain.Current` でシングルトンアクセス。`ServiceManager` プロパティで `GameServiceManager` を保持。virtual フック: `Continue()`, `Startup()`, `Shutdown()`, `RedirectGameMain()`, `Update()`
+- `GameMain` — `ScriptableObject` 継承の抽象クラス。アプリケーションのエントリポイント。`[RuntimeInitializeOnLoadMethod]` で自動起動し、`Resources.Load<GameMain>("GameMain")` でロード。`GameMain.Current` でシングルトンアクセス。`ServiceManager` プロパティで `GameServiceManager` を保持。起動順序: `GameMain.Startup()`（サービス登録）→ `ServiceManager.Startup()`（PlayerLoop 注入）。virtual フック: `Continue()`, `Startup()`, `Shutdown()`, `RedirectGameMain()`, `Update()`
 - `GameService` — サービスの抽象基底クラス。`Startup(out GameServiceStartupInfo info)` で更新関数テーブルを登録、`Shutdown()` で終了処理
-- `GameServiceManager` — サービスのライフサイクル管理。`AddService()`, `TryAddService()`, `GetService<T>()`, `TryGetService<T>()`, `RemoveService<T>()`, `RemoveAllServices()`, `Exists<T>()`, `SetActiveService<T>()`, `IsActiveService<T>()`, `ServiceForEach()`
+- `GameServiceManager` — サービスのライフサイクル管理。サービスは `GameMain.Startup()` 内で `AddService()` / `TryAddService()` により登録する必要がある（`ServiceManager.Startup()` 後に追加されたサービスの更新タイミングは PlayerLoop に反映されない）。API: `AddService()`, `TryAddService()`, `GetService<T>()`, `TryGetService<T>()`, `RemoveService<T>()`, `RemoveAllServices()`, `Exists<T>()`, `SetActiveService<T>()`, `IsActiveService<T>()`, `ServiceForEach()`
 - `GameServiceStartupInfo` — サービス起動時に `UpdateFunctionTable`（`Dictionary<GameServiceUpdateTiming, Action>`）を設定する構造体
 - `ImtPlayerLoopSystem` — `PlayerLoopSystem` 構造体をクラスとしてラップ。`Insert<T>()`, `Remove<T>()`, `Find<T>()`, `IndexOf<T>()`, `BuildAndSetUnityPlayerLoop()` で PlayerLoop ツリーを操作。`PlayerLoopSystem` との相互明示キャスト対応
 - `PlayerLoopUpdater` — PlayerLoop で動作するアップデータの抽象基底クラス
 - `ImtSynchronizationContext` — カスタム SynchronizationContext。`Install()` / `Uninstall()` で着脱
-- `MonoBehaviourEventBridge` — MonoBehaviour ライフサイクルイベント（Focus, Pause, EndOfFrame）をコールバックへ中継
+- `MonoBehaviourEventBridge` — MonoBehaviour ライフサイクルイベント（Focus, Pause, EndOfFrame）をコールバックへ中継。いずれかのタイミングを使用するサービスが存在する場合のみ生成される
 - `ImtGameServiceReferenceCache<T>` — サービス参照の遅延キャッシュ構造体
 - `InsertTiming` — `BeforeInsert`, `AfterInsert` を持つ enum
 
@@ -73,6 +73,8 @@ Packages/IceMilkTea/
 
 **その他**:
 - `GameServiceUpdate` — PlayerLoop タイミング用の16個のネストマーカー構造体を持つ
+- `GameServiceManagerStartup` — `[Obsolete]`。サービス起動は `GameServiceManager.Startup()` 内で同期的に行われるため不使用
+- `GameServiceManagerCleanup` — `RemoveService` によるサービス破棄を処理するため常に PlayerLoop に注入される
 - `GameShutdownAnswer` — `Approve`, `Reject`
 - `HideCreateGameMainAssetMenuAttribute` — GameMain のアセット作成メニューを非表示にする属性
 - `ImtUnityUtility` — `CreatePersistentGameObject()` 等の静的ユーティリティ
