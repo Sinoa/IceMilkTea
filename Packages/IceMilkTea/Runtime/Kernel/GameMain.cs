@@ -70,8 +70,8 @@ namespace IceMilkTea.Core
             Current.ServiceManager = new GameServiceManager();
             InstallSynchronizationContext();
             RegisterHandler();
-            Current.ServiceManager.Startup();
             Current.Startup();
+            Current.ServiceManager.Startup();
         }
 
 
@@ -96,8 +96,8 @@ namespace IceMilkTea.Core
             Current = gameMain;
             Current.ServiceManager = new GameServiceManager();
             RegisterHandler();
-            Current.ServiceManager.Startup();
             Current.Startup();
+            Current.ServiceManager.Startup();
         }
 
 

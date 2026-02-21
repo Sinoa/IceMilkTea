@@ -27,8 +27,10 @@ namespace IceMilkTea.Core
     public class GameServiceManager
     {
         /// <summary>
-        /// ゲームサービスマネージャのサービス起動ルーチンを実行する型です
+        /// ゲームサービスマネージャのサービス起動ルーチンを実行する型です。
+        /// サービスの起動は <see cref="Startup"/> 内で同期的に行われるようになったため、この型は使用されません。
         /// </summary>
+        [Obsolete("サービスの起動は Startup() 内で同期的に行われるようになったため、この型は使用されません。")]
         public struct GameServiceManagerStartup { }
 
 
@@ -113,6 +115,7 @@ namespace IceMilkTea.Core
         private readonly Stopwatch stopwatch;
         private readonly List<ServiceManagementInfo> serviceManageList;
         private long serviceProcessTick;
+        private bool hasCameraCallbacks;
 
 
 
@@ -137,68 +140,162 @@ namespace IceMilkTea.Core
         #region 起動と停止
         /// <summary>
         /// サービスマネージャの起動をします。
+        /// この関数は <see cref="GameMain.Startup"/> でサービスが登録された後に呼び出されることを前提としています。
+        /// 登録されたサービスが実際に使用するタイミングのみを PlayerLoop に注入します。
         /// </summary>
         protected internal virtual void Startup()
         {
-            // サービスマネージャの開始と終了のループシステムを生成
-            var startupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerStartup), StartupServices);
+            // まず全サービスを同期的に起動して UpdateFunctionTable を収集する
+            StartupServices();
+
+
+            // 使用されているタイミングを収集する
+            var usedTimings = CollectUsedTimings();
+
+
+            // Cleanup のループシステムを生成（RemoveService 対応のため常に注入）
             var cleanupGameServiceLoopSystem = new ImtPlayerLoopSystem(typeof(GameServiceManagerCleanup), CleanupServices);
 
 
-            // 各種更新関数のLoopSystemを生成する
-            var mainLoopHead = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopHead), () => DoUpdateService(GameServiceUpdateTiming.MainLoopHead));
-            var preFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreFixedUpdate));
-            var postFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostFixedUpdate));
-            var postPhysicsSimulation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostPhysicsSimulation), () => DoUpdateService(GameServiceUpdateTiming.PostPhysicsSimulation));
-            var postWaitForFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostWaitForFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostWaitForFixedUpdate));
-            var preUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreUpdate));
-            var postUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostUpdate));
-            var preProcessSynchronizationContext = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreProcessSynchronizationContext), () => DoUpdateService(GameServiceUpdateTiming.PreProcessSynchronizationContext));
-            var postProcessSynchronizationContext = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostProcessSynchronizationContext), () => DoUpdateService(GameServiceUpdateTiming.PostProcessSynchronizationContext));
-            var preAnimation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreAnimation), () => DoUpdateService(GameServiceUpdateTiming.PreAnimation));
-            var postAnimation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostAnimation), () => DoUpdateService(GameServiceUpdateTiming.PostAnimation));
-            var preLateUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreLateUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreLateUpdate));
-            var postLateUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostLateUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostLateUpdate));
-            var preDrawPresent = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreDrawPresent), () => DoUpdateService(GameServiceUpdateTiming.PreDrawPresent));
-            var postDrawPresent = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostDrawPresent), () => DoUpdateService(GameServiceUpdateTiming.PostDrawPresent));
-            var mainLoopTail = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopTail), () => DoUpdateService(GameServiceUpdateTiming.MainLoopTail));
-
-
-            // 処理を差し込むためのPlayerLoopSystemを取得して、処理を差し込んで構築する
+            // 処理を差し込むためのPlayerLoopSystemを取得する
             var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
-            loopSystem.Insert<Initialization.DirectorSampleTime>(InsertTiming.BeforeInsert, startupGameServiceLoopSystem);
-            loopSystem.Insert<GameServiceManagerStartup>(InsertTiming.AfterInsert, mainLoopHead);
-            loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
-            loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
-            loopSystem.Insert<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
-            loopSystem.Insert<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
-            loopSystem.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
-            loopSystem.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
-            loopSystem.Insert<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
-            loopSystem.Insert<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
-            loopSystem.Insert<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
-            loopSystem.Insert<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
-            loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
-            loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
-            loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
-            loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
+
+
+            // 使用されているタイミングのみ PlayerLoop に注入する
+            if ((usedTimings & GameServiceUpdateTiming.MainLoopHead) != 0)
+            {
+                var mainLoopHead = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopHead), () => DoUpdateService(GameServiceUpdateTiming.MainLoopHead));
+                loopSystem.Insert<Initialization.DirectorSampleTime>(InsertTiming.BeforeInsert, mainLoopHead);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PreFixedUpdate) != 0)
+            {
+                var preFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreFixedUpdate));
+                loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.BeforeInsert, preFixedUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostFixedUpdate) != 0)
+            {
+                var postFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostFixedUpdate));
+                loopSystem.Insert<FixedUpdate.ScriptRunBehaviourFixedUpdate>(InsertTiming.AfterInsert, postFixedUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostPhysicsSimulation) != 0)
+            {
+                var postPhysicsSimulation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostPhysicsSimulation), () => DoUpdateService(GameServiceUpdateTiming.PostPhysicsSimulation));
+                loopSystem.Insert<FixedUpdate.DirectorFixedUpdatePostPhysics>(InsertTiming.AfterInsert, postPhysicsSimulation);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostWaitForFixedUpdate) != 0)
+            {
+                var postWaitForFixedUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostWaitForFixedUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostWaitForFixedUpdate));
+                loopSystem.Insert<FixedUpdate.ScriptRunDelayedFixedFrameRate>(InsertTiming.AfterInsert, postWaitForFixedUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PreUpdate) != 0)
+            {
+                var preUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreUpdate));
+                loopSystem.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.BeforeInsert, preUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostUpdate) != 0)
+            {
+                var postUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostUpdate));
+                loopSystem.Insert<Update.ScriptRunBehaviourUpdate>(InsertTiming.AfterInsert, postUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PreProcessSynchronizationContext) != 0)
+            {
+                var preProcessSynchronizationContext = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreProcessSynchronizationContext), () => DoUpdateService(GameServiceUpdateTiming.PreProcessSynchronizationContext));
+                loopSystem.Insert<Update.ScriptRunDelayedTasks>(InsertTiming.BeforeInsert, preProcessSynchronizationContext);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostProcessSynchronizationContext) != 0)
+            {
+                var postProcessSynchronizationContext = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostProcessSynchronizationContext), () => DoUpdateService(GameServiceUpdateTiming.PostProcessSynchronizationContext));
+                loopSystem.Insert<Update.ScriptRunDelayedTasks>(InsertTiming.AfterInsert, postProcessSynchronizationContext);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PreAnimation) != 0)
+            {
+                var preAnimation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreAnimation), () => DoUpdateService(GameServiceUpdateTiming.PreAnimation));
+                loopSystem.Insert<Update.DirectorUpdate>(InsertTiming.BeforeInsert, preAnimation);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostAnimation) != 0)
+            {
+                var postAnimation = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostAnimation), () => DoUpdateService(GameServiceUpdateTiming.PostAnimation));
+                loopSystem.Insert<Update.DirectorUpdate>(InsertTiming.AfterInsert, postAnimation);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PreLateUpdate) != 0)
+            {
+                var preLateUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreLateUpdate), () => DoUpdateService(GameServiceUpdateTiming.PreLateUpdate));
+                loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.BeforeInsert, preLateUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostLateUpdate) != 0)
+            {
+                var postLateUpdate = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostLateUpdate), () => DoUpdateService(GameServiceUpdateTiming.PostLateUpdate));
+                loopSystem.Insert<PreLateUpdate.ScriptRunBehaviourLateUpdate>(InsertTiming.AfterInsert, postLateUpdate);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PreDrawPresent) != 0)
+            {
+                var preDrawPresent = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePreDrawPresent), () => DoUpdateService(GameServiceUpdateTiming.PreDrawPresent));
+                loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.BeforeInsert, preDrawPresent);
+            }
+
+            if ((usedTimings & GameServiceUpdateTiming.PostDrawPresent) != 0)
+            {
+                var postDrawPresent = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServicePostDrawPresent), () => DoUpdateService(GameServiceUpdateTiming.PostDrawPresent));
+                loopSystem.Insert<PostLateUpdate.PresentAfterDraw>(InsertTiming.AfterInsert, postDrawPresent);
+            }
+
+
+            // Cleanup は常に注入（RemoveService によるサービス破棄に必要）
             loopSystem.Insert<PostLateUpdate.ExecuteGameCenterCallbacks>(InsertTiming.AfterInsert, cleanupGameServiceLoopSystem);
-            loopSystem.Insert<GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
+
+
+            if ((usedTimings & GameServiceUpdateTiming.MainLoopTail) != 0)
+            {
+                var mainLoopTail = new ImtPlayerLoopSystem(typeof(GameServiceUpdate.GameServiceMainLoopTail), () => DoUpdateService(GameServiceUpdateTiming.MainLoopTail));
+                loopSystem.Insert<GameServiceManagerCleanup>(InsertTiming.BeforeInsert, mainLoopTail);
+            }
+
+
+            // PlayerLoop を構築して適用する
             loopSystem.BuildAndSetUnityPlayerLoop();
 
 
-            // 永続ゲームオブジェクトを生成してアプリケーションのフォーカス、ポーズのハンドラを登録する
-            var persistentGameObject = ImtUnityUtility.CreatePersistentGameObject();
-            var eventBridge = MonoBehaviourEventBridge.Attach(persistentGameObject);
-            eventBridge.SetApplicationFocusFunction(OnApplicationFocus);
-            eventBridge.SetApplicationPauseFunction(OnApplicationPause);
-            eventBridge.SetEndOfFrameFunction(OnEndOfFrame);
+            // MonoBehaviourEventBridge は Focus/Pause/EndOfFrame いずれか使用時のみ生成する
+            const GameServiceUpdateTiming eventBridgeTimings =
+                GameServiceUpdateTiming.OnApplicationFocusIn | GameServiceUpdateTiming.OnApplicationFocusOut |
+                GameServiceUpdateTiming.OnApplicationSuspend | GameServiceUpdateTiming.OnApplicationResume |
+                GameServiceUpdateTiming.OnEndOfFrame;
+
+            if ((usedTimings & eventBridgeTimings) != 0)
+            {
+                var persistentGameObject = ImtUnityUtility.CreatePersistentGameObject();
+                var eventBridge = MonoBehaviourEventBridge.Attach(persistentGameObject);
+                eventBridge.SetApplicationFocusFunction(OnApplicationFocus);
+                eventBridge.SetApplicationPauseFunction(OnApplicationPause);
+                eventBridge.SetEndOfFrameFunction(OnEndOfFrame);
+            }
 
 
-            // カメラのハンドラを登録する
-            Camera.onPreCull += OnCameraPreCulling;
-            Camera.onPreRender += OnCameraPreRendering;
-            Camera.onPostRender += OnCameraPostRendering;
+            // カメラコールバックは対応タイミング使用時のみ登録する
+            const GameServiceUpdateTiming cameraTimings =
+                GameServiceUpdateTiming.CameraPreCulling | GameServiceUpdateTiming.CameraPreRendering |
+                GameServiceUpdateTiming.CameraPostRendering;
+
+            if ((usedTimings & cameraTimings) != 0)
+            {
+                hasCameraCallbacks = true;
+                Camera.onPreCull += OnCameraPreCulling;
+                Camera.onPreRender += OnCameraPreRendering;
+                Camera.onPostRender += OnCameraPostRendering;
+            }
         }
 
 
@@ -207,10 +304,13 @@ namespace IceMilkTea.Core
         /// </summary>
         protected internal virtual void Shutdown()
         {
-            // カメラのハンドラを解除する
-            Camera.onPreCull -= OnCameraPreCulling;
-            Camera.onPreRender -= OnCameraPreRendering;
-            Camera.onPostRender -= OnCameraPostRendering;
+            // カメラのハンドラを登録していた場合のみ解除する
+            if (hasCameraCallbacks)
+            {
+                Camera.onPreCull -= OnCameraPreCulling;
+                Camera.onPreRender -= OnCameraPreRendering;
+                Camera.onPostRender -= OnCameraPostRendering;
+            }
 
 
             // サービスの数分ループ
@@ -237,6 +337,26 @@ namespace IceMilkTea.Core
 
 
         #region 更新系
+        /// <summary>
+        /// 登録済みサービスが使用しているすべての更新タイミングのビット和を返します。
+        /// </summary>
+        /// <returns>使用されているタイミングのビット和</returns>
+        private GameServiceUpdateTiming CollectUsedTimings()
+        {
+            var result = (GameServiceUpdateTiming)0;
+            for (int i = 0; i < serviceManageList.Count; ++i)
+            {
+                var table = serviceManageList[i].UpdateFunctionTable;
+                if (table == null) continue;
+                foreach (var key in table.Keys)
+                {
+                    result |= key;
+                }
+            }
+            return result;
+        }
+
+
         /// <summary>
         /// Addされたサービスの起動処理を行います。
         /// </summary>
@@ -430,7 +550,9 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 指定されたサービスの追加をします。
         /// また、サービスの型が同じインスタンスまたは同一継承元インスタンスが存在する場合は例外がスローされます。
-        /// ただし、サービスは直ちには起動せずフレーム開始のタイミングで起動することに注意してください。
+        /// サービスは <see cref="GameMain.Startup"/> 内で追加する必要があります。
+        /// <see cref="GameServiceManager.Startup"/> は登録済みサービスの使用タイミングのみを PlayerLoop に注入するため、
+        /// それ以降に追加されたサービスの更新タイミングは PlayerLoop に反映されません。
         /// さらに、シャットダウン対象となっているサービスの場合は無効な操作として例外がスローされます。
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
@@ -482,7 +604,9 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 指定されたサービスの追加をします。
         /// この関数は AddService() 関数と違い、同じ型のサービスまたは同一継承元インスタンスの追加は出来ませんが、例外をスローしません。
-        /// ただし、サービスは直ちには起動せずフレーム開始のタイミングで起動することに注意してください。
+        /// サービスは <see cref="GameMain.Startup"/> 内で追加する必要があります。
+        /// <see cref="GameServiceManager.Startup"/> は登録済みサービスの使用タイミングのみを PlayerLoop に注入するため、
+        /// それ以降に追加されたサービスの更新タイミングは PlayerLoop に反映されません。
         /// </summary>
         /// <param name="service">追加するサービスのインスタンス</param>
         /// <returns>サービスの追加が出来た場合は true を、出来なかった場合は false を返します</returns>
