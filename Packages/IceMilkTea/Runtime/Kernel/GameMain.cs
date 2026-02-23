@@ -41,6 +41,12 @@ namespace IceMilkTea.Core
         /// 現在のゲームメインが保持しているサービスマネージャを取得します
         /// </summary>
         public GameServiceManager ServiceManager { get; private set; }
+
+
+        /// <summary>
+        /// 現在のゲームメインが保持しているゲームコンフィグを取得します
+        /// </summary>
+        public IGameConfig Config { get; private set; }
         #endregion
 
 
@@ -64,6 +70,10 @@ namespace IceMilkTea.Core
                 Resources.UnloadUnusedAssets();
                 return;
             }
+
+
+            // コンフィグを生成する
+            Current.Config = Current.CreateConfig();
 
 
             // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
@@ -94,6 +104,7 @@ namespace IceMilkTea.Core
 
             // 渡されたゲームメインを設定して初期化を実行する
             Current = gameMain;
+            Current.Config = Current.CreateConfig();
             Current.ServiceManager = new GameServiceManager();
             RegisterHandler();
             Current.Startup();
@@ -203,6 +214,17 @@ namespace IceMilkTea.Core
         {
             // 通常は起動を継続する
             return true;
+        }
+
+
+        /// <summary>
+        /// ゲームコンフィグを生成します。
+        /// アプリケーション固有のコンフィグを使用する場合は、この関数をオーバーライドして <see cref="IGameConfig"/> の実装を返して下さい。
+        /// </summary>
+        /// <returns>ゲームコンフィグのインスタンスを返します</returns>
+        protected virtual IGameConfig CreateConfig()
+        {
+            return new NullGameConfig();
         }
 
 
