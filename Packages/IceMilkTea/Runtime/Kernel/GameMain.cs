@@ -48,40 +48,32 @@ namespace IceMilkTea.Core
 
         #region エントリポイントとロジック関数
         /// <summary>
-        /// 指定されたゲームメインでフレームワークを起動します。
+        /// このゲームメインでフレームワークを起動します。
         /// 利用者は <see cref="GameMainAttribute"/> を付与した静的メソッドからこのメソッドを呼び出して下さい。
         /// </summary>
-        /// <param name="gameMain">起動するゲームメインのインスタンス</param>
-        /// <exception cref="ArgumentNullException"><paramref name="gameMain"/> が null です</exception>
         /// <exception cref="InvalidOperationException">既にゲームメインが起動しています</exception>
-        public static void Run(GameMain gameMain)
+        public void Run()
         {
-            if (gameMain == null)
-            {
-                throw new ArgumentNullException(nameof(gameMain));
-            }
-
             if (Current != null)
             {
                 throw new InvalidOperationException("既にゲームメインが起動しています。二重起動はできません。");
             }
 
-            InitializeAndStart(gameMain);
+            InitializeAndStart();
         }
 
 
         /// <summary>
         /// ゲームメインの初期化と起動を行います
         /// </summary>
-        /// <param name="gameMain">起動するゲームメインのインスタンス</param>
-        private static void InitializeAndStart(GameMain gameMain)
+        private void InitializeAndStart()
         {
-            Current = gameMain;
-            Current.Config = Current.CreateConfig();
-            Current.ServiceManager = new GameServiceManager();
+            Current = this;
+            Config = CreateConfig();
+            ServiceManager = new GameServiceManager();
             RegisterHandler();
-            Current.Startup();
-            Current.ServiceManager.Startup();
+            Startup();
+            ServiceManager.Startup();
         }
 
 
