@@ -25,10 +25,6 @@ namespace IceMilkTea.Core
     /// </summary>
     public abstract class GameMain
     {
-        private Action messagePumpHandler;
-
-
-
         #region プロパティ
         /// <summary>
         /// 現在のゲームメインコンテキストを取得します
@@ -83,7 +79,6 @@ namespace IceMilkTea.Core
             Current = gameMain;
             Current.Config = Current.CreateConfig();
             Current.ServiceManager = new GameServiceManager();
-            InstallSynchronizationContext();
             RegisterHandler();
             Current.Startup();
             Current.ServiceManager.Startup();
@@ -96,21 +91,8 @@ namespace IceMilkTea.Core
         private static void InternalShutdown()
         {
             UnregisterHandler();
-            UninstallSynchronizationContext();
             Current.ServiceManager.Shutdown();
             Current.Shutdown();
-        }
-
-
-        private static void InstallSynchronizationContext()
-        {
-            ImtSynchronizationContext.Install(out Current.messagePumpHandler);
-        }
-
-
-        private static void UninstallSynchronizationContext()
-        {
-            ImtSynchronizationContext.Uninstall();
         }
 
 
@@ -144,7 +126,6 @@ namespace IceMilkTea.Core
 
         private void UpdateCore()
         {
-            messagePumpHandler();
             Update();
         }
         #endregion

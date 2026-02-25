@@ -43,7 +43,7 @@ Packages/IceMilkTea/
 **PlayerLoop 注入**: サービスの定期実行は `MonoBehaviour.Update` を使わず、`ImtPlayerLoopSystem` を通じて Unity の `PlayerLoopSystem` ツリーに直接注入する。`GameServiceUpdateTiming` enum（`[Flags] UInt32`）で24種類のタイミングポイントを定義。`GameServiceManager.Startup()` は登録済みサービスが実際に使用するタイミングのみを PlayerLoop に注入する（未使用タイミングは注入しない）。
 
 **主要クラスの関係**:
-- `GameMain` — 純粋な抽象 C# クラス。アプリケーションのエントリポイント。利用者が `[GameMain]` 属性を付与した静的メソッドから `GameMain.Run(new MyGameMain())` を呼び出して明示的に起動する。`GameMain.Current` でシングルトンアクセス。`ServiceManager` プロパティで `GameServiceManager` を保持。`Config` プロパティで `IGameConfig` を保持（常に非 null、NullObject パターン）。起動順序: `Run(gameMain)` → `CreateConfig()` → `new GameServiceManager()` → `InstallSynchronizationContext()` → `RegisterHandler()` → `Startup()`（サービス登録）→ `ServiceManager.Startup()`（PlayerLoop 注入）。virtual フック: `CreateConfig()`, `Startup()`, `Shutdown()`, `Update()`
+- `GameMain` — 純粋な抽象 C# クラス。アプリケーションのエントリポイント。利用者が `[GameMain]` 属性を付与した静的メソッドから `GameMain.Run(new MyGameMain())` を呼び出して明示的に起動する。`GameMain.Current` でシングルトンアクセス。`ServiceManager` プロパティで `GameServiceManager` を保持。`Config` プロパティで `IGameConfig` を保持（常に非 null、NullObject パターン）。起動順序: `Run(gameMain)` → `CreateConfig()` → `new GameServiceManager()` → `RegisterHandler()` → `Startup()`（サービス登録）→ `ServiceManager.Startup()`（PlayerLoop 注入）。virtual フック: `CreateConfig()`, `Startup()`, `Shutdown()`, `Update()`
 - `IGameConfig` — ゲームコンフィグのマーカーインターフェイス（空）。アプリケーション固有の設定はアプリ側でこのインターフェイスを実装して定義する
 - `NullGameConfig` — `IGameConfig` の NullObject 実装（`internal sealed`）。`CreateConfig()` 未オーバーライド時のデフォルト値
 - `GameService` — サービスの抽象基底クラス。`Startup(out GameServiceStartupInfo info)` で更新関数テーブルを登録、`Shutdown()` で終了処理
@@ -51,7 +51,6 @@ Packages/IceMilkTea/
 - `GameServiceStartupInfo` — サービス起動時に `UpdateFunctionTable`（`Dictionary<GameServiceUpdateTiming, Action>`）を設定する構造体
 - `ImtPlayerLoopSystem` — `PlayerLoopSystem` 構造体をクラスとしてラップ。`Insert<T>()`, `Remove<T>()`, `Find<T>()`, `IndexOf<T>()`, `BuildAndSetUnityPlayerLoop()` で PlayerLoop ツリーを操作。`PlayerLoopSystem` との相互明示キャスト対応
 - `PlayerLoopUpdater` — PlayerLoop で動作するアップデータの抽象基底クラス
-- `ImtSynchronizationContext` — カスタム SynchronizationContext。`Install()` / `Uninstall()` で着脱
 - `MonoBehaviourEventBridge` — MonoBehaviour ライフサイクルイベント（Focus, Pause, EndOfFrame）をコールバックへ中継。いずれかのタイミングを使用するサービスが存在する場合のみ生成される
 - `ImtGameServiceReferenceCache<T>` — サービス参照の遅延キャッシュ構造体
 - `InsertTiming` — `BeforeInsert`, `AfterInsert` を持つ enum
