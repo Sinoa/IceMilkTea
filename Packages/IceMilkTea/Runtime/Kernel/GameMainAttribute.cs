@@ -1,6 +1,6 @@
-﻿// zlib/libpng License
+// zlib/libpng License
 //
-// Copyright (c) 2018 Sinoa
+// Copyright (c) 2026 Sinoa
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -14,14 +14,22 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 using System;
+using UnityEngine;
 
 namespace IceMilkTea.Core
 {
     /// <summary>
-    /// GameMain クラスのアセット生成ツールメニューの非表示を示す属性クラスです
+    /// ゲームのエントリポイントメソッドに付与する属性です。
+    /// この属性を付与した静的メソッドは、Unity のシーンロード前に自動的に呼び出されます。
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-    public class HideCreateGameMainAssetMenuAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+    public sealed class GameMainAttribute : RuntimeInitializeOnLoadMethodAttribute
     {
+        /// <summary>
+        /// <see cref="GameMainAttribute"/> クラスのインスタンスを初期化します
+        /// </summary>
+        public GameMainAttribute() : base(RuntimeInitializeLoadType.BeforeSceneLoad)
+        {
+        }
     }
 }

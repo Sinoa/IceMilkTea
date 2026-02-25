@@ -1,4 +1,4 @@
-﻿// zlib/libpng License
+// zlib/libpng License
 //
 // Copyright (c) 2018 Sinoa
 //
@@ -23,8 +23,7 @@ namespace IceMilkTea.Core
     /// ゲームメインクラスの実装をするための抽象クラスです。
     /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
     /// </summary>
-    [HideCreateGameMainAssetMenu]
-    public abstract class GameMain : ScriptableObject
+    public abstract class GameMain
     {
         private Action messagePumpHandler;
 
@@ -53,42 +52,31 @@ namespace IceMilkTea.Core
 
         #region エントリポイントとロジック関数
         /// <summary>
-        /// Unity起動時に実行されるゲームのエントリポイントです
+        /// 指定されたゲームメインでフレームワークを起動します。
+        /// 利用者は <see cref="GameMainAttribute"/> を付与した静的メソッドからこのメソッドを呼び出して下さい。
         /// </summary>
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Main()
+        /// <param name="gameMain">起動するゲームメインのインスタンス</param>
+        /// <exception cref="ArgumentNullException"><paramref name="gameMain"/> が null です</exception>
+        /// <exception cref="InvalidOperationException">既にゲームメインが起動しています</exception>
+        public static void Run(GameMain gameMain)
         {
-            // ゲームメインをロードする
-            Current = LoadGameMain();
-
-
-            // IceMilkTeaはこのまま起動を継続してはいけないのなら
-            if (!Current.Continue())
+            if (gameMain == null)
             {
-                // ロードしたばかりのGameMainを解放して起動を中止する
-                Current = null;
-                Resources.UnloadUnusedAssets();
-                return;
+                throw new ArgumentNullException(nameof(gameMain));
             }
 
+            if (Current != null)
+            {
+                throw new InvalidOperationException("既にゲームメインが起動しています。二重起動はできません。");
+            }
 
-            // コンフィグを生成する
-            Current.Config = Current.CreateConfig();
-
-
-            // サービスマネージャのインスタンスを生成するが、nullが返却されるようなことがあれば
-            Current.ServiceManager = new GameServiceManager();
-            InstallSynchronizationContext();
-            RegisterHandler();
-            Current.Startup();
-            Current.ServiceManager.Startup();
+            InitializeAndStart(gameMain);
         }
 
 
         /// <summary>
         /// 指定されたゲームメインによって動作を上書きします。
         /// この関数は、テストの為に用意された関数であり、通常のゲームロジック上で使用される想定はありません。
-        /// 動作の切り替えや、想定のゲームメイン動作を設定する場合は GameMain.RedirectGameMain 関数をオーバーライドして下さい。
         /// </summary>
         /// <param name="gameMain">上書きするゲームメインの参照</param>
         internal static void OverrideGameMain(GameMain gameMain)
@@ -102,10 +90,21 @@ namespace IceMilkTea.Core
             }
 
 
-            // 渡されたゲームメインを設定して初期化を実行する
+            // 渡されたゲームメインで初期化を実行する
+            InitializeAndStart(gameMain);
+        }
+
+
+        /// <summary>
+        /// ゲームメインの初期化と起動を行います
+        /// </summary>
+        /// <param name="gameMain">起動するゲームメインのインスタンス</param>
+        private static void InitializeAndStart(GameMain gameMain)
+        {
             Current = gameMain;
             Current.Config = Current.CreateConfig();
             Current.ServiceManager = new GameServiceManager();
+            InstallSynchronizationContext();
             RegisterHandler();
             Current.Startup();
             Current.ServiceManager.Startup();
@@ -121,39 +120,6 @@ namespace IceMilkTea.Core
             UninstallSynchronizationContext();
             Current.ServiceManager.Shutdown();
             Current.Shutdown();
-        }
-
-
-        /// <summary>
-        /// ゲームメインをロードします
-        /// </summary>
-        /// <returns>ロードされたゲームメインを返します</returns>
-        private static GameMain LoadGameMain()
-        {
-            // 内部で保存されたGameMainのGameMainをロードする
-            var gameMain = Resources.Load<GameMain>("GameMain");
-
-
-            // ロードが出来なかったのなら
-            if (gameMain == null)
-            {
-                // セーフ起動用のゲームメインで立ち上げる
-                return CreateInstance<SafeGameMain>();
-            }
-
-
-            // リダイレクトするGameMainがあるか聞いて、存在するなら
-            var redirectGameMain = gameMain.RedirectGameMain();
-            if (redirectGameMain != null)
-            {
-                // リダイレクトされたGameMainを設定して、ロードされたGameMainを解放
-                gameMain = redirectGameMain;
-                Resources.UnloadUnusedAssets();
-            }
-
-
-            // ロードしたゲームメインを返す
-            return gameMain;
         }
 
 
@@ -207,17 +173,6 @@ namespace IceMilkTea.Core
 
         #region オーバーライド可能なGameMainのハンドラ関数
         /// <summary>
-        /// IceMilkTeaのシステムがこのまま継続して起動するかどうかを判断します
-        /// </summary>
-        /// <returns>起動を継続する場合は true を、継続しない場合は false を返します</returns>
-        protected virtual bool Continue()
-        {
-            // 通常は起動を継続する
-            return true;
-        }
-
-
-        /// <summary>
         /// ゲームコンフィグを生成します。
         /// アプリケーション固有のコンフィグを使用する場合は、この関数をオーバーライドして <see cref="IGameConfig"/> の実装を返して下さい。
         /// </summary>
@@ -248,45 +203,10 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// 起動するGameMainをリダイレクトします。
-        /// IceMilkTeaによって起動されたGameMainから他のGameMainへリダイレクトする場合は、
-        /// この関数をオーバーライドして起動するGameMainのインスタンスを返します。
-        /// </summary>
-        /// <returns>リダイレクトするGameMainがある場合はインスタンスを返しますが、ない場合はnullを返します</returns>
-        protected virtual GameMain RedirectGameMain()
-        {
-            // リダイレクト先GameMainはなし
-            return null;
-        }
-
-
-        /// <summary>
         /// ゲームのメインループ処理を行います。
         /// </summary>
         protected virtual void Update()
         {
-        }
-        #endregion
-
-
-
-        #region SafeGameMain実装
-        /// <summary>
-        /// 起動するべきGameMainが見つからなかった場合や、起動できない場合において
-        /// 代わりに起動するための GameMain クラスです。
-        /// </summary>
-        [HideCreateGameMainAssetMenu]
-        private class SafeGameMain : GameMain
-        {
-            /// <summary>
-            /// セーフ起動時のIceMilkTeaは、起動を継続しないようにします。
-            /// </summary>
-            /// <returns>この関数は常にfalseを返します</returns>
-            protected override bool Continue()
-            {
-                // 起動を止めるようにする
-                return false;
-            }
         }
         #endregion
     }
