@@ -149,7 +149,7 @@ namespace IceMilkTea.Core
         /// <see cref="Shutdown"/> によって停止された後、再度サービスを <see cref="AddService"/> で追加してから本関数を呼び出すことで再起動が可能です。
         /// </summary>
         /// <exception cref="InvalidOperationException">既に起動状態のときに呼び出された場合</exception>
-        protected internal virtual void Startup()
+        internal virtual void Startup()
         {
             // 既に起動中なら二重起動として例外
             if (isStarted)
@@ -326,7 +326,7 @@ namespace IceMilkTea.Core
         /// サービスの停止処理中に発生した例外は集約され、 すべてのクリーンアップ処理が完了したあとに <see cref="AggregateException"/> として送出されます。
         /// </summary>
         /// <exception cref="AggregateException">サービスの停止処理中に 1 件以上の例外が発生した場合</exception>
-        protected internal virtual void Shutdown()
+        internal virtual void Shutdown()
         {
             // 起動していなければ何もしない（冪等性確保。GameMain.InternalShutdown との競合も安全）
             if (!isStarted)

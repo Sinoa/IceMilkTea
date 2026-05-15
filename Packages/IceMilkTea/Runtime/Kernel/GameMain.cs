@@ -64,6 +64,26 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
+        /// 起動済みの <see cref="GameServiceManager"/> を停止してから、 <see cref="OnRestart"/> によるサービス再登録を行い、
+        /// 再び <see cref="GameServiceManager"/> を起動します。
+        /// <see cref="Run"/> のように <see cref="GameMain"/> 自体を作り直さずにゲームを再起動したい場合に使用します。
+        /// 既定の <see cref="OnRestart"/> は <see cref="Startup"/> を呼び出すため、 オーバーライドしていない場合は初回起動と同じ登録処理が再実行されます。
+        /// </summary>
+        /// <exception cref="InvalidOperationException">本インスタンスが現在の <see cref="Current"/> ではない場合</exception>
+        public void Restart()
+        {
+            if (Current != this)
+            {
+                throw new InvalidOperationException("本インスタンスは現在起動中の GameMain ではありません。Run() で起動した GameMain のみ Restart() を呼べます。");
+            }
+
+            ServiceManager.Shutdown();
+            OnRestart();
+            ServiceManager.Startup();
+        }
+
+
+        /// <summary>
         /// ゲームメインの初期化と起動を行います
         /// </summary>
         private void InitializeAndStart()
@@ -141,6 +161,17 @@ namespace IceMilkTea.Core
         /// </summary>
         protected virtual void Startup()
         {
+        }
+
+
+        /// <summary>
+        /// <see cref="Restart"/> によるゲーム再起動時に呼び出されるサービス再登録用のフックです。
+        /// 既定の実装では <see cref="Startup"/> を呼び出し、 初回起動と同じ登録処理を再実行します。
+        /// 再起動時に登録するサービスを最小限に絞りたい場合などにオーバーライドして下さい。
+        /// </summary>
+        protected virtual void OnRestart()
+        {
+            Startup();
         }
 
 
