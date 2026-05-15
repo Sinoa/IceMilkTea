@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.PlayerLoop;
+using UnityObject = UnityEngine.Object;
 
 namespace IceMilkTea.Core
 {
@@ -116,6 +117,9 @@ namespace IceMilkTea.Core
         private readonly List<ServiceManagementInfo> serviceManageList;
         private long serviceProcessTick;
         private bool hasCameraCallbacks;
+        private bool isStarted;
+        private GameObject eventBridgeGameObject;
+        private GameServiceUpdateTiming injectedTimings;
 
 
 
@@ -142,9 +146,18 @@ namespace IceMilkTea.Core
         /// サービスマネージャの起動をします。
         /// この関数は <see cref="GameMain.Startup"/> でサービスが登録された後に呼び出されることを前提としています。
         /// 登録されたサービスが実際に使用するタイミングのみを PlayerLoop に注入します。
+        /// <see cref="Shutdown"/> によって停止された後、再度サービスを <see cref="AddService"/> で追加してから本関数を呼び出すことで再起動が可能です。
         /// </summary>
+        /// <exception cref="InvalidOperationException">既に起動状態のときに呼び出された場合</exception>
         protected internal virtual void Startup()
         {
+            // 既に起動中なら二重起動として例外
+            if (isStarted)
+            {
+                throw new InvalidOperationException("GameServiceManager は既に起動しています。Shutdown 後に再起動してください。");
+            }
+
+
             // まず全サービスを同期的に起動して UpdateFunctionTable を収集する
             StartupServices();
 
@@ -276,8 +289,8 @@ namespace IceMilkTea.Core
 
             if ((usedTimings & eventBridgeTimings) != 0)
             {
-                var persistentGameObject = ImtUnityUtility.CreatePersistentGameObject();
-                var eventBridge = MonoBehaviourEventBridge.Attach(persistentGameObject);
+                eventBridgeGameObject = ImtUnityUtility.CreatePersistentGameObject();
+                var eventBridge = MonoBehaviourEventBridge.Attach(eventBridgeGameObject);
                 eventBridge.SetApplicationFocusFunction(OnApplicationFocus);
                 eventBridge.SetApplicationPauseFunction(OnApplicationPause);
                 eventBridge.SetEndOfFrameFunction(OnEndOfFrame);
@@ -296,24 +309,34 @@ namespace IceMilkTea.Core
                 Camera.onPreRender += OnCameraPreRendering;
                 Camera.onPostRender += OnCameraPostRendering;
             }
+
+
+            // Shutdown 時に PlayerLoop から除去すべき注入済みタイミングを記録し、起動済みフラグを立てる
+            injectedTimings = usedTimings;
+            isStarted = true;
         }
 
 
         /// <summary>
         /// サービスマネージャの停止をします。
+        /// 各サービスの停止処理に加え、 PlayerLoop に注入していた更新システムの除去、 MonoBehaviourEventBridge を載せていた
+        /// 永続 GameObject の破棄、 Camera コールバックの解除を実施し、 再度 <see cref="AddService"/> および
+        /// <see cref="Startup"/> を呼び出すことで再起動が可能な状態に戻します。
+        /// 起動状態でない場合は何も処理を行わず即時 return します（冪等）。
+        /// サービスの停止処理中に発生した例外は集約され、 すべてのクリーンアップ処理が完了したあとに <see cref="AggregateException"/> として送出されます。
         /// </summary>
+        /// <exception cref="AggregateException">サービスの停止処理中に 1 件以上の例外が発生した場合</exception>
         protected internal virtual void Shutdown()
         {
-            // カメラのハンドラを登録していた場合のみ解除する
-            if (hasCameraCallbacks)
+            // 起動していなければ何もしない（冪等性確保。GameMain.InternalShutdown との競合も安全）
+            if (!isStarted)
             {
-                Camera.onPreCull -= OnCameraPreCulling;
-                Camera.onPreRender -= OnCameraPreRendering;
-                Camera.onPostRender -= OnCameraPostRendering;
+                return;
             }
 
 
-            // サービスの数分ループ
+            // サービスの停止処理を行う。例外は最後に集約して送出するためここでは蓄積するだけ
+            List<Exception> shutdownErrors = null;
             for (int i = 0; i < serviceManageList.Count; ++i)
             {
                 // サービスの状態が Running, Shutdown, Sleeping 以外なら
@@ -326,12 +349,142 @@ namespace IceMilkTea.Core
 
 
                 // サービスのシャットダウンを呼ぶ
-                serviceInfo.Service.Shutdown();
+                try
+                {
+                    serviceInfo.Service.Shutdown();
+                }
+                catch (Exception error)
+                {
+                    shutdownErrors = shutdownErrors ?? new List<Exception>();
+                    shutdownErrors.Add(error);
+                }
+            }
+
+
+            // Startup で注入したものを対称に除去する
+            var loopSystem = ImtPlayerLoopSystem.GetCurrentPlayerLoop();
+
+            if ((injectedTimings & GameServiceUpdateTiming.MainLoopHead) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServiceMainLoopHead>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PreFixedUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePreFixedUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostFixedUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostFixedUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostPhysicsSimulation) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostPhysicsSimulation>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostWaitForFixedUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostWaitForFixedUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PreProcessSynchronizationContext) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePreProcessSynchronizationContext>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostProcessSynchronizationContext) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostProcessSynchronizationContext>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PreUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePreUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PreAnimation) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePreAnimation>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostAnimation) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostAnimation>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PreLateUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePreLateUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostLateUpdate) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostLateUpdate>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PreDrawPresent) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePreDrawPresent>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.PostDrawPresent) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServicePostDrawPresent>(true);
+            }
+
+            if ((injectedTimings & GameServiceUpdateTiming.MainLoopTail) != 0)
+            {
+                loopSystem.Remove<GameServiceUpdate.GameServiceMainLoopTail>(true);
+            }
+
+
+            // Cleanup は Startup 時に常時注入しているため常に除去する
+            loopSystem.Remove<GameServiceManagerCleanup>(true);
+
+
+            // PlayerLoop の変更を確定する
+            loopSystem.BuildAndSetUnityPlayerLoop();
+
+
+            // MonoBehaviourEventBridge を載せていた永続 GameObject を破棄する
+            if (eventBridgeGameObject != null)
+            {
+                UnityObject.Destroy(eventBridgeGameObject);
+                eventBridgeGameObject = null;
+            }
+
+
+            // カメラのハンドラを登録していた場合のみ解除しフラグもリセット
+            if (hasCameraCallbacks)
+            {
+                Camera.onPreCull -= OnCameraPreCulling;
+                Camera.onPreRender -= OnCameraPreRendering;
+                Camera.onPostRender -= OnCameraPostRendering;
+                hasCameraCallbacks = false;
             }
 
 
             // 管理リストをクリアする
             serviceManageList.Clear();
+
+
+            // 注入タイミングの記録をリセットして停止状態へ
+            injectedTimings = (GameServiceUpdateTiming)0;
+            isStarted = false;
+
+
+            // サービス停止中の例外があれば、すべてのクリーンアップ完了後に集約して送出する
+            if (shutdownErrors != null)
+            {
+                throw new AggregateException("サービスの停止に問題が発生しました", shutdownErrors);
+            }
         }
         #endregion
 
