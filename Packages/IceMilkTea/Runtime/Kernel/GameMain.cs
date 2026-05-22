@@ -23,6 +23,11 @@ namespace IceMilkTea.Core
     /// ゲームメインクラスの実装をするための抽象クラスです。
     /// IceMilkTeaによるゲームのスタートアップからメインループを構築する場合は必ず継承し実装をして下さい。
     /// </summary>
+    /// <remarks>
+    /// このクラスは Domain Reload を無効化した状態でも安全に複数回起動できるよう、 Play Mode 開始時に静的状態をリセットします。
+    /// 派生クラスで独自の静的フィールドを保持する場合は、 Domain Reload 無効時にそれらが Play Mode をまたいで残存することに注意し、
+    /// 派生クラス側で <see cref="UnityEngine.RuntimeInitializeOnLoadMethodAttribute"/> などを用いて初期化して下さい。
+    /// </remarks>
     public abstract class GameMain
     {
         #region プロパティ
@@ -102,9 +107,18 @@ namespace IceMilkTea.Core
         /// </summary>
         private static void InternalShutdown()
         {
-            UnregisterHandler();
-            Current.ServiceManager.Shutdown();
-            Current.Shutdown();
+            // ハンドラ解除・サービス停止・ゲーム終了処理を行い、最後に必ず Current をクリアする
+            // （Domain Reload が無効な状態でも Current が次の Play Mode へ残存しないようにするため）
+            try
+            {
+                UnregisterHandler();
+                Current.ServiceManager.Shutdown();
+                Current.Shutdown();
+            }
+            finally
+            {
+                Current = null;
+            }
         }
 
 
@@ -140,6 +154,20 @@ namespace IceMilkTea.Core
         {
             Update();
         }
+
+
+        #if UNITY_EDITOR
+        /// <summary>
+        /// Domain Reload が無効な状態でも Play Mode 開始時に <see cref="Current"/> を確実に初期化するためのリセット処理です。
+        /// このメソッドは Editor 専用で、 Play Mode に入るたびに <see cref="Run"/> より前に呼び出されます。
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticStateOnEnterPlayMode()
+        {
+            // 前回の Play Mode で InternalShutdown が異常終了し Current が残存した場合に備え、保険でクリアする
+            Current = null;
+        }
+        #endif
         #endregion
 
 

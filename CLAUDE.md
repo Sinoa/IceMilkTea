@@ -8,6 +8,7 @@ IceMilkTea は Unity 6 (6000.3.x) 向けのカーネルフレームワーク。�
 - **言語**: C# 9.0 (厳密準拠)
 - **外部依存**: なし（`UnityEngine.*`, `Unity.*`, `System.*` のみ使用可。UniTask, UniRx, VContainer 等は禁止）
 - **unsafe コード**: 許可（asmdef で `allowUnsafeCode: true`）
+- **Enter Play Mode**: Domain Reload / Scene Reload を両方無効化（`ProjectSettings/EditorSettings.asset` の `m_EnterPlayModeOptions: 3`）。再生開始の高速化のため
 
 ## テスト
 
@@ -41,6 +42,8 @@ Packages/IceMilkTea/
 **サービス駆動アーキテクチャ**: ゲームロジックは `MonoBehaviour` を継承しない純粋な C# クラス（サービス）として定義する。サービスは `GameMain` が保持する `GameServiceManager` に登録され、`GameServiceManager` 経由で取得・制御される。
 
 **PlayerLoop 注入**: サービスの定期実行は `MonoBehaviour.Update` を使わず、`ImtPlayerLoopSystem` を通じて Unity の `PlayerLoopSystem` ツリーに直接注入する。`GameServiceUpdateTiming` enum（`[Flags] UInt32`）で24種類のタイミングポイントを定義。`GameServiceManager.Startup()` は登録済みサービスが実際に使用するタイミングのみを PlayerLoop に注入する（未使用タイミングは注入しない）。
+
+**Domain Reload 無効対応**: 本プロジェクトは Enter Play Mode Options で Domain Reload / Scene Reload を無効化しているため、static フィールドは Play Mode をまたいで残存する。`GameMain`・`ImtPlayerLoopSystem`・`ImtAwaitableUpdateBehaviourScheduler` は `[RuntimeInitializeOnLoadMethod(SubsystemRegistration)]` を用いて Play Mode 開始時に静的状態をリセット（`GameMain.Current` クリア、`Awaiter` のスケジューラ初期化）またはイベント再購読（`Application.quitting`）する。`GameMain.InternalShutdown()` は Play Mode 終了時に `Current` を `try/finally` でクリアする。新たに static フィールドを追加する場合は Play Mode 間の残存で問題が出ないか確認し、必要なら同様のリセット処理を設けること。
 
 **主要クラスの関係**:
 - `GameMain` — 純粋な抽象 C# クラス。アプリケーションのエントリポイント。利用者が `[GameMain]` 属性を付与した静的メソッドから `new MyGameMain().Run()` を呼び出して明示的に起動する。`GameMain.Current` でシングルトンアクセス。`ServiceManager` プロパティで `GameServiceManager` を保持。`Config` プロパティで `IGameConfig` を保持（常に非 null、NullObject パターン）。起動順序: `Run()` → `CreateConfig()` → `new GameServiceManager()` → `RegisterHandler()` → `Startup()`（サービス登録）→ `ServiceManager.Startup()`（PlayerLoop 注入）。`Restart()` で `ServiceManager` のみ再起動可能（`ServiceManager.Shutdown()` → `OnRestart()` → `ServiceManager.Startup()` の順で実行）。virtual フック: `CreateConfig()`, `Startup()`, `OnRestart()`（既定では `Startup()` を再呼び出し）, `Shutdown()`, `Update()`

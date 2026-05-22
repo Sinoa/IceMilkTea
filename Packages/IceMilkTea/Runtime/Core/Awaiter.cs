@@ -1448,6 +1448,21 @@ namespace IceMilkTea.Core
             // TODO : 本来なら、スケジューラでループするのではなく、別の場所での停止ハンドリング（CancellationTokenなど）で出来るようにするべき
             forceShutdown = true;
         }
+
+
+        #if UNITY_EDITOR
+        /// <summary>
+        /// Domain Reload が無効な状態でも Play Mode 開始時にスケジューラの静的状態を初期化するためのリセット処理です。
+        /// このメソッドは Editor 専用で、 Play Mode に入るたびに呼び出されます。
+        /// </summary>
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticStateOnEnterPlayMode()
+        {
+            // SetScheduler で差し替えられたスケジューラ参照と、 ForceShutdown で立てた強制停止フラグを初期化する
+            currentScheduler = null;
+            forceShutdown = false;
+        }
+        #endif
     }
     #endregion
 

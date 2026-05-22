@@ -55,11 +55,15 @@ namespace IceMilkTea.Core
 
         #region 初期化＆終了実装
         /// <summary>
-        /// クラスの初期化を行います
+        /// アプリケーション終了イベントへの購読を行います。
+        /// Domain Reload が無効な状態でも Play Mode 開始ごとに購読が再形成されるよう、 RuntimeInitializeOnLoadMethod から実行されます。
         /// </summary>
-        static ImtPlayerLoopSystem()
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void RegisterApplicationQuittingHandler()
         {
-            // アプリケーション終了イベントを登録する
+            // 二重購読を防ぐため、一度解除してから購読し直す
+            // （Domain Reload 有効時は新規購読、無効時は前回購読の残存を解除してから購読し直す挙動になる）
+            Application.quitting -= OnApplicationQuit;
             Application.quitting += OnApplicationQuit;
         }
 
@@ -69,8 +73,8 @@ namespace IceMilkTea.Core
         /// </summary>
         private static void OnApplicationQuit()
         {
-            //イベントの登録を解除してUnityの既定ループ機構に戻す
-            Application.quitting -= OnApplicationQuit;
+            // Unityの既定ループ機構に戻す
+            // （購読の解除と再購読は RegisterApplicationQuittingHandler が一括管理するため、ここでは解除しない）
             PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
         }
 
