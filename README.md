@@ -6,7 +6,7 @@ IceMilkTeaがこれから Ver1.0.0 に向けた最終的な姿になるため、
   
 そして出た結論としては、IceMilkTeaは「ゲーム基板を構築するためのカーネルフレームワーク」と位置付けることにしました。  
 
-具体的には「GameMain」及び「GameService」「PlayerLoopSystem」「SynchronizationContext」と言った、
+具体的には「GameMain」及び「GameService」「PlayerLoopSystem」と言った、
 ゲームアプリケーションルートオブジェクトとフローの制御を提供する事がIceMilkTeaの姿とすることにしました。
 
 ## 大幅な破壊的変更
