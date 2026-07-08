@@ -53,7 +53,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// ImtException クラスのインスタンスを初期化します
         /// </summary>
-        /// <param name="info">シリアル下されたオブジェクトの情報を保持するオブジェクト</param>
+        /// <param name="info">シリアル化されたオブジェクトの情報を保持するオブジェクト</param>
         /// <param name="context">コンテキスト情報</param>
         protected ImtException(SerializationInfo info, StreamingContext context) : base(info, context)
         {

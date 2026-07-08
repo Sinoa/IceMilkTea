@@ -2309,7 +2309,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 同期コンテキストに高速な Action コールバックをポストします
         /// </summary>
-        /// <param name="context">ポスト先の動機コンテキスト</param>
+        /// <param name="context">ポスト先の同期コンテキスト</param>
         /// <param name="action">ポストするコールバック</param>
         public static void Post(this SynchronizationContext context, Action action)
         {
@@ -2321,7 +2321,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// 同期コンテキストに高速な Action コールバックを送信します
         /// </summary>
-        /// <param name="context">送信先の動機コンテキスト</param>
+        /// <param name="context">送信先の同期コンテキスト</param>
         /// <param name="action">送信するコールバック</param>
         public static void Send(this SynchronizationContext context, Action action)
         {

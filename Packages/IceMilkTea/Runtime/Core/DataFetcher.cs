@@ -102,7 +102,14 @@ namespace IceMilkTea.Core
     public class HttpDataFetcher : IDataFetcher
     {
         // 定数定義
+        /// <summary>
+        /// フェッチに使用する受信バッファの既定サイズ（バイト数）です
+        /// </summary>
         public const int DefaultBufferSize = 1 << 20;
+
+        /// <summary>
+        /// レスポンスを受け取るまでのタイムアウト時間の既定値（ミリ秒）です
+        /// </summary>
         public const int DefaultTimeOutInterval = 10 * 1000;
 
         // メンバ変数定義

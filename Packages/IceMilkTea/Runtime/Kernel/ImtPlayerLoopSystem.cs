@@ -152,7 +152,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// Unityの現在設定されているプレイヤーループを ImtPlayerLoopSystem として取得します
         /// </summary>
-        /// <returns></returns>
+        /// <returns>現在設定されているプレイヤーループをラップした ImtPlayerLoopSystem のインスタンスを返します</returns>
         public static ImtPlayerLoopSystem GetCurrentPlayerLoop()
         {
             // キャストして返すだけ
@@ -384,7 +384,7 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ImpPlayerLoopSystem内のLoopSystem階層表示を文字列へ変換します
+        /// ImtPlayerLoopSystem内のLoopSystem階層表示を文字列へ変換します
         /// </summary>
         /// <returns>このインスタンスのLoopSystem階層状況を文字列化したものを返します</returns>
         public override string ToString()
@@ -397,7 +397,7 @@ namespace IceMilkTea.Core
 
 
         /// <summary>
-        /// ImpPlayerLoopSystem内のLoopSystem階層を再帰的にバッファへ文字列を追記します
+        /// ImtPlayerLoopSystem内のLoopSystem階層を再帰的にバッファへ文字列を追記します
         /// </summary>
         /// <param name="buffer">追記対象のバッファ</param>
         /// <param name="indentSpace">現在のインデントスペース</param>

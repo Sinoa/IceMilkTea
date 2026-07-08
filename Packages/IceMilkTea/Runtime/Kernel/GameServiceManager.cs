@@ -513,6 +513,7 @@ namespace IceMilkTea.Core
         /// <summary>
         /// Addされたサービスの起動処理を行います。
         /// </summary>
+        /// <exception cref="AggregateException">サービスの起動に問題が発生しました</exception>
         protected internal virtual void StartupServices()
         {
             stopwatch.Start();
@@ -825,6 +826,7 @@ namespace IceMilkTea.Core
         /// </summary>
         /// <typeparam name="T">取得するサービスの型</typeparam>
         /// <param name="service">見つけられたサービスのインスタンスを設定しますが、見つけられなかった場合はnullが設定されます</param>
+        /// <returns>サービスを取得できた場合は true を、取得できなかった場合は false を返します</returns>
         public virtual bool TryGetService<T>(out T service) where T : GameService
         {
             // 指定された型から管理情報を取得するが、取得に失敗または取得したがキャスト不可の型なら
@@ -877,6 +879,10 @@ namespace IceMilkTea.Core
             serviceInfo.Status = ServiceStatus.Shutdown;
         }
 
+        /// <summary>
+        /// 管理しているすべてのサービスを削除します。
+        /// しかし、サービスは直ちには削除されずフレーム終了のタイミングで削除されることに注意してください。
+        /// </summary>
         public virtual void RemoveAllServices()
         {
             for (int i = 0; i < serviceManageList.Count; ++i)
@@ -888,7 +894,7 @@ namespace IceMilkTea.Core
 
         /// <summary>
         /// 指定された型のサービスが、単純に存在するか確認します。
-        /// この関数は、シャットダウンされうかどうかの状態を考慮しないことに気をつけて下さい。
+        /// この関数は、シャットダウンされるかどうかの状態を考慮しないことに気をつけて下さい。
         /// </summary>
         /// <typeparam name="T">存在を確認するサービスの型</typeparam>
         /// <returns>サービスが存在している場合は true を、存在しない場合は false を返します</returns>
